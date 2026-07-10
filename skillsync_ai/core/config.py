@@ -43,10 +43,15 @@ SOURCE_FILES = {
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_VISION_MODEL = os.environ.get("GROQ_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
 GROQ_TEXT_MODEL = os.environ.get("GROQ_TEXT_MODEL", "llama-3.3-70b-versatile")
-# OCR: default Ollama quantized VL (~3.2GB). HF full weights exceed 3.5GB cap.
-QWEN_VL_BACKEND = os.environ.get("QWEN_VL_BACKEND", "ollama")  # ollama | hf
+# OCR: tesseract (default, small) | ollama | hf
+OCR_BACKEND = os.environ.get("OCR_BACKEND", os.environ.get("QWEN_VL_BACKEND", "tesseract"))
+TESSERACT_CMD = os.environ.get("TESSERACT_CMD", "")
 OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
 OLLAMA_VL_MODEL = os.environ.get("OLLAMA_VL_MODEL", "qwen2.5vl:3b")
+OLLAMA_TEXT_MODEL = os.environ.get("OLLAMA_TEXT_MODEL", "llama3.2:3b")
+LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "auto")  # auto | groq | ollama
 QWEN_VL_MODEL_ID = os.environ.get("QWEN_VL_MODEL_ID", "Qwen/Qwen2.5-VL-3B-Instruct")
+# Back-compat alias
+QWEN_VL_BACKEND = OCR_BACKEND
 AGENT_DECISION_LOG = ROOT / "agent_decisions.jsonl"
 FEW_SHOT_LIMIT = 3
