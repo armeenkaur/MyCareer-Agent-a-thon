@@ -21,7 +21,7 @@ def _load_dotenv() -> None:
         key, value = line.split("=", 1)
         key = key.strip()
         value = value.strip().strip("'").strip('"')
-        if key and key not in os.environ:
+        if key:
             os.environ[key] = value
 
 
@@ -43,5 +43,10 @@ SOURCE_FILES = {
 GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_VISION_MODEL = os.environ.get("GROQ_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
 GROQ_TEXT_MODEL = os.environ.get("GROQ_TEXT_MODEL", "llama-3.3-70b-versatile")
+# OCR: default Ollama quantized VL (~3.2GB). HF full weights exceed 3.5GB cap.
+QWEN_VL_BACKEND = os.environ.get("QWEN_VL_BACKEND", "ollama")  # ollama | hf
+OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
+OLLAMA_VL_MODEL = os.environ.get("OLLAMA_VL_MODEL", "qwen2.5vl:3b")
+QWEN_VL_MODEL_ID = os.environ.get("QWEN_VL_MODEL_ID", "Qwen/Qwen2.5-VL-3B-Instruct")
 AGENT_DECISION_LOG = ROOT / "agent_decisions.jsonl"
 FEW_SHOT_LIMIT = 3

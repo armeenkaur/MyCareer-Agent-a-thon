@@ -11,6 +11,7 @@ import re
 from ..agents.behavioral import score_behavioral_evidence
 from ..agents.logging import log_entry
 from ..core.config import PROFICIENCY_ORDER, STATIC_DIR, UPLOAD_DIR
+from ..core.logging_setup import get_logger
 from ..core.utils import slug
 from ..data_sources import WorkbookData
 from ..profile_pipeline import inputs_ready, run_pipeline
@@ -18,11 +19,14 @@ from ..state import RuntimeState
 from .templates import render_template
 from . import views
 
+log = get_logger("skillsync.server")
+
 
 class MyCareerServer:
     def __init__(self) -> None:
         self.data = WorkbookData()
         self.state = RuntimeState()
+        log.info("Workbook loaded employees=%s", len(self.data.employees))
 
     def handler(self) -> type[BaseHTTPRequestHandler]:
         app = self
@@ -100,7 +104,9 @@ class MyCareerServer:
                 return ratings
 
             def maybe_run_pipeline(self, emp_code: str) -> None:
-                if inputs_ready(app.data, app.state, emp_code):
+                ready = inputs_ready(app.data, app.state, emp_code)
+                log.info("Pipeline trigger check emp=%s ready=%s", emp_code, ready)
+                if ready:
                     app.state.profiles.pop(emp_code, None)
                     run_pipeline(app.data, app.state, emp_code)
 
@@ -108,6 +114,7 @@ class MyCareerServer:
                 form = self.read_form()
                 emp_code = form.get("emp_code", "")
                 ratings = self.read_ratings(form, app.data.functional_skills)
+                log.info("POST /employee/submit emp=%s ratings_ok=%s", emp_code, bool(ratings))
                 if emp_code and ratings and emp_code not in app.state.employee_forms:
                     app.state.employee_forms[emp_code] = ratings
                     app.state.agent_logs.append(log_entry(emp_code, "Backend", "Employee functional form locked."))
@@ -118,6 +125,7 @@ class MyCareerServer:
                 form = self.read_form()
                 emp_code = form.get("emp_code", "")
                 ratings = self.read_ratings(form, app.data.functional_skills)
+                log.info("POST /manager/submit emp=%s ratings_ok=%s", emp_code, bool(ratings))
                 if emp_code and ratings and emp_code not in app.state.manager_forms:
                     app.state.manager_forms[emp_code] = ratings
                     app.state.agent_logs.append(log_entry(emp_code, "Backend", "Manager functional form locked."))
@@ -129,12 +137,23 @@ class MyCareerServer:
                 emp_code = str(form.getfirst("emp_code", ""))
                 skill = str(form.getfirst("skill", ""))
                 item = form["screenshot"] if "screenshot" in form else None
-                if emp_code and skill and item is not None and getattr(item, "filename", ""):
-                    safe_name = re.sub(r"[^A-Za-z0-9_.-]+", "_", Path(item.filename).name)
+                filename = ""
+                if item is not None:
+                    filename = str(getattr(item, "filename", "") or "")
+                log.info(
+                    "POST /employee/upload emp=%s skill=%s has_file=%s filename=%s",
+                    emp_code,
+                    skill,
+                    bool(filename),
+                    filename,
+                )
+                if emp_code and skill and filename:
+                    safe_name = re.sub(r"[^A-Za-z0-9_.-]+", "_", Path(filename).name)
                     payload = item.file.read()
                     UPLOAD_DIR.mkdir(exist_ok=True)
                     path = UPLOAD_DIR / f"{emp_code}_{slug(skill)}_{safe_name}"
                     path.write_bytes(payload)
+                    log.info("Saved upload path=%s bytes=%s", path, len(payload))
                     score_behavioral_evidence(emp_code, skill, safe_name, payload, app.state)
                     self.maybe_run_pipeline(emp_code)
                 self.redirect(f"/employee?emp={emp_code}&section=behavioral")

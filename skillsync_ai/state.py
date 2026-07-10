@@ -14,3 +14,4 @@ class RuntimeState:
     profiles: dict[str, dict[str, Any]] = field(default_factory=dict)
     agent_logs: list[dict[str, Any]] = field(default_factory=list)
     agent_decisions: list[dict[str, Any]] = field(default_factory=list)
+    api_calls: list[dict[str, Any]] = field(default_factory=list)

@@ -42,7 +42,7 @@ def interpret_context(data: Any, emp_code: str, skills: list[str], state: Any) -
         "Return JSON with a suggested proficiency per skill."
     )
     few_shot = load_few_shot("AgentB", state)
-    parsed = chat_json(SYSTEM, user, agent_name="AgentB", few_shot=few_shot)
+    parsed = chat_json(SYSTEM, user, agent_name="AgentB", state=state, few_shot=few_shot, emp_code=emp_code)
     if parsed and isinstance(parsed.get("skills"), dict):
         result = _normalize_agent_output(parsed, skills)
         result["source"] = "Groq"

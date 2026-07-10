@@ -308,6 +308,10 @@ def admin_dashboard(data: WorkbookData, state: RuntimeState, query: dict[str, st
           {admin_employee_picker(data, emp_code)}
           {detail}
         </div>
+        <div class="span-12 card"><h2>Groq API calls</h2>
+          <p class="muted">Also see file log: <code>logs/skillsync.log</code></p>
+          <div class="scroll">{api_calls_table(state)}</div>
+        </div>
         <div class="span-12 card"><h2>Agent pipeline logs</h2><div class="scroll">{logs_table(state)}</div></div>
         <div class="span-12 card"><h2>Agent decision memory (few-shot log)</h2><div class="scroll">{decisions_table(state)}</div></div>
       </section>
@@ -532,6 +536,25 @@ def logs_table(state: RuntimeState) -> str:
         for row in state.agent_logs[-120:]
     )
     return f"<table><tr><th>Time</th><th>Employee</th><th>Agent</th><th>Message</th></tr>{rows}</table>"
+
+
+def api_calls_table(state: RuntimeState) -> str:
+    if not state.api_calls:
+        return "<p>No Groq API calls recorded yet. Calls appear when agents run (after forms + 4 uploads).</p>"
+    ok = sum(1 for row in state.api_calls if row.get("status") == "ok")
+    err = sum(1 for row in state.api_calls if row.get("status") == "error")
+    skip = sum(1 for row in state.api_calls if row.get("status") == "skipped")
+    summary = f"<p><span class='pill'>ok {ok}</span> <span class='pill'>error {err}</span> <span class='pill'>skipped {skip}</span></p>"
+    rows = "".join(
+        f"<tr><td>{escape(row.get('time'))}</td><td>{escape(row.get('employee'))}</td>"
+        f"<td>{escape(row.get('agent'))}</td><td>{escape(row.get('status'))}</td>"
+        f"<td>{escape(row.get('detail'))}</td></tr>"
+        for row in state.api_calls[-100:]
+    )
+    return (
+        summary
+        + f"<table><tr><th>Time</th><th>Employee</th><th>Agent</th><th>Status</th><th>Detail</th></tr>{rows}</table>"
+    )
 
 
 def decisions_table(state: RuntimeState) -> str:

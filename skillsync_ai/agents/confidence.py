@@ -46,7 +46,7 @@ def score_confidence(
         "Return confidence JSON."
     )
     few_shot = load_few_shot("AgentD", state)
-    parsed = chat_json(SYSTEM, user, agent_name="AgentD", few_shot=few_shot)
+    parsed = chat_json(SYSTEM, user, agent_name="AgentD", state=state, few_shot=few_shot, emp_code=emp_code)
     if parsed and parsed.get("score") is not None:
         result = _normalize(parsed, float(variable.get("avg") or 0))
         result["source"] = "Groq"

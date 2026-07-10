@@ -10,9 +10,12 @@ from .agents.context import interpret_context
 from .agents.gap import identify_gaps
 from .agents.logging import log_entry
 from .core.config import PROFICIENCY_VALUE
+from .core.logging_setup import get_logger
 from .core.utils import rounded_profile_label
 from .data_sources import WorkbookData
 from .state import RuntimeState
+
+log = get_logger("skillsync.pipeline")
 
 
 def inputs_ready(data: WorkbookData, state: RuntimeState, emp_code: str) -> bool:
@@ -32,14 +35,18 @@ def compute_or_get_profile(data: WorkbookData, state: RuntimeState, emp_code: st
 
 def run_pipeline(data: WorkbookData, state: RuntimeState, emp_code: str) -> dict[str, Any] | None:
     if not inputs_ready(data, state, emp_code):
+        log.info("Pipeline skip emp=%s — inputs not ready", emp_code)
         return None
+    log.info("Pipeline START emp=%s", emp_code)
     state.profiles.pop(emp_code, None)
 
     profile_v0, raw_scores, assembly_notes = assemble_profile_v0(data, state, emp_code)
+    log.info("Profile v0 ready emp=%s skills=%s", emp_code, list(profile_v0.keys()))
     all_skills = data.functional_skills + data.behavioral_skills
 
     context = interpret_context(data, emp_code, all_skills, state)
     state.agent_logs.append(log_entry(emp_code, "Agent B ContextRater", context.get("summary", "Context rated.")))
+    log.info("Agent B done emp=%s source=%s", emp_code, context.get("source"))
 
     profile_v1, adjustments, adjust_payload = adjust_skill_profile(
         profile_v0, context, emp_code=emp_code, state=state
@@ -52,12 +59,14 @@ def run_pipeline(data: WorkbookData, state: RuntimeState, emp_code: str) -> dict
             adjust_payload.get("summary") or ("; ".join(adjustments) or "No adjustments."),
         )
     )
+    log.info("Agent C done emp=%s source=%s changes=%s", emp_code, adjust_payload.get("source"), len(adjustments))
 
     ideal = data.ideal_for_employee(emp_code)
     gaps = identify_gaps(ideal, profile_v1)
     state.agent_logs.append(
         log_entry(emp_code, "Gap Matrix", f"Identified {len(gaps)} gaps against ideal role/level profile.")
     )
+    log.info("Gaps emp=%s count=%s", emp_code, len(gaps))
 
     good_skills, work_on_skills = classify_vs_ideal(profile_v1, ideal)
     coaching = narrate_coaching(
@@ -73,9 +82,17 @@ def run_pipeline(data: WorkbookData, state: RuntimeState, emp_code: str) -> dict
             f"Good={len(good_skills)}, work-on={len(work_on_skills)} ({coaching.get('source')}).",
         )
     )
+    log.info("Agent E done emp=%s source=%s", emp_code, coaching.get("source"))
 
     confidence = score_confidence(data, emp_code, profile_v1, context, gaps, state)
     state.agent_logs.append(log_entry(emp_code, "Agent D Confidence", confidence["explanation"]))
+    log.info(
+        "Agent D done emp=%s source=%s band=%s score=%s",
+        emp_code,
+        confidence.get("source"),
+        confidence.get("band"),
+        confidence.get("score"),
+    )
 
     profile = {
         "scores": profile_v1,
@@ -93,6 +110,13 @@ def run_pipeline(data: WorkbookData, state: RuntimeState, emp_code: str) -> dict
     }
     state.profiles[emp_code] = profile
     state.agent_logs.append(log_entry(emp_code, "Pipeline", "BD Skill Profile v1 + coaching + confidence + gaps ready."))
+    log.info(
+        "Pipeline DONE emp=%s groq_calls=%s ok=%s err=%s",
+        emp_code,
+        len(state.api_calls),
+        sum(1 for c in state.api_calls if c.get("status") == "ok"),
+        sum(1 for c in state.api_calls if c.get("status") == "error"),
+    )
     return profile
 
 

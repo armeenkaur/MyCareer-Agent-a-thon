@@ -52,7 +52,7 @@ def adjust_skill_profile(
         "Return Profile v1 JSON. NEVER raise any skill above v0."
     )
     few_shot = load_few_shot("AgentC", state)
-    parsed = chat_json(SYSTEM, user, agent_name="AgentC", few_shot=few_shot)
+    parsed = chat_json(SYSTEM, user, agent_name="AgentC", state=state, few_shot=few_shot, emp_code=emp_code)
     if parsed and isinstance(parsed.get("scores"), dict):
         scores, adjustments, payload = _from_agent(parsed, profile_v0)
         payload["source"] = "Groq"
