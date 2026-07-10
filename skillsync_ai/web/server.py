@@ -10,10 +10,10 @@ import re
 
 from ..agents.behavioral import score_behavioral_evidence
 from ..agents.logging import log_entry
-from ..core.config import STATIC_DIR, UPLOAD_DIR
+from ..core.config import PROFICIENCY_ORDER, STATIC_DIR, UPLOAD_DIR
 from ..core.utils import slug
 from ..data_sources import WorkbookData
-from ..profile_pipeline import compute_or_get_profile
+from ..profile_pipeline import inputs_ready, run_pipeline
 from ..state import RuntimeState
 from .templates import render_template
 from . import views
@@ -39,7 +39,7 @@ class MyCareerServer:
                     "/employee": lambda: views.employee_dashboard(app.data, app.state, query),
                     "/manager": lambda: views.manager_dashboard(app.data, app.state, query),
                     "/manager/employee": lambda: views.manager_employee(app.data, app.state, query),
-                    "/admin": lambda: views.admin_dashboard(app.data, app.state),
+                    "/admin": lambda: views.admin_dashboard(app.data, app.state, query),
                 }
                 route = routes.get(parsed.path)
                 if route:
@@ -90,25 +90,38 @@ class MyCareerServer:
                 raw = self.rfile.read(length).decode("utf-8")
                 return {key: values[0] for key, values in parse_qs(raw).items()}
 
+            def read_ratings(self, form: dict[str, str], skills: list[str]) -> dict[str, str] | None:
+                ratings: dict[str, str] = {}
+                for skill in skills:
+                    value = form.get(slug(skill), "")
+                    if value not in PROFICIENCY_ORDER:
+                        return None
+                    ratings[skill] = value
+                return ratings
+
+            def maybe_run_pipeline(self, emp_code: str) -> None:
+                if inputs_ready(app.data, app.state, emp_code):
+                    app.state.profiles.pop(emp_code, None)
+                    run_pipeline(app.data, app.state, emp_code)
+
             def post_employee_form(self) -> None:
                 form = self.read_form()
                 emp_code = form.get("emp_code", "")
-                if emp_code and emp_code not in app.state.employee_forms:
-                    app.state.employee_forms[emp_code] = {
-                        skill: form.get(slug(skill), "Intermediate") for skill in app.data.functional_skills
-                    }
+                ratings = self.read_ratings(form, app.data.functional_skills)
+                if emp_code and ratings and emp_code not in app.state.employee_forms:
+                    app.state.employee_forms[emp_code] = ratings
                     app.state.agent_logs.append(log_entry(emp_code, "Backend", "Employee functional form locked."))
-                self.redirect(f"/employee?emp={emp_code}")
+                    self.maybe_run_pipeline(emp_code)
+                self.redirect(f"/employee?emp={emp_code}&section=functional")
 
             def post_manager_form(self) -> None:
                 form = self.read_form()
                 emp_code = form.get("emp_code", "")
-                if emp_code and emp_code not in app.state.manager_forms:
-                    app.state.manager_forms[emp_code] = {
-                        skill: form.get(slug(skill), "Intermediate") for skill in app.data.functional_skills
-                    }
+                ratings = self.read_ratings(form, app.data.functional_skills)
+                if emp_code and ratings and emp_code not in app.state.manager_forms:
+                    app.state.manager_forms[emp_code] = ratings
                     app.state.agent_logs.append(log_entry(emp_code, "Backend", "Manager functional form locked."))
-                    compute_or_get_profile(app.data, app.state, emp_code)
+                    self.maybe_run_pipeline(emp_code)
                 self.redirect(f"/manager/employee?emp={emp_code}")
 
             def post_behavioral_upload(self) -> None:
@@ -123,9 +136,8 @@ class MyCareerServer:
                     path = UPLOAD_DIR / f"{emp_code}_{slug(skill)}_{safe_name}"
                     path.write_bytes(payload)
                     score_behavioral_evidence(emp_code, skill, safe_name, payload, app.state)
-                    app.state.profiles.pop(emp_code, None)
-                    compute_or_get_profile(app.data, app.state, emp_code)
-                self.redirect(f"/employee?emp={emp_code}")
+                    self.maybe_run_pipeline(emp_code)
+                self.redirect(f"/employee?emp={emp_code}&section=behavioral")
 
         return Handler
 
