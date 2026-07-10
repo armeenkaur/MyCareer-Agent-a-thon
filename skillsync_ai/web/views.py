@@ -49,7 +49,7 @@ def employee_dashboard(data: WorkbookData, state: RuntimeState, query: dict[str,
     body.append("<section class='grid'>")
     body.append("<div class='span-6 card'><h2>Functional Skill Form</h2>")
     if self_locked:
-        body.append("<div class='notice locked'>Your response is locked until the project is restarted.</div>")
+        body.append("<div class='notice locked'>Your response is locked.</div>")
         body.append(ratings_table(state.employee_forms[emp_code], "Your submitted rating"))
     else:
         body.append("<p>Submit once. This locks immediately after submission.</p>")
@@ -103,7 +103,7 @@ def manager_employee(data: WorkbookData, state: RuntimeState, query: dict[str, s
     body.append("<section class='grid'>")
     body.append("<div class='span-5 card'><h2>Manager Functional Rating</h2>")
     if locked:
-        body.append("<div class='notice locked'>Your manager response is locked until the project is restarted.</div>")
+        body.append("<div class='notice locked'>Your response is locked.</div>")
         body.append(ratings_table(state.manager_forms[emp_code], "Your submitted rating"))
     else:
         body.append(rating_form("/manager/submit", emp_code, data.functional_skills, "Submit manager rating"))
