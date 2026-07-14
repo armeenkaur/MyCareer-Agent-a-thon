@@ -19,8 +19,10 @@ class WorkbookData:
         self.employees = self._load_employees()
         self.tna = self._load_tna()
         self.appraisal = self._load_appraisal()
+        self.interview = self._load_interview()
         self.amber = self._load_amber()
         self.variable = self._load_variable()
+        self.courses = self._load_courses()
 
     @property
     def functional_skills(self) -> list[str]:
@@ -45,6 +47,9 @@ class WorkbookData:
     def ideal_for_employee(self, emp_code: str) -> dict[str, str]:
         employee = self.employees.get(emp_code, {})
         key = role_level_key(employee.get("designation", ""), employee.get("level", ""))
+        return self.ideal_for_role_key(key)
+
+    def ideal_for_role_key(self, key: str) -> dict[str, str]:
         ideal: dict[str, str] = {}
         for row in self.competencies:
             ideal[row["skill"]] = row["ideals"].get(key) or row["ideals"].get("BDM (RL1-2)") or "Intermediate"
@@ -140,6 +145,21 @@ class WorkbookData:
                 rows[code] = row
         return rows
 
+    def _load_interview(self) -> dict[str, dict[str, str]]:
+        path = SOURCE_FILES["interview"]
+        if not path.is_file():
+            return {}
+        wb = load_workbook(path, data_only=True, read_only=True)
+        ws = wb.active
+        headers = [str(v or "").strip() for v in next(ws.iter_rows(min_row=1, max_row=1, values_only=True))]
+        rows: dict[str, dict[str, str]] = {}
+        for values in ws.iter_rows(min_row=2, values_only=True):
+            row = {key: clean(value) for key, value in zip(headers, values)}
+            code = row.get("EMP Code")
+            if code:
+                rows[code] = row
+        return rows
+
     def _load_amber(self) -> dict[str, list[dict[str, str]]]:
         wb = load_workbook(SOURCE_FILES["amber"], data_only=True, read_only=True)
         ws = wb.active
@@ -168,3 +188,53 @@ class WorkbookData:
                     "level": clean(row.get("Level")),
                 }
         return rows
+
+    def _load_courses(self) -> list[dict[str, Any]]:
+        path = SOURCE_FILES["courses"]
+        if not path.is_file():
+            return []
+        wb = load_workbook(path, data_only=True, read_only=True)
+        ws = wb.active
+        headers = [str(v or "").strip() for v in next(ws.iter_rows(min_row=1, max_row=1, values_only=True))]
+        courses: list[dict[str, Any]] = []
+        for values in ws.iter_rows(min_row=2, values_only=True):
+            row = dict(zip(headers, values))
+            course_id = clean(row.get("Course ID"))
+            title = _repair_catalog_text(row.get("Course Title"))
+            if not course_id or not title or clean(row.get("Status")).lower() != "active":
+                continue
+            release = row.get("Release Date")
+            courses.append(
+                {
+                    "id": course_id,
+                    "title": title,
+                    "author": _repair_catalog_text(row.get("Author")),
+                    "release_date": release.strftime("%Y-%m-%d") if hasattr(release, "strftime") else clean(release),
+                    "level": clean(row.get("Level")).lower(),
+                    "duration": clean(row.get("Duration")),
+                    "category": clean(row.get("Category")),
+                    "subjects": _repair_catalog_text(row.get("Subjects")),
+                    "description": _repair_catalog_text(row.get("Description")),
+                    "url": clean(row.get("SSO URL")) or clean(row.get("Course URL")),
+                    "thumbnail": clean(row.get("Large Thumbnail")),
+                }
+            )
+        return courses
+
+
+def _repair_catalog_text(value: Any) -> str:
+    text = clean(value)
+    if not any(marker in text for marker in ("â", "Ã", "Â")):
+        return text
+    for encoding in ("cp1252", "latin-1"):
+        try:
+            return text.encode(encoding).decode("utf-8")
+        except (UnicodeEncodeError, UnicodeDecodeError):
+            continue
+    replacements = {
+        "â€™": "’", "â€˜": "‘", "â€œ": "“", "â€\x9d": "”",
+        "â€”": "—", "â€“": "–", "â€¦": "…", "Â": "",
+    }
+    for broken, repaired in replacements.items():
+        text = text.replace(broken, repaired)
+    return text

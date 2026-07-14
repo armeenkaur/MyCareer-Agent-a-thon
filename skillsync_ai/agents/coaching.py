@@ -49,7 +49,7 @@ def narrate_coaching(
         "Write employee-facing coaching JSON."
     )
     few_shot = load_few_shot("AgentE", state)
-    parsed = chat_json(SYSTEM, user, agent_name="AgentE", few_shot=few_shot)
+    parsed = chat_json(SYSTEM, user, agent_name="AgentE", state=state, few_shot=few_shot, emp_code=emp_code)
     if parsed:
         result = {
             "good_intro": clean(parsed.get("good_intro"))
@@ -59,7 +59,7 @@ def narrate_coaching(
             "on_track_message": clean(parsed.get("on_track_message"))
             or ("You're on track for your role and level." if not work_on_skills else ""),
             "closing": clean(parsed.get("closing")) or "Keep building — small focused practice compounds.",
-            "source": "Groq",
+            "source": "OpenAI",
         }
     else:
         result = {

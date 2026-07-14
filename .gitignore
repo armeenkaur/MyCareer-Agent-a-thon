@@ -5,3 +5,4 @@ uploads/
 ~$*.xlsx
 .env
 agent_decisions.jsonl
+logs/

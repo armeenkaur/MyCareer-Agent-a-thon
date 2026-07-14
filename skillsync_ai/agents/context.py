@@ -8,7 +8,7 @@ from ..core.utils import clean
 from .llm import chat_json, load_few_shot, normalize_proficiency, record_decision
 
 SYSTEM = """You are Agent B ContextRater for Business Development skill profiling.
-You read TNA, annual appraisal feedback, and Amber (manager-only) evidence for one employee.
+You read TNA, annual appraisal feedback (or interview feedback only when appraisal is missing), and Amber evidence.
 Weighting rules:
 - TNA has employee input and manager input. Prefer manager wording at ~80% and employee at ~20%.
 - Amber is manager-only evidence — treat it as manager-weighted signal.
@@ -37,15 +37,15 @@ def interpret_context(data: Any, emp_code: str, skills: list[str], state: Any) -
         f"Skills to rate: {json.dumps(skills)}\n"
         f"Allowed proficiency labels: {json.dumps(PROFICIENCY_ORDER)}\n\n"
         f"TNA rows (employee + manager inputs):\n{packet['tna_text']}\n\n"
-        f"Annual appraisal (treated recent):\n{packet['appraisal_text']}\n\n"
+        f"Appraisal or interview fallback evidence (treated recent):\n{packet['appraisal_text']}\n\n"
         f"Amber (manager-only):\n{packet['amber_text']}\n\n"
         "Return JSON with a suggested proficiency per skill."
     )
     few_shot = load_few_shot("AgentB", state)
-    parsed = chat_json(SYSTEM, user, agent_name="AgentB", few_shot=few_shot)
+    parsed = chat_json(SYSTEM, user, agent_name="AgentB", state=state, few_shot=few_shot, emp_code=emp_code)
     if parsed and isinstance(parsed.get("skills"), dict):
         result = _normalize_agent_output(parsed, skills)
-        result["source"] = "Groq"
+        result["source"] = "OpenAI"
     else:
         result = _fallback(packet, skills)
         result["source"] = "heuristic fallback"
@@ -127,13 +127,16 @@ def _fallback(packet: dict[str, str], skills: list[str]) -> dict[str, Any]:
 def _evidence_packet(data: Any, emp_code: str) -> dict[str, str]:
     tna_rows = data.tna.get(emp_code, [])
     appraisal = data.appraisal.get(emp_code, {})
+    interview = data.interview.get(emp_code, {})
     amber_rows = data.amber.get(emp_code, [])
     tna_bits = []
     for row in tna_rows[:8]:
         emp_in = row.get("Employee Input") or row.get("Employee input") or ""
         mgr_in = row.get("Reporting Manager Input") or row.get("Manager Input") or ""
         tna_bits.append(f"Employee(20%): {emp_in} | Manager(80%): {mgr_in}")
-    appraisal_text = " | ".join(f"{k}: {v}" for k, v in appraisal.items() if v and k != "EMP Code")[:2500]
+    source_row = appraisal or interview
+    source_name = "Annual appraisal" if appraisal else "Interview fallback"
+    appraisal_text = " | ".join(f"{k}: {v}" for k, v in source_row.items() if v and k != "EMP Code")[:2500]
     amber_bits = []
     for row in amber_rows[:10]:
         amber_bits.append(
@@ -142,6 +145,6 @@ def _evidence_packet(data: Any, emp_code: str) -> dict[str, str]:
         )
     return {
         "tna_text": "\n".join(tna_bits) or "No TNA rows",
-        "appraisal_text": appraisal_text or "No appraisal row",
+        "appraisal_text": f"{source_name}: {appraisal_text}" if appraisal_text else "No appraisal or interview row",
         "amber_text": "\n".join(amber_bits) or "No Amber rows",
     }
