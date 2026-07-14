@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import threading
 from typing import Any
 
 from .agents.adjustment import adjust_skill_profile
@@ -9,6 +10,8 @@ from .agents.confidence import score_confidence
 from .agents.context import interpret_context
 from .agents.gap import identify_gaps
 from .agents.logging import log_entry
+from .agents.course_recommendation import build_recommendations
+from .agents.external_learning import populate_external_resources
 from .core.config import PROFICIENCY_VALUE
 from .core.logging_setup import get_logger
 from .core.utils import rounded_profile_label
@@ -22,7 +25,8 @@ def inputs_ready(data: WorkbookData, state: RuntimeState, emp_code: str) -> bool
     if emp_code not in state.employee_forms or emp_code not in state.manager_forms:
         return False
     uploads = state.behavioral_uploads.get(emp_code, {})
-    return all(skill in uploads for skill in data.behavioral_skills)
+    scores = state.behavioral_scores.get(emp_code, {})
+    return emp_code in state.behavioral_submitted and all(skill in uploads and skill in scores for skill in data.behavioral_skills)
 
 
 def compute_or_get_profile(data: WorkbookData, state: RuntimeState, emp_code: str) -> dict[str, Any] | None:
@@ -30,6 +34,9 @@ def compute_or_get_profile(data: WorkbookData, state: RuntimeState, emp_code: st
         return state.profiles[emp_code]
     if not inputs_ready(data, state, emp_code):
         return None
+    with state.pipeline_lock:
+        if emp_code in state.pipeline_running:
+            return None
     return run_pipeline(data, state, emp_code)
 
 
@@ -37,6 +44,49 @@ def run_pipeline(data: WorkbookData, state: RuntimeState, emp_code: str) -> dict
     if not inputs_ready(data, state, emp_code):
         log.info("Pipeline skip emp=%s — inputs not ready", emp_code)
         return None
+    if not _claim_pipeline(state, emp_code):
+        log.info("Pipeline skip emp=%s — already running", emp_code)
+        return state.profiles.get(emp_code)
+    return _run_claimed_pipeline(data, state, emp_code)
+
+
+def start_pipeline_background(data: WorkbookData, state: RuntimeState, emp_code: str) -> bool:
+    if not inputs_ready(data, state, emp_code) or not _claim_pipeline(state, emp_code):
+        return False
+    worker = threading.Thread(
+        target=_run_claimed_pipeline,
+        args=(data, state, emp_code),
+        daemon=True,
+        name=f"profile-{emp_code}",
+    )
+    worker.start()
+    return True
+
+
+def _claim_pipeline(state: RuntimeState, emp_code: str) -> bool:
+    with state.pipeline_lock:
+        if emp_code in state.pipeline_running:
+            return False
+        state.pipeline_running.add(emp_code)
+        state.pipeline_status[emp_code] = "processing"
+        return True
+
+
+def _run_claimed_pipeline(data: WorkbookData, state: RuntimeState, emp_code: str) -> dict[str, Any] | None:
+    try:
+        profile = _build_profile(data, state, emp_code)
+        state.pipeline_status[emp_code] = "ready" if profile else "waiting"
+        return profile
+    except Exception as exc:  # noqa: BLE001
+        state.pipeline_status[emp_code] = "failed"
+        log.exception("Pipeline FAILED emp=%s error=%s", emp_code, exc)
+        return None
+    finally:
+        with state.pipeline_lock:
+            state.pipeline_running.discard(emp_code)
+
+
+def _build_profile(data: WorkbookData, state: RuntimeState, emp_code: str) -> dict[str, Any] | None:
     log.info("Pipeline START emp=%s", emp_code)
     state.profiles.pop(emp_code, None)
 
@@ -108,10 +158,17 @@ def run_pipeline(data: WorkbookData, state: RuntimeState, emp_code: str) -> dict
         "ideal": ideal,
         "created_at": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
     }
+    recommendation = build_recommendations(data, state, emp_code, profile)
+    populate_external_resources(
+        recommendation,
+        data.employees.get(emp_code, {}),
+        state,
+        emp_code,
+    )
     state.profiles[emp_code] = profile
     state.agent_logs.append(log_entry(emp_code, "Pipeline", "BD Skill Profile v1 + coaching + confidence + gaps ready."))
     log.info(
-        "Pipeline DONE emp=%s groq_calls=%s ok=%s err=%s",
+        "Pipeline DONE emp=%s api_calls=%s ok=%s err=%s",
         emp_code,
         len(state.api_calls),
         sum(1 for c in state.api_calls if c.get("status") == "ok"),

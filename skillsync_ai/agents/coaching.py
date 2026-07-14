@@ -59,7 +59,7 @@ def narrate_coaching(
             "on_track_message": clean(parsed.get("on_track_message"))
             or ("You're on track for your role and level." if not work_on_skills else ""),
             "closing": clean(parsed.get("closing")) or "Keep building — small focused practice compounds.",
-            "source": "Groq",
+            "source": "OpenAI",
         }
     else:
         result = {

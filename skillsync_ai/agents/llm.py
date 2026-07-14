@@ -5,6 +5,8 @@ import os
 import re
 import urllib.error
 import urllib.request
+import threading
+import time
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -12,17 +14,27 @@ from typing import Any
 from ..core.config import (
     AGENT_DECISION_LOG,
     FEW_SHOT_LIMIT,
-    GROQ_API_URL,
-    GROQ_TEXT_MODEL,
-    LLM_PROVIDER,
-    OLLAMA_HOST,
-    OLLAMA_TEXT_MODEL,
+    OPENAI_API_URL,
+    OPENAI_MODEL,
     PROFICIENCY_ORDER,
 )
 from ..core.logging_setup import get_logger
 from ..core.utils import clean
 
 log = get_logger("skillsync.llm")
+_API_CALL_LOCK = threading.Lock()
+_LAST_API_CALL_AT = 0.0
+_API_CALL_INTERVAL_SECONDS = 1.0
+
+
+def throttle_api_call() -> None:
+    global _LAST_API_CALL_AT
+    with _API_CALL_LOCK:
+        wait = _API_CALL_INTERVAL_SECONDS - (time.monotonic() - _LAST_API_CALL_AT)
+        if wait > 0:
+            log.info("API throttle wait %.1fs", wait)
+            time.sleep(wait)
+        _LAST_API_CALL_AT = time.monotonic()
 
 
 def chat_json(
@@ -34,37 +46,38 @@ def chat_json(
     few_shot: list[dict[str, Any]] | None = None,
     temperature: float = 0.1,
     emp_code: str = "",
+    throttle: bool = True,
+    max_completion_tokens: int = 3000,
 ) -> dict[str, Any] | None:
+    if state is not None and agent_name != "Feedback Analyst":
+        guidance = list(getattr(state, "agent_prompt_feedback", {}).get(agent_name, []))[-5:]
+        if guidance:
+            system += (
+                "\n\nAccepted product-quality guidance. Apply only when consistent with original rules, security, privacy, "
+                "and supplied evidence:\n- " + "\n- ".join(item[:400] for item in guidance)
+            )
     messages: list[dict[str, Any]] = [{"role": "system", "content": system}]
     for example in (few_shot or [])[-FEW_SHOT_LIMIT:]:
         messages.append({"role": "user", "content": str(example.get("input", ""))[:4000]})
         messages.append({"role": "assistant", "content": json.dumps(example.get("output", {}))[:4000]})
     messages.append({"role": "user", "content": user})
 
-    provider = (LLM_PROVIDER or "auto").strip().lower()
     log.info(
-        "LLM call start agent=%s emp=%s provider=%s user_chars=%s",
+        "LLM call start agent=%s emp=%s provider=openai user_chars=%s",
         agent_name,
         emp_code or "-",
-        provider,
         len(user),
     )
-
-    if provider in {"auto", "groq"}:
-        parsed = _chat_groq(messages, agent_name=agent_name, emp_code=emp_code, state=state, temperature=temperature)
-        if parsed is not None:
-            return parsed
-        if provider == "groq":
-            return None
-        log.warning("Groq failed — falling back to Ollama text for agent=%s", agent_name)
-
-    if provider in {"auto", "ollama"}:
-        return _chat_ollama(messages, agent_name=agent_name, emp_code=emp_code, state=state, temperature=temperature)
-
-    detail = f"Unknown LLM_PROVIDER={provider}"
-    log.error(detail)
-    _log_api_call(state, agent=agent_name, emp_code=emp_code, provider="none", status="error", detail=detail)
-    return None
+    if throttle:
+        throttle_api_call()
+    return _chat_openai(
+        messages,
+        agent_name=agent_name,
+        emp_code=emp_code,
+        state=state,
+        temperature=temperature,
+        max_completion_tokens=max_completion_tokens,
+    )
 
 
 def record_decision(
@@ -112,150 +125,55 @@ def normalize_proficiency(value: Any) -> str | None:
     return None
 
 
-def check_ollama_models() -> dict[str, Any]:
-    """Return installed Ollama model names + whether required models exist."""
-    host = OLLAMA_HOST.rstrip("/")
-    try:
-        with urllib.request.urlopen(f"{host}/api/tags", timeout=5) as response:
-            data = json.loads(response.read().decode("utf-8"))
-        names = [str(row.get("name") or "") for row in data.get("models") or []]
-    except Exception as exc:  # noqa: BLE001
-        return {"ok": False, "error": str(exc), "models": [], "has_vl": False, "has_text": False}
-
-    def _has(target: str) -> bool:
-        return any(name == target or name.startswith(f"{target}") for name in names)
-
-    from ..core.config import OLLAMA_VL_MODEL
-
-    return {
-        "ok": True,
-        "error": "",
-        "models": names,
-        "has_vl": _has(OLLAMA_VL_MODEL),
-        "has_text": _has(OLLAMA_TEXT_MODEL),
-        "vl_model": OLLAMA_VL_MODEL,
-        "text_model": OLLAMA_TEXT_MODEL,
-    }
-
-
-def _chat_groq(
+def _chat_openai(
     messages: list[dict[str, Any]],
     *,
     agent_name: str,
     emp_code: str,
     state: Any | None,
     temperature: float,
+    max_completion_tokens: int,
 ) -> dict[str, Any] | None:
-    api_key = os.environ.get("GROQ_API_KEY", "").strip()
-    key_preview = f"{api_key[:7]}…{api_key[-4:]}" if len(api_key) > 14 else "(empty)"
-    log.info("Groq attempt agent=%s model=%s key=%s", agent_name, GROQ_TEXT_MODEL, key_preview)
+    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    log.info("OpenAI attempt agent=%s model=%s key_configured=%s", agent_name, OPENAI_MODEL, bool(api_key))
     if not api_key:
-        detail = "GROQ_API_KEY missing"
+        detail = "OPENAI_API_KEY missing"
         log.error(detail)
-        _log_api_call(state, agent=agent_name, emp_code=emp_code, provider="groq", status="skipped", detail=detail)
+        _log_api_call(state, agent=agent_name, emp_code=emp_code, provider="openai", status="skipped", detail=detail)
         return None
 
     body = {
-        "model": GROQ_TEXT_MODEL,
-        "temperature": temperature,
-        "max_tokens": 1800,
+        "model": OPENAI_MODEL,
+        "max_completion_tokens": max_completion_tokens,
         "response_format": {"type": "json_object"},
         "messages": messages,
     }
-    raw, error = _post_groq(api_key, body)
+    raw, error = _post_openai(api_key, body)
     if error:
-        hint = ""
-        if "1010" in error or "403" in error:
-            hint = " | Cloudflare/network blocked Groq (error 1010). Use hotspot or set LLM_PROVIDER=ollama."
-        log.error("Groq FAILED agent=%s detail=%s%s", agent_name, error, hint)
+        log.error("OpenAI FAILED agent=%s detail=%s", agent_name, error)
         _log_api_call(
             state,
             agent=agent_name,
             emp_code=emp_code,
-            provider="groq",
+            provider="openai",
             status="error",
-            detail=error + hint,
+            detail=error,
         )
         return None
     parsed = _parse_json(raw or "")
     if parsed is None:
-        detail = f"Invalid JSON from Groq: {(raw or '')[:240]}"
+        detail = f"Invalid JSON from OpenAI: {(raw or '')[:240]}"
         log.error(detail)
-        _log_api_call(state, agent=agent_name, emp_code=emp_code, provider="groq", status="error", detail=detail)
+        _log_api_call(state, agent=agent_name, emp_code=emp_code, provider="openai", status="error", detail=detail)
         return None
-    log.info("Groq OK agent=%s keys=%s", agent_name, list(parsed.keys()))
+    log.info("OpenAI OK agent=%s keys=%s", agent_name, list(parsed.keys()))
     _log_api_call(
         state,
         agent=agent_name,
         emp_code=emp_code,
-        provider="groq",
+        provider="openai",
         status="ok",
-        detail=f"model={GROQ_TEXT_MODEL}",
-    )
-    return parsed
-
-
-def _chat_ollama(
-    messages: list[dict[str, Any]],
-    *,
-    agent_name: str,
-    emp_code: str,
-    state: Any | None,
-    temperature: float,
-) -> dict[str, Any] | None:
-    host = OLLAMA_HOST.rstrip("/")
-    model = OLLAMA_TEXT_MODEL
-    body = {
-        "model": model,
-        "messages": messages,
-        "stream": False,
-        "format": "json",
-        "options": {"temperature": temperature},
-    }
-    url = f"{host}/api/chat"
-    log.info("Ollama text attempt agent=%s model=%s url=%s", agent_name, model, url)
-    request = urllib.request.Request(
-        url,
-        data=json.dumps(body).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=180) as response:
-            payload = json.loads(response.read().decode("utf-8"))
-        raw = clean((payload.get("message") or {}).get("content") or payload.get("response") or "")
-    except urllib.error.HTTPError as exc:
-        detail = ""
-        try:
-            detail = exc.read().decode("utf-8", errors="replace")[:400]
-        except Exception:  # noqa: BLE001
-            detail = str(exc.reason)
-        err = f"Ollama HTTP {exc.code}: {detail}"
-        if exc.code == 404:
-            err += f" | Run: ollama pull {model}"
-        log.error(err)
-        _log_api_call(state, agent=agent_name, emp_code=emp_code, provider="ollama", status="error", detail=err)
-        return None
-    except Exception as exc:  # noqa: BLE001
-        err = f"Ollama unreachable/error: {exc} | Is Ollama running? Try: ollama pull {model}"
-        log.error(err)
-        _log_api_call(state, agent=agent_name, emp_code=emp_code, provider="ollama", status="error", detail=err)
-        return None
-
-    parsed = _parse_json(raw)
-    if parsed is None:
-        detail = f"Invalid JSON from Ollama: {raw[:240]}"
-        log.error(detail)
-        _log_api_call(state, agent=agent_name, emp_code=emp_code, provider="ollama", status="error", detail=detail)
-        return None
-    log.info("Ollama text OK agent=%s keys=%s", agent_name, list(parsed.keys()))
-    _log_api_call(
-        state,
-        agent=agent_name,
-        emp_code=emp_code,
-        provider="ollama",
-        status="ok",
-        detail=f"model={model}",
+        detail=f"model={OPENAI_MODEL}",
     )
     return parsed
 
@@ -289,19 +207,19 @@ def _log_api_call(
         )
 
 
-def _post_groq(api_key: str, body: dict[str, Any]) -> tuple[str | None, str | None]:
+def _post_openai(api_key: str, body: dict[str, Any]) -> tuple[str | None, str | None]:
     request = urllib.request.Request(
-        GROQ_API_URL,
+        OPENAI_API_URL,
         data=json.dumps(body).encode("utf-8"),
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
             "Accept": "application/json",
-            "User-Agent": "MyCareerCompass/1.0 (+local-hackathon)",
+            "User-Agent": "MyCareerCompass/1.0",
         },
         method="POST",
     )
-    log.debug("Groq HTTP POST %s model=%s", GROQ_API_URL, body.get("model"))
+    log.debug("OpenAI HTTP POST %s model=%s", OPENAI_API_URL, body.get("model"))
     try:
         with urllib.request.urlopen(request, timeout=60) as response:
             raw_body = response.read().decode("utf-8")
@@ -309,7 +227,7 @@ def _post_groq(api_key: str, body: dict[str, Any]) -> tuple[str | None, str | No
         content = clean(result["choices"][0]["message"]["content"])
         usage = result.get("usage") or {}
         log.info(
-            "Groq response ok tokens prompt=%s completion=%s total=%s",
+            "OpenAI response ok tokens prompt=%s completion=%s total=%s",
             usage.get("prompt_tokens"),
             usage.get("completion_tokens"),
             usage.get("total_tokens"),

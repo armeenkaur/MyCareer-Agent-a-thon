@@ -1,16 +1,12 @@
-"""Optional heavy OCR backends (Ollama / HF). Kept separate so Tesseract path stays light."""
+"""Optional heavy Hugging Face OCR backend. Tesseract remains runtime default."""
 
 from __future__ import annotations
 
-import base64
 import io
-import json
 import threading
-import urllib.error
-import urllib.request
 from typing import Any
 
-from ..core.config import OLLAMA_HOST, OLLAMA_VL_MODEL, QWEN_VL_MODEL_ID
+QWEN_VL_MODEL_ID = "Qwen/Qwen2.5-VL-3B-Instruct"
 from ..core.logging_setup import get_logger
 
 log = get_logger("skillsync.ocr.backends")
@@ -20,50 +16,6 @@ _model: Any = None
 _processor: Any = None
 _device: str | None = None
 _load_error: str | None = None
-
-
-def extract_ollama(payload: bytes, filename: str) -> dict[str, str]:
-    model = OLLAMA_VL_MODEL
-    host = OLLAMA_HOST.rstrip("/")
-    b64 = base64.b64encode(payload).decode("ascii")
-    body = {
-        "model": model,
-        "prompt": (
-            "Transcribe all the text found in this role-play / assessment screenshot accurately. "
-            "Include scores, feedback, strengths, weaknesses, and outcome labels if visible. "
-            "Return plain text only."
-        ),
-        "images": [b64],
-        "stream": False,
-    }
-    url = f"{host}/api/generate"
-    log.debug("Ollama OCR POST %s model=%s", url, model)
-    request = urllib.request.Request(
-        url,
-        data=json.dumps(body).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
-        method="POST",
-    )
-    try:
-        with urllib.request.urlopen(request, timeout=180) as response:
-            raw = response.read().decode("utf-8")
-        data = json.loads(raw)
-        text = str(data.get("response") or "").strip()
-        log.info("Ollama OCR ok model=%s chars=%s", model, len(text))
-        return {"text": text, "source": f"ollama:{model}", "error": ""}
-    except urllib.error.HTTPError as exc:
-        detail = ""
-        try:
-            detail = exc.read().decode("utf-8", errors="replace")[:400]
-        except Exception:  # noqa: BLE001
-            detail = str(exc.reason)
-        err = f"Ollama HTTP {exc.code}: {detail}"
-        log.error(err)
-        return {"text": "", "source": f"ollama:{model}", "error": err}
-    except Exception as exc:  # noqa: BLE001
-        err = f"Ollama OCR failed: {exc}"
-        log.error(err)
-        return {"text": "", "source": f"ollama:{model}", "error": err}
 
 
 def extract_hf(payload: bytes, filename: str) -> dict[str, str]:

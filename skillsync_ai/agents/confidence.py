@@ -49,7 +49,7 @@ def score_confidence(
     parsed = chat_json(SYSTEM, user, agent_name="AgentD", state=state, few_shot=few_shot, emp_code=emp_code)
     if parsed and parsed.get("score") is not None:
         result = _normalize(parsed, float(variable.get("avg") or 0))
-        result["source"] = "Groq"
+        result["source"] = "OpenAI"
     else:
         result = _fallback(data, emp_code, scores, context, gaps, peers)
         result["source"] = "heuristic fallback"

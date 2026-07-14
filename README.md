@@ -8,10 +8,11 @@ Run with the bundled Python runtime used by Codex:
 /Users/int1961/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m skillsync_ai.app
 ```
 
-To enable the live Groq behavioural evidence agent, set `GROQ_API_KEY` before starting:
+Set company OpenAI API credentials before starting:
 
 ```bash
-export GROQ_API_KEY="your_groq_api_key_here"
+export OPENAI_API_KEY="your_openai_api_key_here"
+export OPENAI_MODEL="gpt-5.4-mini"
 /Users/int1961/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m skillsync_ai.app
 ```
 
@@ -40,7 +41,7 @@ skillsync_ai/
 
 Agent responsibilities:
 
-- `Behavioural Evidence Agent`: scores uploaded role-play screenshots through Groq when configured, with demo fallback.
+- `Behavioural Evidence Agent`: extracts screenshot text locally and scores all behavioural evidence in one OpenAI call.
 - `Feedback/TNA/Amber Agent`: interprets contextual evidence from the attached workbooks.
 - `Skill Adjustment Agent`: applies evidence-backed profile adjustments.
 - `Confidence Agent`: produces confidence only; it never changes skill scores.

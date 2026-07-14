@@ -32,26 +32,24 @@ PROFICIENCY_VALUE = {name: idx + 1 for idx, name in enumerate(PROFICIENCY_ORDER)
 VALUE_PROFICIENCY = {value: name for name, value in PROFICIENCY_VALUE.items()}
 
 SOURCE_FILES = {
-    "competency": ROOT / "MyCareer_Process Flow.xlsx",
-    "darwin": ROOT / "Employee Darwin.xlsx",
-    "tna": ROOT / "Cleaned Up TNA data.xlsx",
-    "appraisal": ROOT / "Appraisal Input.xlsx",
-    "amber": ROOT / "Agent-a-thon (Amber).xlsx",
-    "variable": ROOT / "Variable Pay scores.xlsx",
+    "competency": ROOT / "data" / "MyCareer_Process Flow.xlsx",
+    "darwin": ROOT / "data" / "Employee Darwin.xlsx",
+    "tna": ROOT / "data" / "Cleaned Up TNA data.xlsx",
+    "appraisal": ROOT / "data" / "Appraisal Input.xlsx",
+    "amber": ROOT / "data" / "Agent-a-thon (Amber).xlsx",
+    "variable": ROOT / "data" / "Variable Pay scores.xlsx",
+    "interview": ROOT / "data" / "Interview Input.xlsx",
+    "courses": ROOT / "data" / "LinkedIn_Learning_Courses_EN.xlsx",
 }
 
-GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions"
-GROQ_VISION_MODEL = os.environ.get("GROQ_VISION_MODEL", "meta-llama/llama-4-scout-17b-16e-instruct")
-GROQ_TEXT_MODEL = os.environ.get("GROQ_TEXT_MODEL", "llama-3.3-70b-versatile")
-# OCR: tesseract (default, small) | ollama | hf
-OCR_BACKEND = os.environ.get("OCR_BACKEND", os.environ.get("QWEN_VL_BACKEND", "tesseract"))
+OPENAI_API_URL = os.environ.get("OPENAI_API_URL", "https://api.openai.com/v1/chat/completions")
+OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-5.4-mini")
+# OCR stays local and deterministic; OpenAI receives extracted text only.
+OCR_BACKEND = "tesseract"
 TESSERACT_CMD = os.environ.get("TESSERACT_CMD", "")
-OLLAMA_HOST = os.environ.get("OLLAMA_HOST", "http://127.0.0.1:11434")
-OLLAMA_VL_MODEL = os.environ.get("OLLAMA_VL_MODEL", "qwen2.5vl:3b")
-OLLAMA_TEXT_MODEL = os.environ.get("OLLAMA_TEXT_MODEL", "llama3.2:3b")
-LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "auto")  # auto | groq | ollama
-QWEN_VL_MODEL_ID = os.environ.get("QWEN_VL_MODEL_ID", "Qwen/Qwen2.5-VL-3B-Instruct")
-# Back-compat alias
-QWEN_VL_BACKEND = OCR_BACKEND
 AGENT_DECISION_LOG = ROOT / "agent_decisions.jsonl"
 FEW_SHOT_LIMIT = 3
+LINKEDIN_LEARNING_CLIENT_ID = os.environ.get("LINKEDIN_LEARNING_CLIENT_ID", "").strip()
+LINKEDIN_LEARNING_CLIENT_SECRET = os.environ.get("LINKEDIN_LEARNING_CLIENT_SECRET", "").strip()
+LINKEDIN_TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken"
+LINKEDIN_REPORT_URL = "https://api.linkedin.com/v2/learningActivityReports"

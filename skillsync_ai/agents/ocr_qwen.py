@@ -4,7 +4,7 @@ import io
 import shutil
 from typing import Any
 
-from ..core.config import OCR_BACKEND, TESSERACT_CMD
+from ..core.config import TESSERACT_CMD
 from ..core.logging_setup import get_logger
 
 log = get_logger("skillsync.ocr")
@@ -15,20 +15,8 @@ def extract_screenshot_text(payload: bytes, filename: str = "screenshot.png") ->
     if not payload:
         return {"text": "", "source": "ocr", "error": "empty image payload"}
 
-    backend = (OCR_BACKEND or "tesseract").strip().lower()
-    log.info("OCR start file=%s bytes=%s backend=%s", filename, len(payload), backend)
-
-    if backend == "tesseract":
-        return _extract_tesseract(payload, filename)
-    if backend == "ollama":
-        from . import ocr_backends
-
-        return ocr_backends.extract_ollama(payload, filename)
-    if backend == "hf":
-        from . import ocr_backends
-
-        return ocr_backends.extract_hf(payload, filename)
-    return {"text": "", "source": backend, "error": f"Unknown OCR_BACKEND={backend}"}
+    log.info("OCR start file=%s bytes=%s backend=tesseract", filename, len(payload))
+    return _extract_tesseract(payload, filename)
 
 
 def _extract_tesseract(payload: bytes, filename: str) -> dict[str, str]:
