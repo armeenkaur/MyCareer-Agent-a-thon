@@ -1,0 +1,455 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>RD Competency Validation | MyCareer Compass</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "secondary-container": "#799dfe",
+                    "inverse-surface": "#2e3039",
+                    "on-primary": "#ffffff",
+                    "surface-variant": "#e1e2ee",
+                    "on-tertiary": "#ffffff",
+                    "on-primary-container": "#f1f2ff",
+                    "on-background": "#191b24",
+                    "on-secondary": "#ffffff",
+                    "tertiary-fixed-dim": "#ffb59a",
+                    "surface-container": "#ecedf9",
+                    "outline-variant": "#c2c6d8",
+                    "secondary": "#3159b6",
+                    "primary-container": "#1464f4",
+                    "surface-container-highest": "#e1e2ee",
+                    "on-surface": "#191b24",
+                    "surface-bright": "#faf8ff",
+                    "on-tertiary-container": "#fff0ec",
+                    "inverse-on-surface": "#eff0fc",
+                    "primary-fixed-dim": "#b3c5ff",
+                    "inverse-primary": "#b3c5ff",
+                    "surface-container-low": "#f2f3ff",
+                    "surface-container-high": "#e7e7f3",
+                    "surface": "#faf8ff",
+                    "error-container": "#ffdad6",
+                    "background": "#faf8ff",
+                    "on-secondary-container": "#003183",
+                    "on-primary-fixed": "#001849",
+                    "tertiary-container": "#c44400",
+                    "secondary-fixed": "#dae2ff",
+                    "surface-tint": "#0054d7",
+                    "on-surface-variant": "#424655",
+                    "outline": "#737687",
+                    "on-tertiary-fixed": "#380d00",
+                    "on-secondary-fixed-variant": "#0e409d",
+                    "surface-container-lowest": "#ffffff",
+                    "tertiary": "#9b3400",
+                    "error": "#ba1a1a",
+                    "secondary-fixed-dim": "#b3c5ff",
+                    "primary-fixed": "#dbe1ff",
+                    "on-primary-fixed-variant": "#003fa5",
+                    "surface-dim": "#d8d9e5",
+                    "on-tertiary-fixed-variant": "#802a00",
+                    "tertiary-fixed": "#ffdbcf",
+                    "primary": "#004dc6",
+                    "on-secondary-fixed": "#001849",
+                    "on-error-container": "#93000a",
+                    "on-error": "#ffffff"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "gutter": "24px",
+                    "margin-mobile": "16px",
+                    "stack-gap-lg": "24px",
+                    "grid-columns": "12",
+                    "card-padding": "24px",
+                    "stack-gap-sm": "8px",
+                    "canvas-max-width": "1440px",
+                    "stack-gap-md": "16px",
+                    "content-max-width": "1280px",
+                    "margin-desktop": "32px"
+            },
+            "fontFamily": {
+                    "page-title": ["Inter"],
+                    "metadata": ["Inter"],
+                    "display-lg": ["Inter"],
+                    "card-title": ["Inter"],
+                    "button": ["Inter"],
+                    "page-title-mobile": ["Inter"],
+                    "display-lg-mobile": ["Inter"],
+                    "body-sm": ["Inter"],
+                    "section-title": ["Inter"],
+                    "body-md": ["Inter"]
+            },
+            "fontSize": {
+                    "page-title": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "metadata": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                    "display-lg": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                    "card-title": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                    "button": ["14px", {"lineHeight": "20px", "fontWeight": "600"}],
+                    "page-title-mobile": ["24px", {"lineHeight": "30px", "fontWeight": "600"}],
+                    "display-lg-mobile": ["28px", {"lineHeight": "34px", "fontWeight": "600"}],
+                    "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "section-title": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #dce2ea; border-radius: 10px; }
+        .asymmetric-grid {
+            display: grid;
+            grid-template-columns: 1.5fr 1fr;
+            gap: 24px;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen flex">
+<!-- SideNavBar -->
+<aside class="hidden md:flex flex-col h-screen w-72 sticky top-0 bg-surface-container-low border-r border-outline-variant py-6 px-4 gap-stack-gap-md z-50">
+<div class="flex items-center gap-3 px-2 mb-4">
+<div class="w-10 h-10 bg-primary-container rounded-lg flex items-center justify-center text-white">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">explore</span>
+</div>
+<div>
+<h1 class="font-section-title text-section-title font-black text-primary leading-tight">MyCareer Compass</h1>
+<p class="text-xs text-on-surface-variant uppercase tracking-wider font-bold">Enterprise Edition</p>
+</div>
+</div>
+<nav class="flex-1 space-y-1 overflow-y-auto custom-scrollbar">
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary">dashboard</span>
+<span class="font-body-md text-body-md">Dashboard</span>
+</a>
+<!-- Active State: Competency Validation (Mapped from Career Path) -->
+<a class="flex items-center gap-3 px-4 py-3 bg-primary-container text-on-primary-container font-bold rounded-lg shadow-sm" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">explore</span>
+<span class="font-body-md text-body-md">Competency Validation</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary">psychology</span>
+<span class="font-body-md text-body-md">Skills Lab</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary">groups</span>
+<span class="font-body-md text-body-md">Mentorship</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary">school</span>
+<span class="font-body-md text-body-md">Learning</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary">leaderboard</span>
+<span class="font-body-md text-body-md">Analytics</span>
+</a>
+</nav>
+<div class="mt-auto border-t border-outline-variant pt-4 space-y-1">
+<button class="w-full text-left flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg group">
+<span class="material-symbols-outlined">help</span>
+<span class="font-body-md text-body-md">Support</span>
+</button>
+<button class="w-full text-left flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg group">
+<span class="material-symbols-outlined text-error">logout</span>
+<span class="font-body-md text-body-md">Sign Out</span>
+</button>
+</div>
+</aside>
+<!-- Main Canvas -->
+<main class="flex-1 w-full max-w-canvas-max-width mx-auto flex flex-col min-h-screen relative">
+<!-- TopNavBar -->
+<header class="sticky top-0 z-40 w-full flex justify-between items-center h-16 px-margin-desktop bg-surface border-b border-outline-variant">
+<div class="flex items-center gap-4 flex-1">
+<div class="relative w-full max-w-md">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-full py-2 pl-10 pr-4 focus:ring-2 focus:ring-primary focus:border-transparent outline-none transition-all text-sm" placeholder="Search employees or metrics..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="relative p-2 text-on-surface-variant hover:bg-surface-container-low transition-colors rounded-full">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border-2 border-surface"></span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low transition-colors rounded-full">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-[1px] bg-outline-variant mx-2"></div>
+<div class="flex items-center gap-3">
+<div class="text-right hidden sm:block">
+<p class="text-sm font-bold text-on-surface">Alex Rivera</p>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-tighter font-black">Regional Director</p>
+</div>
+<img class="w-10 h-10 rounded-full border-2 border-primary-container object-cover" data-alt="Close up professional portrait of a business leader in a clean modern office, soft bokeh background, natural morning light, high definition professional photography." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB8z4DygtKzQmrZFqfUghUf7Vk-GBW8Izgj8e3WNZKWIHGjtQTb8Bf_T2P8pJtWrk9W2AaefpSOvYQRibfqOJ1Yf5i1RfdEZ4W45pnlXUn1TULAqp7rGlzODe9IV9ZXzi0fHvbo643Fb8HqAnBUj5Bz-QvI2jSYBwhLDmAbMU40QLX81aHOdi0xKHjK5kQTRlVJRm1dNi2dGNDLJsRrEosui6t1ajZzWI2MuSp51BeqhYqSAjsN1nBN"/>
+</div>
+</div>
+</header>
+<!-- Content Area -->
+<div class="flex-1 p-margin-desktop space-y-gutter">
+<!-- Page Header & Stats -->
+<div class="flex flex-col md:flex-row md:items-end justify-between gap-6">
+<div>
+<h2 class="font-page-title text-page-title text-on-surface mb-2">Competency Validation</h2>
+<div class="flex flex-wrap gap-4 items-center">
+<div class="flex items-center gap-2 px-3 py-1 bg-primary-container/10 rounded-full text-primary border border-primary/20">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">assignment_late</span>
+<span class="text-sm font-bold">24 Pending Validations</span>
+</div>
+<div class="flex items-center gap-2 px-3 py-1 bg-secondary-container/10 rounded-full text-secondary border border-secondary/20">
+<span class="material-symbols-outlined text-sm" style="font-variation-settings: 'FILL' 1;">schedule</span>
+<span class="text-sm font-bold">Avg. Response Time: 1.2d</span>
+</div>
+</div>
+</div>
+<!-- CTA Banner Card -->
+<div class="relative overflow-hidden bg-primary p-6 rounded-xl text-white shadow-lg flex-1 md:max-w-md group transition-all hover:scale-[1.02]">
+
+<div class="relative z-10 flex items-center justify-between">
+<div>
+<h3 class="font-card-title text-card-title mb-1">Quarterly Review Goal</h3>
+<p class="text-sm text-on-primary-container opacity-90 mb-4">Complete 100% of RD validations by Oct 30.</p>
+<button class="bg-white text-primary px-6 py-2 rounded-lg font-button text-button hover:bg-surface-container-low transition-colors flex items-center gap-2 shadow-sm">
+                                Start Bulk Validation
+                                <span class="material-symbols-outlined text-sm">rocket_launch</span>
+</button>
+</div>
+<div class="hidden lg:block">
+<div class="relative w-16 h-16 rounded-full border-4 border-white/20 flex items-center justify-center">
+<span class="font-bold text-xl">84%</span>
+<svg class="absolute inset-0 w-full h-full -rotate-90">
+<circle cx="32" cy="32" fill="transparent" r="28" stroke="white" stroke-dasharray="175" stroke-dashoffset="28" stroke-width="4"></circle>
+</svg>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Validation Table Card -->
+<div class="bg-white border border-outline-variant rounded-xl overflow-hidden shadow-sm transition-all hover:shadow-md">
+<div class="px-card-padding py-4 border-b border-outline-variant flex justify-between items-center bg-surface-bright/50">
+<h3 class="font-card-title text-card-title text-on-surface">Employees Pending Validation</h3>
+<div class="flex items-center gap-2">
+<button class="text-sm flex items-center gap-1 text-on-surface-variant hover:text-primary transition-colors">
+<span class="material-symbols-outlined text-lg">filter_list</span>
+                            Filter
+                        </button>
+<button class="text-sm flex items-center gap-1 text-on-surface-variant hover:text-primary transition-colors ml-4">
+<span class="material-symbols-outlined text-lg">download</span>
+                            Export
+                        </button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low">
+<th class="px-card-padding py-3 text-[11px] font-black uppercase tracking-widest text-on-surface-variant border-b border-outline-variant">Employee ID</th>
+<th class="px-card-padding py-3 text-[11px] font-black uppercase tracking-widest text-on-surface-variant border-b border-outline-variant">Employee</th>
+<th class="px-card-padding py-3 text-[11px] font-black uppercase tracking-widest text-on-surface-variant border-b border-outline-variant">ZM Name</th>
+<th class="px-card-padding py-3 text-[11px] font-black uppercase tracking-widest text-on-surface-variant border-b border-outline-variant">Assessment Date</th>
+<th class="px-card-padding py-3 text-[11px] font-black uppercase tracking-widest text-on-surface-variant border-b border-outline-variant">Validation Status</th>
+<th class="px-card-padding py-3 text-[11px] font-black uppercase tracking-widest text-on-surface-variant border-b border-outline-variant text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="px-card-padding py-4 text-sm font-medium text-on-surface-variant">#EMP-8241</td>
+<td class="px-card-padding py-4">
+<div class="flex items-center gap-3">
+<img class="w-10 h-10 rounded-full border border-outline-variant" data-alt="Headshot of a confident young professional woman with glasses, smiling warmly against a soft blue professional background, modern corporate style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB9HrD4DNRcKrfp5EyV5xZ0Za-aMjKdPhO-RVVuddFcMrkSzm41Lrick9wy2JVp_SdG8ekS9ctfyglO5hiHV6fVYcZUHFjBKCZ3Z5TZ8aHc7N_wiXFkOiNa8B2nnaa_X6YUQIrqa3ybPOd1V0DAsYOC5qP3A-JdjxkvK7PiNnSTwhEjYJLNyrJvR1VmpAOj_l5teKEKpEYb8twxgjnOrqcN6PnpdP8Je7-n3tDCwA4NjpAHniU2OdOe"/>
+<div>
+<p class="font-bold text-on-surface text-sm">Elena Rodriguez</p>
+<p class="text-xs text-on-surface-variant">Senior Project Manager</p>
+</div>
+</div>
+</td>
+<td class="px-card-padding py-4 text-sm text-on-surface">Marcus Thorne</td>
+<td class="px-card-padding py-4 text-sm text-on-surface">Oct 12, 2023</td>
+<td class="px-card-padding py-4">
+<span class="px-3 py-1 bg-tertiary-fixed text-on-tertiary-fixed-variant text-xs font-bold rounded-full border border-tertiary-fixed-dim">Pending RD</span>
+</td>
+<td class="px-card-padding py-4 text-right">
+<button class="bg-primary text-white px-4 py-1.5 rounded-lg text-button font-button hover:bg-primary/90 transition-all shadow-sm active:scale-95">Validate</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="px-card-padding py-4 text-sm font-medium text-on-surface-variant">#EMP-7712</td>
+<td class="px-card-padding py-4">
+<div class="flex items-center gap-3">
+<img class="w-10 h-10 rounded-full border border-outline-variant" data-alt="Portrait of a diverse male professional in his early 40s, sharp business attire, professional lighting, clean minimal background, focused expression." src="https://lh3.googleusercontent.com/aida-public/AB6AXuA7pCVgorqjld85ph-qxs0W5ZfLXE6WV95ts5yoEd5It8HZ7-TTYEPK12bh-uDRYAjL_-PfkkyYTzP3E4R2XZ71MpOTXjzn_NeD_NWZpPm8Qc9Nhghz-j-xq6qqapkSrqTbNBxbtjHWexZUjLfyUQRci-yvnGQnuXB8pQhqND3rTcqqxTlTfKz3BxAgRlMm7VPdy0uMBgtbPQ0nsBuZpDAlIcqWEFlgE9ZztjpzjaA6hfB773D0riy4"/>
+<div>
+<p class="font-bold text-on-surface text-sm">James Wilson</p>
+<p class="text-xs text-on-surface-variant">Lead Solutions Architect</p>
+</div>
+</div>
+</td>
+<td class="px-card-padding py-4 text-sm text-on-surface">Sarah Jenkins</td>
+<td class="px-card-padding py-4 text-sm text-on-surface">Oct 11, 2023</td>
+<td class="px-card-padding py-4">
+<span class="px-3 py-1 bg-tertiary-fixed text-on-tertiary-fixed-variant text-xs font-bold rounded-full border border-tertiary-fixed-dim">Pending RD</span>
+</td>
+<td class="px-card-padding py-4 text-right">
+<button class="bg-primary text-white px-4 py-1.5 rounded-lg text-button font-button hover:bg-primary/90 transition-all shadow-sm active:scale-95">Validate</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="px-card-padding py-4 text-sm font-medium text-on-surface-variant">#EMP-9005</td>
+<td class="px-card-padding py-4">
+<div class="flex items-center gap-3">
+<img class="w-10 h-10 rounded-full border border-outline-variant" data-alt="Professional corporate headshot of an Asian man with a friendly smile, business casual attire, soft natural light, minimalist office background, high quality photography." src="https://lh3.googleusercontent.com/aida-public/AB6AXuArAVd4syEcvwVBysldC0vugxOmQ5HtMS1qRKpGfGxHWHB4y3Yklm2clBezkUNguYUOidw9VhU4HwNt9-Azq2-8j_JcyEgTrQSy2gCFh46B8sWXOGRmt4kxAn65FEcXIaqDqKzr9h9S_uneabem_GA4zJ7T4iQX9KSgvDTuamA3q1YqENt5EwRXwpOkamBivpift6sw62EkMdt_yOBxL-fM1ICDsB70Iz-a6Pj4c7C-VeTUcDqhbG0A"/>
+<div>
+<p class="font-bold text-on-surface text-sm">David Chen</p>
+<p class="text-xs text-on-surface-variant">Senior Operations Lead</p>
+</div>
+</div>
+</td>
+<td class="px-card-padding py-4 text-sm text-on-surface">Marcus Thorne</td>
+<td class="px-card-padding py-4 text-sm text-on-surface">Oct 10, 2023</td>
+<td class="px-card-padding py-4">
+<span class="px-3 py-1 bg-tertiary-fixed text-on-tertiary-fixed-variant text-xs font-bold rounded-full border border-tertiary-fixed-dim">Pending RD</span>
+</td>
+<td class="px-card-padding py-4 text-right">
+<button class="bg-primary text-white px-4 py-1.5 rounded-lg text-button font-button hover:bg-primary/90 transition-all shadow-sm active:scale-95">Validate</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination -->
+<div class="px-card-padding py-4 border-t border-outline-variant flex items-center justify-between bg-surface-bright/50">
+<p class="text-sm text-on-surface-variant">Showing <span class="font-bold">1-10</span> of <span class="font-bold">24</span> employees</p>
+<div class="flex items-center gap-1">
+<button class="p-2 rounded-lg hover:bg-surface-container-low text-on-surface-variant disabled:opacity-30" disabled="">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="w-8 h-8 rounded-lg bg-primary text-white text-xs font-bold">1</button>
+<button class="w-8 h-8 rounded-lg hover:bg-surface-container-low text-xs font-bold transition-colors">2</button>
+<button class="w-8 h-8 rounded-lg hover:bg-surface-container-low text-xs font-bold transition-colors">3</button>
+<button class="p-2 rounded-lg hover:bg-surface-container-low text-on-surface-variant">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Footer Informational Cards (Asymmetric) -->
+<div class="asymmetric-grid">
+<div class="bg-surface-container-low border border-outline-variant rounded-xl p-card-padding flex flex-col gap-4 relative overflow-hidden group">
+<div class="absolute -right-4 -bottom-4 opacity-5 group-hover:scale-110 transition-transform duration-500">
+<span class="material-symbols-outlined text-[120px]" style="font-variation-settings: 'FILL' 1;">lightbulb</span>
+</div>
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-secondary-container/20 text-secondary rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined">lightbulb</span>
+</div>
+<h4 class="font-section-title text-section-title text-on-surface">RD Review Best Practices</h4>
+</div>
+<ul class="space-y-3 relative z-10">
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary mt-1 text-lg">check_circle</span>
+<p class="text-body-sm text-body-sm text-on-surface-variant">Validate technical competency evidence before leadership traits for a structured approach.</p>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary mt-1 text-lg">check_circle</span>
+<p class="text-body-sm text-body-sm text-on-surface-variant">Consult ZM comments if a score deviates significantly from the department average.</p>
+</li>
+<li class="flex items-start gap-3">
+<span class="material-symbols-outlined text-primary mt-1 text-lg">check_circle</span>
+<p class="text-body-sm text-body-sm text-on-surface-variant">Target a 48-hour SLA to maintain organizational career growth velocity.</p>
+</li>
+</ul>
+</div>
+<div class="bg-surface-container-low border border-outline-variant rounded-xl p-card-padding flex flex-col gap-4 relative overflow-hidden border-l-4 border-l-tertiary">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-tertiary-container/10 text-tertiary rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined">balance</span>
+</div>
+<h4 class="font-section-title text-section-title text-on-surface">Calibration Requirement</h4>
+</div>
+<p class="text-body-sm text-body-sm text-on-surface-variant leading-relaxed">
+                        All Regional Directors must attend the monthly calibration session. This ensures consistent scoring across divisions and aligns with Enterprise 2024 standards.
+                    </p>
+<div class="mt-auto pt-4 border-t border-outline-variant">
+<p class="text-xs font-bold text-tertiary flex items-center gap-2">
+<span class="material-symbols-outlined text-sm">event</span>
+                            Next Session: Nov 4th, 09:00 AM
+                        </p>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer -->
+<footer class="mt-auto py-6 px-margin-desktop border-t border-outline-variant flex flex-col md:flex-row justify-between items-center gap-4">
+<p class="text-xs text-on-surface-variant">© 2023 MyCareer Compass Enterprise. All rights reserved.</p>
+<div class="flex items-center gap-6">
+<a class="text-xs font-bold text-on-surface-variant hover:text-primary transition-colors" href="#">Privacy Policy</a>
+<a class="text-xs font-bold text-on-surface-variant hover:text-primary transition-colors" href="#">Compliance Hub</a>
+<a class="text-xs font-bold text-on-surface-variant hover:text-primary transition-colors" href="#">System Status</a>
+</div>
+</footer>
+</main>
+<!-- Mobile BottomNavBar (Visible only on mobile) -->
+<nav class="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-surface border-t border-outline-variant flex items-center justify-around px-2 z-50 shadow-[0_-4px_12px_rgba(0,0,0,0.05)]">
+<button class="flex flex-col items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-[10px] font-bold">Home</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">explore</span>
+<span class="text-[10px] font-bold">Validate</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined">psychology</span>
+<span class="text-[10px] font-bold">Skills</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined">leaderboard</span>
+<span class="text-[10px] font-bold">Stats</span>
+</button>
+</nav>
+<script>
+        // Simple interactivity for the Validate buttons
+        document.querySelectorAll('button').forEach(btn => {
+            if (btn.innerText === 'Validate') {
+                btn.addEventListener('click', function() {
+                    const originalText = this.innerText;
+                    this.innerHTML = '<span class="material-symbols-outlined animate-spin text-sm">sync</span>';
+                    this.classList.add('opacity-80');
+                    
+                    setTimeout(() => {
+                        this.innerHTML = '<span class="material-symbols-outlined text-sm">check</span> Done';
+                        this.classList.remove('bg-primary');
+                        this.classList.add('bg-green-600');
+                        
+                        // Logic to potentially remove row or mark as completed
+                        const row = this.closest('tr');
+                        const statusBadge = row.querySelector('.bg-tertiary-fixed');
+                        if (statusBadge) {
+                            statusBadge.innerText = 'Completed';
+                            statusBadge.classList.remove('bg-tertiary-fixed', 'text-on-tertiary-fixed-variant');
+                            statusBadge.classList.add('bg-green-100', 'text-green-800', 'border-green-200');
+                        }
+                    }, 1200);
+                });
+            }
+        });
+    </script>
+</body></html>

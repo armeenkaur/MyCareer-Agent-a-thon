@@ -1,8 +1,12 @@
 __pycache__/
 *.py[cod]
+.venv/
 .DS_Store
 uploads/
 ~$*.xlsx
 .env
 agent_decisions.jsonl
 logs/
+data/*.db
+data/*.db-shm
+data/*.db-wal

@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Competency Profile Confidence | MyCareer Compass</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-container-lowest": "#ffffff",
+                    "surface-container-low": "#f2f3ff",
+                    "surface-tint": "#0054d7",
+                    "on-secondary-fixed": "#001849",
+                    "inverse-surface": "#2e3039",
+                    "on-primary-fixed-variant": "#003fa5",
+                    "on-primary": "#ffffff",
+                    "on-tertiary-container": "#fff0ec",
+                    "on-secondary-container": "#003183",
+                    "secondary-fixed-dim": "#b3c5ff",
+                    "on-primary-fixed": "#001849",
+                    "error-container": "#ffdad6",
+                    "on-surface": "#191b24",
+                    "tertiary-fixed": "#ffdbcf",
+                    "surface-dim": "#d8d9e5",
+                    "outline": "#737687",
+                    "secondary-container": "#799dfe",
+                    "outline-variant": "#c2c6d8",
+                    "error": "#ba1a1a",
+                    "surface-container": "#ecedf9",
+                    "on-error": "#ffffff",
+                    "surface-container-highest": "#e1e2ee",
+                    "surface-bright": "#faf8ff",
+                    "inverse-on-surface": "#eff0fc",
+                    "surface-variant": "#e1e2ee",
+                    "on-error-container": "#93000a",
+                    "surface": "#faf8ff",
+                    "secondary": "#3159b6",
+                    "primary-fixed-dim": "#b3c5ff",
+                    "on-tertiary-fixed": "#380d00",
+                    "tertiary": "#9b3400",
+                    "primary": "#004dc6",
+                    "primary-container": "#1464f4",
+                    "on-tertiary": "#ffffff",
+                    "on-secondary": "#ffffff",
+                    "on-primary-container": "#f1f2ff",
+                    "on-tertiary-fixed-variant": "#802a00",
+                    "tertiary-fixed-dim": "#ffb59a",
+                    "inverse-primary": "#b3c5ff",
+                    "background": "#faf8ff",
+                    "on-background": "#191b24",
+                    "surface-container-high": "#e7e7f3",
+                    "secondary-fixed": "#dae2ff",
+                    "primary-fixed": "#dbe1ff",
+                    "on-secondary-fixed-variant": "#0e409d",
+                    "on-surface-variant": "#424655",
+                    "tertiary-container": "#c44400"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "margin-desktop": "32px",
+                    "stack-gap-lg": "24px",
+                    "stack-gap-md": "16px",
+                    "grid-columns": "12",
+                    "canvas-max-width": "1440px",
+                    "margin-mobile": "16px",
+                    "card-padding": "24px",
+                    "gutter": "24px",
+                    "content-max-width": "1280px",
+                    "stack-gap-sm": "8px"
+            },
+            "fontFamily": {
+                    "metadata": ["Inter"],
+                    "card-title": ["Inter"],
+                    "body-sm": ["Inter"],
+                    "section-title": ["Inter"],
+                    "button": ["Inter"],
+                    "page-title-mobile": ["Inter"],
+                    "display-lg": ["Inter"],
+                    "body-md": ["Inter"],
+                    "page-title": ["Inter"],
+                    "display-lg-mobile": ["Inter"]
+            },
+            "fontSize": {
+                    "metadata": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                    "card-title": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                    "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "section-title": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "button": ["14px", {"lineHeight": "20px", "fontWeight": "600"}],
+                    "page-title-mobile": ["24px", {"lineHeight": "30px", "fontWeight": "600"}],
+                    "display-lg": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "page-title": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "display-lg-mobile": ["28px", {"lineHeight": "34px", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; background-color: #faf8ff; }
+        .sidebar-item-active { background-color: #1464f4; color: #f1f2ff; font-weight: bold; border-radius: 0.5rem; }
+        .bento-grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: 24px; }
+        .card-shadow { box-shadow: 0px 4px 12px rgba(23, 32, 51, 0.05); }
+    </style>
+</head>
+<body class="text-on-surface">
+<div class="flex min-h-screen">
+<!-- SideNavBar (Authority Source: JSON) -->
+<aside class="hidden md:flex flex-col h-screen w-72 bg-surface-container-low border-r border-outline-variant py-6 px-4 gap-stack-gap-md fixed left-0">
+<div class="flex items-center gap-3 mb-8">
+<div class="w-10 h-10 bg-primary-container rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary">psychology</span>
+</div>
+<div>
+<h1 class="font-section-title text-section-title font-black text-primary">MyCareer Compass</h1>
+<p class="text-metadata text-on-surface-variant uppercase tracking-wider">Enterprise Edition</p>
+</div>
+</div>
+<nav class="flex flex-col gap-1 flex-1">
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all group active:scale-95" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-md text-body-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all group active:scale-95" href="#">
+<span class="material-symbols-outlined">explore</span>
+<span class="font-body-md text-body-md">Career Path</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all group active:scale-95" href="#">
+<span class="material-symbols-outlined">psychology</span>
+<span class="font-body-md text-body-md">Skills Lab</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all group active:scale-95" href="#">
+<span class="material-symbols-outlined">groups</span>
+<span class="font-body-md text-body-md">Mentorship</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all group active:scale-95" href="#">
+<span class="material-symbols-outlined">school</span>
+<span class="font-body-md text-body-md">Learning</span>
+</a>
+<!-- Active Item -->
+<a class="flex items-center gap-3 px-4 py-3 bg-primary-container text-on-primary-container font-bold rounded-lg transition-all scale-95" href="#">
+<span class="material-symbols-outlined">leaderboard</span>
+<span class="font-body-md text-body-md">Analytics</span>
+</a>
+</nav>
+<div class="mt-auto flex flex-col gap-1 pt-6 border-t border-outline-variant">
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-dim transition-all" href="#">
+<span class="material-symbols-outlined">help</span>
+<span class="font-body-md text-body-md">Support</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-dim transition-all" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-body-md text-body-md">Sign Out</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 md:ml-72 min-h-screen bg-background">
+<!-- TopAppBar (Authority Source: JSON) -->
+<header class="flex justify-between items-center h-16 px-margin-desktop w-full bg-surface sticky top-0 z-40 border-b border-outline-variant">
+<div class="flex items-center gap-stack-gap-md">
+<div class="relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="pl-10 pr-4 py-2 bg-surface-container-lowest border border-outline-variant rounded-lg w-64 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all" placeholder="Search insights..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-stack-gap-md">
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-low transition-colors text-on-surface-variant">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-low transition-colors text-on-surface-variant">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-[1px] bg-outline-variant mx-2"></div>
+<img class="h-10 w-10 rounded-full border border-primary" data-alt="A professional headshot of a corporate manager in a clean, modern studio setting with soft lighting. The background is a muted gray-blue, consistent with the tech-focused career platform aesthetic. The subject is smiling warmly, conveying trust and leadership qualities." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBQlwV0xER4WRWUZxadePyJJLJPSroK3TUj0EatvkcmHovDstyhJXa6qwLtAMOzYUE4d55r85FE83JXpurHbYqGc6KKVtYF7mPm77q7PQv-4EMTWasZVPN6iAMX4bb33JMDR1jj0yBP6JOHH5pfvQ7AZvvOdKG3BItrTe5ka2jWUG5lu9TAVJhfiFBTb48FqkHlbzL51fpOBZDfQsjsAa-Khl_LKeKkqIVvbUunA_KtK70HTTGBRYGr"/>
+</div>
+</header>
+<!-- Page Canvas -->
+<div class="p-margin-desktop max-w-content-max-width mx-auto">
+<!-- Header Section -->
+<div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-stack-gap-md mb-stack-gap-lg">
+<div>
+<nav class="flex items-center gap-2 text-metadata text-on-surface-variant mb-2">
+<span class="hover:text-primary cursor-pointer">Analytics</span>
+<span class="material-symbols-outlined text-[14px]">chevron_right</span>
+<span class="text-on-surface font-semibold">Competency Profile Confidence</span>
+</nav>
+<h2 class="font-page-title text-page-title text-on-surface">Competency Profile Confidence</h2>
+<p class="text-body-md text-on-surface-variant mt-1">Detailed breakdown of rating veracity across core competencies.</p>
+</div>
+<div class="flex gap-stack-gap-sm">
+<button class="flex items-center gap-2 px-4 py-2 border border-outline-variant text-primary font-button rounded-lg hover:bg-surface-container-low transition-all">
+<span class="material-symbols-outlined text-[18px]">download</span>
+                            Export Report
+                        </button>
+<button class="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary font-button rounded-lg hover:opacity-90 transition-all">
+<span class="material-symbols-outlined text-[18px]">refresh</span>
+                            Recalculate
+                        </button>
+</div>
+</div>
+<!-- Score Bento Grid -->
+<div class="bento-grid mb-stack-gap-lg">
+<!-- Main Confidence Gauge -->
+<div class="col-span-12 lg:col-span-4 bg-surface-container-lowest border border-outline-variant rounded-xl p-card-padding card-shadow flex flex-col justify-between overflow-hidden relative">
+
+<div>
+<h3 class="font-card-title text-card-title mb-1">Overall Confidence</h3>
+<p class="text-metadata text-on-surface-variant">Aggregated system-wide score</p>
+</div>
+<div class="py-6 flex items-center justify-center">
+<div class="relative w-40 h-40 flex items-center justify-center">
+<svg class="w-full h-full -rotate-90">
+<circle class="text-surface-container" cx="80" cy="80" fill="transparent" r="70" stroke="currentColor" stroke-width="12"></circle>
+<circle class="text-primary" cx="80" cy="80" fill="transparent" r="70" stroke="currentColor" stroke-dasharray="440" stroke-dashoffset="66" stroke-linecap="round" stroke-width="12"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span class="font-display-lg text-display-lg text-primary">85%</span>
+<span class="text-metadata font-bold uppercase text-on-surface-variant">Veracity</span>
+</div>
+</div>
+</div>
+<div class="flex items-center gap-2 p-3 bg-surface-container-low rounded-lg">
+<span class="material-symbols-outlined text-primary">verified</span>
+<span class="text-body-sm font-semibold">High Veracity Threshold met</span>
+</div>
+</div>
+<!-- Badge Status & Legend -->
+<div class="col-span-12 md:col-span-6 lg:col-span-4 bg-surface-container-lowest border border-outline-variant rounded-xl p-card-padding card-shadow flex flex-col gap-stack-gap-md">
+<h3 class="font-card-title text-card-title">Distribution Status</h3>
+<div class="space-y-4">
+<div class="flex items-center justify-between p-3 rounded-lg border border-outline-variant">
+<div class="flex items-center gap-3">
+<span class="w-3 h-3 rounded-full bg-green-500"></span>
+<span class="font-body-md">High Confidence</span>
+</div>
+<span class="px-3 py-1 bg-green-100 text-green-700 text-metadata font-bold rounded-full">4 Competencies</span>
+</div>
+<div class="flex items-center justify-between p-3 rounded-lg border border-outline-variant">
+<div class="flex items-center gap-3">
+<span class="w-3 h-3 rounded-full bg-amber-500"></span>
+<span class="font-body-md">Medium Confidence</span>
+</div>
+<span class="px-3 py-1 bg-amber-100 text-amber-700 text-metadata font-bold rounded-full">3 Competencies</span>
+</div>
+<div class="flex items-center justify-between p-3 rounded-lg border border-outline-variant opacity-50">
+<div class="flex items-center gap-3">
+<span class="w-3 h-3 rounded-full bg-red-500"></span>
+<span class="font-body-md">Low Confidence</span>
+</div>
+<span class="px-3 py-1 bg-red-100 text-red-700 text-metadata font-bold rounded-full">0 Competencies</span>
+</div>
+</div>
+<div class="mt-auto pt-4 border-t border-outline-variant">
+<p class="text-metadata text-on-surface-variant italic">System automatically flags scores below 60% for manual RD audit.</p>
+</div>
+</div>
+<!-- Formula Explanation Card -->
+<div class="col-span-12 md:col-span-6 lg:col-span-4 bg-primary-container text-on-primary-container border border-primary rounded-xl p-card-padding card-shadow">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined">info</span>
+<h3 class="font-card-title text-card-title">Formula Logic</h3>
+</div>
+<p class="text-body-md mb-6 leading-relaxed">
+                            The Combined Confidence Score is a weighted average derived from multi-source verification:
+                        </p>
+<div class="space-y-4">
+<div class="bg-primary/20 p-4 rounded-lg border border-primary/30">
+<div class="flex justify-between items-center mb-2">
+<span class="font-bold">ZM Alignment</span>
+<span class="text-xl font-black">50%</span>
+</div>
+<p class="text-body-sm opacity-90">Measures agreement between Regional Director (RD) final rating and Zone Manager (ZM) input.</p>
+</div>
+<div class="bg-primary/20 p-4 rounded-lg border border-primary/30">
+<div class="flex justify-between items-center mb-2">
+<span class="font-bold">AI Veracity</span>
+<span class="text-xl font-black">50%</span>
+</div>
+<p class="text-body-sm opacity-90">Measures agreement between screenshot AI analysis and RD final rating.</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Table Card -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden card-shadow">
+<div class="p-card-padding border-b border-outline-variant flex justify-between items-center">
+<div>
+<h3 class="font-section-title text-section-title">Detailed Competency Verification</h3>
+<p class="text-body-sm text-on-surface-variant">Comparative analysis across all evaluation vectors</p>
+</div>
+<div class="flex items-center gap-stack-gap-md">
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-primary"></span>
+<span class="text-metadata">RD Final</span>
+</div>
+<div class="flex items-center gap-2">
+<span class="w-3 h-3 rounded-full bg-secondary"></span>
+<span class="text-metadata">ZM/AI Ref</span>
+</div>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low text-on-surface-variant text-metadata font-bold uppercase tracking-wider">
+<th class="px-6 py-4">Competency</th>
+<th class="px-4 py-4 text-center">RD Final</th>
+<th class="px-4 py-4 text-center">ZM Rating</th>
+<th class="px-4 py-4 text-center">AI Screen</th>
+<th class="px-4 py-4 text-center">ZM Agrmnt</th>
+<th class="px-4 py-4 text-center">AI Agrmnt</th>
+<th class="px-6 py-4 text-right">Confidence</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="px-6 py-5">
+<div class="font-semibold text-on-surface">Communication</div>
+<div class="text-metadata text-on-surface-variant">Verbal &amp; Written clarity</div>
+</td>
+<td class="px-4 py-5 text-center"><span class="font-bold text-primary">4.5</span></td>
+<td class="px-4 py-5 text-center text-on-surface-variant">4.0</td>
+<td class="px-4 py-5 text-center text-on-surface-variant">4.5</td>
+<td class="px-4 py-5 text-center">
+<div class="w-16 h-1.5 bg-surface-container rounded-full mx-auto"><div class="h-full bg-primary rounded-full" style="width: 80%"></div></div>
+<span class="text-[10px] text-on-surface-variant">80%</span>
+</td>
+<td class="px-4 py-5 text-center">
+<div class="w-16 h-1.5 bg-surface-container rounded-full mx-auto"><div class="h-full bg-primary rounded-full" style="width: 100%"></div></div>
+<span class="text-[10px] text-on-surface-variant">100%</span>
+</td>
+<td class="px-6 py-5 text-right">
+<span class="px-3 py-1 bg-green-100 text-green-700 text-metadata font-bold rounded-full">90% HIGH</span>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="px-6 py-5">
+<div class="font-semibold text-on-surface">Stakeholder Management</div>
+<div class="text-metadata text-on-surface-variant">Influencing cross-functional teams</div>
+</td>
+<td class="px-4 py-5 text-center"><span class="font-bold text-primary">3.5</span></td>
+<td class="px-4 py-5 text-center text-on-surface-variant">3.5</td>
+<td class="px-4 py-5 text-center text-on-surface-variant">3.0</td>
+<td class="px-4 py-5 text-center">
+<div class="w-16 h-1.5 bg-surface-container rounded-full mx-auto"><div class="h-full bg-primary rounded-full" style="width: 100%"></div></div>
+<span class="text-[10px] text-on-surface-variant">100%</span>
+</td>
+<td class="px-4 py-5 text-center">
+<div class="w-16 h-1.5 bg-surface-container rounded-full mx-auto"><div class="h-full bg-primary rounded-full" style="width: 70%"></div></div>
+<span class="text-[10px] text-on-surface-variant">70%</span>
+</td>
+<td class="px-6 py-5 text-right">
+<span class="px-3 py-1 bg-green-100 text-green-700 text-metadata font-bold rounded-full">85% HIGH</span>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="px-6 py-5">
+<div class="font-semibold text-on-surface">Strategic Thinking</div>
+<div class="text-metadata text-on-surface-variant">Long-term vision &amp; roadmapping</div>
+</td>
+<td class="px-4 py-5 text-center"><span class="font-bold text-primary">5.0</span></td>
+<td class="px-4 py-5 text-center text-on-surface-variant">4.0</td>
+<td class="px-4 py-5 text-center text-on-surface-variant">4.0</td>
+<td class="px-4 py-5 text-center">
+<div class="w-16 h-1.5 bg-surface-container rounded-full mx-auto"><div class="h-full bg-primary rounded-full" style="width: 60%"></div></div>
+<span class="text-[10px] text-on-surface-variant">60%</span>
+</td>
+<td class="px-4 py-5 text-center">
+<div class="w-16 h-1.5 bg-surface-container rounded-full mx-auto"><div class="h-full bg-primary rounded-full" style="width: 60%"></div></div>
+<span class="text-[10px] text-on-surface-variant">60%</span>
+</td>
+<td class="px-6 py-5 text-right">
+<span class="px-3 py-1 bg-amber-100 text-amber-700 text-metadata font-bold rounded-full">60% MED</span>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="px-6 py-5">
+<div class="font-semibold text-on-surface">Technical Proficiency</div>
+<div class="text-metadata text-on-surface-variant">Software &amp; stack expertise</div>
+</td>
+<td class="px-4 py-5 text-center"><span class="font-bold text-primary">4.0</span></td>
+<td class="px-4 py-5 text-center text-on-surface-variant">4.0</td>
+<td class="px-4 py-5 text-center text-on-surface-variant">4.0</td>
+<td class="px-4 py-5 text-center">
+<div class="w-16 h-1.5 bg-surface-container rounded-full mx-auto"><div class="h-full bg-primary rounded-full" style="width: 100%"></div></div>
+<span class="text-[10px] text-on-surface-variant">100%</span>
+</td>
+<td class="px-4 py-5 text-center">
+<div class="w-16 h-1.5 bg-surface-container rounded-full mx-auto"><div class="h-full bg-primary rounded-full" style="width: 100%"></div></div>
+<span class="text-[10px] text-on-surface-variant">100%</span>
+</td>
+<td class="px-6 py-5 text-right">
+<span class="px-3 py-1 bg-green-100 text-green-700 text-metadata font-bold rounded-full">100% HIGH</span>
+</td>
+</tr>
+<!-- Row 5 -->
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="px-6 py-5">
+<div class="font-semibold text-on-surface">Adaptability</div>
+<div class="text-metadata text-on-surface-variant">Performance under shifting targets</div>
+</td>
+<td class="px-4 py-5 text-center"><span class="font-bold text-primary">3.0</span></td>
+<td class="px-4 py-5 text-center text-on-surface-variant">3.5</td>
+<td class="px-4 py-5 text-center text-on-surface-variant">3.5</td>
+<td class="px-4 py-5 text-center">
+<div class="w-16 h-1.5 bg-surface-container rounded-full mx-auto"><div class="h-full bg-primary rounded-full" style="width: 75%"></div></div>
+<span class="text-[10px] text-on-surface-variant">75%</span>
+</td>
+<td class="px-4 py-5 text-center">
+<div class="w-16 h-1.5 bg-surface-container rounded-full mx-auto"><div class="h-full bg-primary rounded-full" style="width: 75%"></div></div>
+<span class="text-[10px] text-on-surface-variant">75%</span>
+</td>
+<td class="px-6 py-5 text-right">
+<span class="px-3 py-1 bg-amber-100 text-amber-700 text-metadata font-bold rounded-full">75% MED</span>
+</td>
+</tr>
+<!-- Row 6 -->
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="px-6 py-5">
+<div class="font-semibold text-on-surface">Data Literacy</div>
+<div class="text-metadata text-on-surface-variant">Evidence-based decision making</div>
+</td>
+<td class="px-4 py-5 text-center"><span class="font-bold text-primary">4.0</span></td>
+<td class="px-4 py-5 text-center text-on-surface-variant">3.5</td>
+<td class="px-4 py-5 text-center text-on-surface-variant">4.0</td>
+<td class="px-4 py-5 text-center">
+<div class="w-16 h-1.5 bg-surface-container rounded-full mx-auto"><div class="h-full bg-primary rounded-full" style="width: 80%"></div></div>
+<span class="text-[10px] text-on-surface-variant">80%</span>
+</td>
+<td class="px-4 py-5 text-center">
+<div class="w-16 h-1.5 bg-surface-container rounded-full mx-auto"><div class="h-full bg-primary rounded-full" style="width: 100%"></div></div>
+<span class="text-[10px] text-on-surface-variant">100%</span>
+</td>
+<td class="px-6 py-5 text-right">
+<span class="px-3 py-1 bg-green-100 text-green-700 text-metadata font-bold rounded-full">90% HIGH</span>
+</td>
+</tr>
+<!-- Row 7 -->
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="px-6 py-5">
+<div class="font-semibold text-on-surface">Crisis Management</div>
+<div class="text-metadata text-on-surface-variant">Emergency project recovery</div>
+</td>
+<td class="px-4 py-5 text-center"><span class="font-bold text-primary">3.5</span></td>
+<td class="px-4 py-5 text-center text-on-surface-variant">3.0</td>
+<td class="px-4 py-5 text-center text-on-surface-variant">4.0</td>
+<td class="px-4 py-5 text-center">
+<div class="w-16 h-1.5 bg-surface-container rounded-full mx-auto"><div class="h-full bg-primary rounded-full" style="width: 70%"></div></div>
+<span class="text-[10px] text-on-surface-variant">70%</span>
+</td>
+<td class="px-4 py-5 text-center">
+<div class="w-16 h-1.5 bg-surface-container rounded-full mx-auto"><div class="h-full bg-primary rounded-full" style="width: 70%"></div></div>
+<span class="text-[10px] text-on-surface-variant">70%</span>
+</td>
+<td class="px-6 py-5 text-right">
+<span class="px-3 py-1 bg-amber-100 text-amber-700 text-metadata font-bold rounded-full">70% MED</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-4 bg-surface-container-low text-center">
+<button class="text-primary font-button hover:underline">View Historical Comparison Data</button>
+</div>
+</div>
+</div>
+<!-- Footer Meta -->
+<footer class="mt-stack-gap-lg px-margin-desktop py-8 border-t border-outline-variant flex flex-col md:flex-row justify-between items-center gap-4">
+<p class="text-metadata text-on-surface-variant">© 2024 MyCareer Compass. All confidence scores are audited bi-annually.</p>
+<div class="flex gap-stack-gap-md">
+<a class="text-metadata hover:text-primary" href="#">Data Policy</a>
+<a class="text-metadata hover:text-primary" href="#">Calculation Audit</a>
+<a class="text-metadata hover:text-primary" href="#">Methodology</a>
+</div>
+</footer>
+</main>
+</div>
+<!-- Mobile Navigation Shell (Authority Source: JSON) -->
+<nav class="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-surface border-t border-outline-variant flex justify-around items-center z-50">
+<button class="flex flex-col items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-[10px]">Home</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">explore</span>
+<span class="text-[10px]">Path</span>
+</button>
+<button class="flex flex-col items-center justify-center text-primary font-bold">
+<span class="material-symbols-outlined">leaderboard</span>
+<span class="text-[10px]">Analytics</span>
+</button>
+<button class="flex flex-col items-center justify-center text-on-surface-variant">
+<span class="material-symbols-outlined">settings</span>
+<span class="text-[10px]">Setup</span>
+</button>
+</nav>
+<script>
+        // Micro-interaction for hover effects on table rows
+        document.querySelectorAll('tbody tr').forEach(row => {
+            row.addEventListener('mouseenter', () => {
+                row.style.transform = 'scale(1.002)';
+                row.style.boxShadow = '0 4px 10px rgba(0,0,0,0.02)';
+            });
+            row.addEventListener('mouseleave', () => {
+                row.style.transform = 'scale(1)';
+                row.style.boxShadow = 'none';
+            });
+        });
+
+        // Simple animation logic for the gauge on load
+        window.addEventListener('load', () => {
+            const circles = document.querySelectorAll('circle.text-primary');
+            circles.forEach(circle => {
+                circle.style.transition = 'stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1)';
+            });
+        });
+    </script>
+</body></html>

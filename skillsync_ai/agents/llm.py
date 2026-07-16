@@ -80,6 +80,38 @@ def chat_json(
     )
 
 
+def chat_image_json(
+    system: str,
+    prompt: str,
+    image_data_url: str,
+    *,
+    agent_name: str,
+    emp_code: str = "",
+    max_completion_tokens: int = 3000,
+) -> dict[str, Any] | None:
+    """Send one image with a text prompt and require a JSON response."""
+    messages = [
+        {"role": "system", "content": system},
+        {
+            "role": "user",
+            "content": [
+                {"type": "text", "text": prompt},
+                {"type": "image_url", "image_url": {"url": image_data_url, "detail": "high"}},
+            ],
+        },
+    ]
+    log.info("Vision call start agent=%s emp=%s", agent_name, emp_code or "-")
+    throttle_api_call()
+    return _chat_openai(
+        messages,
+        agent_name=agent_name,
+        emp_code=emp_code,
+        state=None,
+        temperature=0.0,
+        max_completion_tokens=max_completion_tokens,
+    )
+
+
 def record_decision(
     state: Any,
     *,

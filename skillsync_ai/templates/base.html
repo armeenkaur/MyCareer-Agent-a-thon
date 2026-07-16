@@ -6,53 +6,24 @@
     <title>{title}</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Geist:wght@400;500;600;700&display=swap" rel="stylesheet">
-    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=block" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/styles.css">
   </head>
   <body data-role="{page_role}">
-    <div class="app-frame">
-      <aside class="global-sidebar">
-        <a class="brand" href="/"><span class="brand-mark material-symbols-outlined">bolt</span><span>MYCAREER AI</span></a>
-        <nav class="global-nav role-nav employee-nav" aria-label="Employee navigation">
-          <a href="/employee?section=overview"><span class="material-symbols-outlined">dashboard</span><span>Overview</span></a>
-          <a href="/employee?section=functional"><span class="material-symbols-outlined">radar</span><span>Functional skills</span></a>
-          <a href="/employee?section=behavioral"><span class="material-symbols-outlined">psychology</span><span>Behavioural assessment</span></a>
-          <a href="/employee?section=results"><span class="material-symbols-outlined">monitoring</span><span>My profile &amp; gaps</span></a>
-          <a href="/employee/shop"><span class="material-symbols-outlined">auto_stories</span><span>Shop your courses</span></a>
-          <a href="/employee/journey"><span class="material-symbols-outlined">route</span><span>Learning journey</span></a>
-          <a href="/feedback?role=employee"><span class="material-symbols-outlined">forum</span><span>Feedback</span></a>
+    <div class="app-canvas">
+      <header class="topbar">
+        <a class="event-name" href="/">MYCAREER COMPASS</a>
+        <nav class="top-nav">
+          <a href="/api/health">API Health</a>
+          <a href="/api/meta">API Metadata</a>
         </nav>
-        <nav class="global-nav role-nav manager-nav" aria-label="Manager navigation">
-          <a href="/manager"><span class="material-symbols-outlined">dashboard</span><span>Team overview</span></a>
-          <a href="/manager"><span class="material-symbols-outlined">group</span><span>Employee assessments</span></a>
-          <a href="/manager"><span class="material-symbols-outlined">leaderboard</span><span>Learning leaderboard</span></a>
-          <a href="/feedback?role=manager"><span class="material-symbols-outlined">forum</span><span>Feedback</span></a>
-        </nav>
-        <nav class="global-nav role-nav admin-nav" aria-label="Admin navigation">
-          <a href="/admin"><span class="material-symbols-outlined">dashboard</span><span>Overview</span></a>
-          <a href="/admin"><span class="material-symbols-outlined">database</span><span>Employee database</span></a>
-          <a href="/admin"><span class="material-symbols-outlined">account_tree</span><span>Agent pipeline</span></a>
-          <a href="/admin"><span class="material-symbols-outlined">analytics</span><span>Reports</span></a>
-          <a href="/feedback?role=admin"><span class="material-symbols-outlined">forum</span><span>Feedback</span></a>
-        </nav>
-        <div class="global-sidebar-foot">
-          <span class="system-indicator"><i></i> Agent system online</span>
-        </div>
-      </aside>
-      <div class="app-canvas">
-        <header class="topbar">
-          <a class="event-name" href="/">AGENT-A-THON</a>
-          <nav class="top-nav">
-            <a href="/employee">Employee</a>
-            <a href="/manager">Manager</a>
-            <a href="/admin">Admin</a>
-          </nav>
-          <div class="agent-status"><i></i> Agent Alerts</div>
-        </header>
-        <main class="main-area">{body}</main>
-        <footer class="app-footer"><span>MYCAREER COMPASS</span><span>AI talent intelligence</span><span>Agent-a-thon build</span></footer>
-      </div>
+        <div class="agent-status">Backend online</div>
+      </header>
+      <main class="main-area">{body}</main>
+      <footer class="app-footer">
+        <span>MYCAREER COMPASS</span>
+        <span>Stitch frontend integration pending</span>
+      </footer>
     </div>
   </body>
 </html>

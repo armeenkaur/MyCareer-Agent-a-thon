@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Employee Leaderboard | MyCareer Compass</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-error": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "surface-tint": "#0054d7",
+                        "error-container": "#ffdad6",
+                        "on-tertiary-fixed-variant": "#802a00",
+                        "secondary-fixed": "#dae2ff",
+                        "on-primary-fixed-variant": "#003fa5",
+                        "secondary-fixed-dim": "#b3c5ff",
+                        "on-secondary-fixed": "#001849",
+                        "primary-container": "#1464f4",
+                        "on-surface-variant": "#424655",
+                        "inverse-surface": "#2e3039",
+                        "on-surface": "#191b24",
+                        "on-secondary-fixed-variant": "#0e409d",
+                        "on-tertiary": "#ffffff",
+                        "surface-container-low": "#f2f3ff",
+                        "background": "#faf8ff",
+                        "surface-container": "#ecedf9",
+                        "on-tertiary-container": "#fff0ec",
+                        "on-error-container": "#93000a",
+                        "on-primary-container": "#f1f2ff",
+                        "inverse-on-surface": "#eff0fc",
+                        "surface-container-high": "#e7e7f3",
+                        "tertiary-fixed-dim": "#ffb59a",
+                        "surface-container-highest": "#e1e2ee",
+                        "surface-bright": "#faf8ff",
+                        "tertiary-fixed": "#ffdbcf",
+                        "on-tertiary-fixed": "#380d00",
+                        "outline-variant": "#c2c6d8",
+                        "on-secondary-container": "#003183",
+                        "primary-fixed-dim": "#b3c5ff",
+                        "on-background": "#191b24",
+                        "inverse-primary": "#b3c5ff",
+                        "surface-dim": "#d8d9e5",
+                        "on-primary-fixed": "#001849",
+                        "error": "#ba1a1a",
+                        "surface": "#faf8ff",
+                        "primary-fixed": "#dbe1ff",
+                        "primary": "#004dc6",
+                        "outline": "#737687",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary-container": "#c44400",
+                        "surface-variant": "#e1e2ee",
+                        "secondary-container": "#799dfe",
+                        "on-primary": "#ffffff",
+                        "tertiary": "#9b3400",
+                        "secondary": "#3159b6"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin-mobile": "16px",
+                        "stack-gap-sm": "8px",
+                        "grid-columns": "12",
+                        "content-max-width": "1280px",
+                        "margin-desktop": "32px",
+                        "stack-gap-md": "16px",
+                        "stack-gap-lg": "24px",
+                        "gutter": "24px",
+                        "canvas-max-width": "1440px",
+                        "card-padding": "24px"
+                    },
+                    "fontFamily": {
+                        "page-title": ["Inter"],
+                        "display-lg-mobile": ["Inter"],
+                        "card-title": ["Inter"],
+                        "body-md": ["Inter"],
+                        "section-title": ["Inter"],
+                        "page-title-mobile": ["Inter"],
+                        "metadata": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "button": ["Inter"],
+                        "display-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "page-title": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "display-lg-mobile": ["28px", {"lineHeight": "34px", "fontWeight": "600"}],
+                        "card-title": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "section-title": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "page-title-mobile": ["24px", {"lineHeight": "30px", "fontWeight": "600"}],
+                        "metadata": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                        "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "button": ["14px", {"lineHeight": "20px", "fontWeight": "600"}],
+                        "display-lg": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "600"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .active-tab .material-symbols-outlined {
+            font-variation-settings: 'FILL' 1;
+        }
+        .hide-scrollbar::-webkit-scrollbar { display: none; }
+        .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen flex overflow-hidden">
+<!-- SideNavBar (Anchor) -->
+<aside class="hidden md:flex flex-col h-screen w-72 bg-surface-container-low border-r border-outline-variant py-6 px-4 gap-stack-gap-md shrink-0 z-50">
+<div class="flex items-center gap-3 px-2 mb-4">
+<div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">rocket_launch</span>
+</div>
+<div>
+<h1 class="font-section-title text-section-title font-black text-primary leading-none">MyCareer Compass</h1>
+<p class="text-xs text-on-surface-variant font-medium uppercase tracking-wider mt-1">Enterprise Edition</p>
+</div>
+</div>
+<nav class="flex-1 space-y-1 overflow-y-auto hide-scrollbar">
+<!-- Dashboard -->
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-md">Dashboard</span>
+</a>
+<!-- Career Lattice -->
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined">explore</span>
+<span class="font-body-md">Career Lattice</span>
+</a>
+<!-- Shop Your Courses -->
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined">psychology</span>
+<span class="font-body-md">Shop Your Courses</span>
+</a>
+<!-- Learning Journey -->
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined">school</span>
+<span class="font-body-md">Learning Journey</span>
+</a>
+<!-- Leaderboard (ACTIVE) -->
+<a class="flex items-center gap-3 px-4 py-3 bg-primary-container text-on-primary-container font-bold rounded-lg active-tab shadow-sm transition-transform active:scale-95" href="#">
+<span class="material-symbols-outlined">leaderboard</span>
+<span class="font-body-md">Leaderboard</span>
+</a>
+<!-- Analytics -->
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined">analytics</span>
+<span class="font-body-md">Analytics</span>
+</a>
+</nav>
+<div class="mt-auto space-y-4 pt-6 border-t border-outline-variant">
+<div class="bg-primary/5 rounded-xl p-4 border border-primary/10">
+<p class="text-xs font-bold text-primary mb-1 uppercase">Next Level Goal</p>
+<div class="flex justify-between items-end mb-2">
+<span class="text-sm font-semibold text-on-surface">Senior Architect</span>
+<span class="text-xs text-primary font-bold">82%</span>
+</div>
+<div class="h-1.5 w-full bg-primary/10 rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 82%"></div>
+</div>
+<button class="w-full mt-3 bg-primary text-on-primary py-2 rounded-lg text-xs font-bold hover:opacity-90 transition-opacity">View Progress</button>
+</div>
+<div class="space-y-1">
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined">help</span>
+<span class="text-sm">Support</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:text-on-surface transition-colors" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="text-sm">Sign Out</span>
+</a>
+</div>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 flex flex-col h-screen overflow-y-auto bg-background relative">
+<!-- TopNavBar (Anchor) -->
+<header class="sticky top-0 z-40 w-full h-16 bg-surface border-b border-outline-variant flex justify-between items-center px-margin-desktop shrink-0">
+<div class="flex items-center flex-1 max-w-xl">
+<div class="relative w-full md:block hidden">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="w-full h-10 pl-10 pr-4 bg-surface-container border-none rounded-full text-body-sm focus:ring-2 focus:ring-primary/20 transition-all" placeholder="Search learning, peers, or skills..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low transition-colors rounded-full relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border-2 border-surface"></span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low transition-colors rounded-full">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-px bg-outline-variant mx-1"></div>
+<div class="flex items-center gap-3 pl-2">
+<div class="text-right hidden sm:block">
+<p class="text-sm font-bold text-on-surface leading-tight">Sarah Jenkins</p>
+<p class="text-[10px] text-on-surface-variant font-medium uppercase">Product Designer</p>
+</div>
+<img alt="User profile photo" class="w-10 h-10 rounded-full border border-outline-variant object-cover" data-alt="Professional headshot of a female product designer with a friendly smile, warm studio lighting, minimalist corporate style, wearing a navy blazer, high trust modern HR aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB8CeTnvvsASZAromSYVMg_10vVEp3WRVp2pdK6sr7FHz3kMjg18OdCZZCAYF15XEqnrZWRA-OJQE3pw7eNkYfRFtria_V2rPJBWRzUAnds23ui53wV6YdmCiIxbyaZJ0TSf0OC4wGhZTeNlkx7ZS5rzqfsY6DsBYTnVAZNa_dK1TI5LcrTLUxdEw_rduJD6gX5Fz_TqVrNgYfjMNDYKYmWmmA3EyW9-USj5Jw4Taom8bSHGHwalc5_"/>
+</div>
+</div>
+</header>
+<!-- Content Area -->
+<div class="p-margin-desktop max-w-[1280px] mx-auto w-full space-y-stack-gap-lg">
+<!-- Hero Section -->
+<section class="relative overflow-hidden rounded-3xl bg-primary px-8 py-10 text-on-primary">
+
+<div class="relative z-10 flex flex-col md:flex-row justify-between items-end md:items-center gap-6">
+<div class="space-y-2">
+<h2 class="font-display-lg text-display-lg font-bold">Hello, Sarah!</h2>
+<p class="text-on-primary/80 font-medium max-w-md">You're making incredible strides this month. Keep up the momentum to reach the top 10!</p>
+</div>
+<div class="flex gap-4">
+<div class="bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/10 min-w-[160px]">
+<p class="text-xs font-bold uppercase tracking-wider text-white/60 mb-1">Current Rank</p>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-black">#14</span>
+<span class="text-xs text-green-300 font-bold flex items-center gap-1">
+<span class="material-symbols-outlined text-[14px]">trending_up</span> 2
+                                </span>
+</div>
+</div>
+<div class="bg-white/10 backdrop-blur-md rounded-2xl p-5 border border-white/10 min-w-[160px]">
+<p class="text-xs font-bold uppercase tracking-wider text-white/60 mb-1">Learning Hours</p>
+<div class="flex items-baseline gap-2">
+<span class="text-4xl font-black">128.5</span>
+<span class="text-sm font-semibold opacity-70">hrs</span>
+</div>
+</div>
+</div>
+</div>
+</section>
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
+<!-- Main Leaderboard Table -->
+<div class="lg:col-span-8 space-y-6">
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm overflow-hidden">
+<div class="px-6 py-5 border-b border-outline-variant flex justify-between items-center">
+<div>
+<h3 class="font-section-title text-section-title text-on-surface">Company Leaderboard</h3>
+<p class="text-sm text-on-surface-variant">Ranked by Equal Total Proficiency Gap</p>
+</div>
+<div class="flex gap-2">
+<button class="flex items-center gap-2 px-3 py-1.5 bg-surface-container border border-outline-variant rounded-lg text-xs font-bold hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-sm">filter_list</span> Filter
+                                </button>
+<button class="flex items-center gap-2 px-3 py-1.5 bg-surface-container border border-outline-variant rounded-lg text-xs font-bold hover:bg-surface-container-high transition-colors">
+<span class="material-symbols-outlined text-sm">download</span> Export
+                                </button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left">
+<thead class="bg-surface-container-low text-on-surface-variant text-[12px] font-bold uppercase tracking-widest">
+<tr>
+<th class="px-6 py-4">Rank</th>
+<th class="px-6 py-4">Employee Name</th>
+<th class="px-6 py-4">Role</th>
+<th class="px-6 py-4 text-right">LinkedIn Hours</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/50">
+<!-- Rank 1 -->
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="px-6 py-5">
+<div class="w-8 h-8 rounded-full bg-yellow-100 flex items-center justify-center">
+<span class="material-symbols-outlined text-yellow-600 text-lg" style="font-variation-settings: 'FILL' 1;">stars</span>
+</div>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<img class="w-10 h-10 rounded-full object-cover" data-alt="Close-up portrait of a male executive in a sleek dark grey sweater, professional office backdrop with soft bokeh, high-end corporate photography, calm confident expression, neutral tones." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC8hhS1dVZrJfw3RsY_a3t-9qSmd3RAdEPDREt4TxEtHLKTwsHa3B8StiKzJdcQ1aiyQDryOuhn_nDTD5doUCiEryspLMPZpk4jhtD2w_X4N9r8oYHZS736klPqNjhxTB4w0-bOUSvcRkc-V61T-euI1VFKJRGyyFR0DQB2SXK1k6M1NKhAswy5WrjDWp19rZ8zNUfLbf-fFnxddS_7db-67oonTBwcxFscVcV_gPG7hbygViemfWPg"/>
+<span class="font-semibold text-on-surface">Marcus Chen</span>
+</div>
+</td>
+<td class="px-6 py-5 text-on-surface-variant">Lead Engineer</td>
+<td class="px-6 py-5 text-right font-bold text-primary">342.0</td>
+</tr>
+<!-- Rank 2 -->
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="px-6 py-5">
+<div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center font-bold text-slate-600">2</div>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<img class="w-10 h-10 rounded-full object-cover" data-alt="Portrait of a woman with glasses, creative studio setting with plants in background, natural lighting, professional but approachable HR headshot, warm color palette, sharp focus." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCyLEoQE0Q9gGR8zkYznBnZDlVtDd31p9jaOpE-7ZOS6_5vMfpEfcQcHWx1afviso_Z-wnWdEZK_RiAZdTLx4bsgVdGsr-tMJvmoVrhYf84dFnk2ffzFkFCZ4cagXP6FFyrYFdeaa6UOmekt1nyI0hA9CvhqjyjS7rynHFwaO1fIFgJQYjQDn_Vc2LhsP20Olt0Rlolrpkxd-UJX5dJxCZ7G6evb_wAkLmWR11T5P50TCoMZa_voMiK"/>
+<span class="font-semibold text-on-surface">Elena Rodriguez</span>
+</div>
+</td>
+<td class="px-6 py-5 text-on-surface-variant">Marketing Director</td>
+<td class="px-6 py-5 text-right font-bold text-primary">318.5</td>
+</tr>
+<!-- Placeholder Rows -->
+<tr class="bg-surface-container-lowest/30">
+<td class="px-6 py-2 text-center text-[10px] text-outline tracking-widest font-bold" colspan="4">...</td>
+</tr>
+<!-- Sarah (Rank 14 - ACTIVE) -->
+<tr class="bg-primary-container/10 border-l-4 border-primary">
+<td class="px-6 py-5">
+<div class="w-8 h-8 rounded-full bg-primary/20 flex items-center justify-center font-black text-primary">14</div>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<img class="w-10 h-10 rounded-full object-cover border-2 border-primary" data-alt="Professional headshot of a female product designer with a friendly smile, warm studio lighting, minimalist corporate style, wearing a navy blazer, high trust modern HR aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC2lCs1G1oiqq4X9wO6K_lqQwwN_e4wFox5PAK3XK0BTuQS5Hx66zwHsivlXRigV4pbaDo-5zf8MMQ5hyWAHSzt-m09L8xFl9oAnbzCOTuOJQ5dMcOj2lCkS9EYC7bBpLaECmSCV4YycxPRwOnKG94xHtP9PC1Qf36jIQQW9PfHw8xuBzjebmNDm6eObWcybZi_Gy58d094_RLCg3qQNzmtWHevApt12WtQwCYplmpAYzc-TCEIb4fQ"/>
+<div>
+<span class="font-bold text-on-surface block">Sarah Jenkins <span class="text-primary text-[10px] ml-1 uppercase">(You)</span></span>
+<span class="text-[10px] font-bold text-primary uppercase">Trending Up</span>
+</div>
+</div>
+</td>
+<td class="px-6 py-5 font-semibold text-on-surface-variant">Product Designer</td>
+<td class="px-6 py-5 text-right font-black text-primary">128.5</td>
+</tr>
+<!-- Rank 15 -->
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="px-6 py-5">
+<div class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center font-bold text-on-surface-variant">15</div>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<img class="w-10 h-10 rounded-full object-cover" data-alt="Portrait of a young professional man in a white button down shirt, bright modern office setting, professional LinkedIn style headshot, clean aesthetic, focus on eyes, bright morning light." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCH3WgY3UBDKYEESUN9FAQ_YEVdQUyN0lnXdKUze0k3H-EOreSFBH71AEdC_mn4mSdbcgVfaornqokaOqkuQBADIxbZPSe1eqdiaSwwW6c1YUfSC5hpA24PLmfhqqfxUIrJRl9mNwbGbkL0-S-TucPqYdr3to8WsOh4tNwZvCQxa3ztfuBwtL_zimG3-lJ99JcKwEdR6ihkm_gRUW2yvDrQJge2MMPsa3iGyQSMYCvPIMJPtvLwZgYu"/>
+<span class="font-semibold text-on-surface">David Kim</span>
+</div>
+</td>
+<td class="px-6 py-5 text-on-surface-variant">UX Researcher</td>
+<td class="px-6 py-5 text-right font-bold text-primary">124.0</td>
+</tr>
+<!-- Rank 16 -->
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="px-6 py-5">
+<div class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center font-bold text-on-surface-variant">16</div>
+</td>
+<td class="px-6 py-5">
+<div class="flex items-center gap-3">
+<img class="w-10 h-10 rounded-full object-cover" data-alt="Close-up headshot of a confident woman with curly hair, natural light from a window, modern office interior blurred in background, professional attire, soft shadows, warm and professional vibe." src="https://lh3.googleusercontent.com/aida-public/AB6AXuATNHKGLiM9powFM7wLa89sLliZBCrCbPJJfp4N8oBZJ9I56P0jhFF6LdwJcMzS4gaBE6BA1Y0U66TLldFNIpHVWjbRm3CRi2fcfQBjRFUaDgKUugObJ00duv6zHWhKWfTZQSPMYaY7KNNCL7i_QucNECvS1jAfdG6F-jYSL9TcN-LHRMxL2jqBcxmfY969cMOr5dgxJGz-ZnkHMDiqo7G4fHlwsm7RRIHBWJVtT0J0RI2Ij5HNqIeO"/>
+<span class="font-semibold text-on-surface">Maya Patel</span>
+</div>
+</td>
+<td class="px-6 py-5 text-on-surface-variant">Full Stack Developer</td>
+<td class="px-6 py-5 text-right font-bold text-primary">119.2</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="px-6 py-4 border-t border-outline-variant bg-surface-container-low flex justify-center">
+<button class="text-sm font-bold text-primary hover:underline">Show Full Leaderboard (254 Employees)</button>
+</div>
+</div>
+</div>
+<!-- Side Cards Area -->
+<div class="lg:col-span-4 space-y-6">
+<!-- Next Milestone Card -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm p-6 relative overflow-hidden group">
+<div class="absolute -right-6 -top-6 w-24 h-24 bg-primary/5 rounded-full group-hover:scale-125 transition-transform duration-500"></div>
+<div class="relative z-10">
+<div class="flex items-center gap-3 mb-6">
+<div class="w-12 h-12 rounded-xl bg-primary-container/20 flex items-center justify-center">
+<span class="material-symbols-outlined text-primary text-3xl" style="font-variation-settings: 'FILL' 1;">workspace_premium</span>
+</div>
+<div>
+<h4 class="font-card-title text-card-title text-on-surface">Next Milestone</h4>
+<p class="text-xs text-on-surface-variant font-bold uppercase tracking-wider">Top Learner Badge</p>
+</div>
+</div>
+<div class="space-y-4">
+<div class="flex justify-between items-baseline">
+<span class="text-sm font-medium text-on-surface">Progress to Rank #10</span>
+<span class="text-2xl font-black text-primary">72%</span>
+</div>
+<div class="h-3 w-full bg-surface-container-high rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full relative" style="width: 72%">
+<div class="absolute inset-0 bg-white/20 animate-pulse"></div>
+</div>
+</div>
+<p class="text-xs text-on-surface-variant leading-relaxed">
+                                    You need <span class="font-bold text-on-surface">14.5 more hours</span> of learning to break into the Top 10 and unlock your next exclusive badge.
+                                </p>
+</div>
+<button class="w-full mt-6 py-3 bg-primary text-on-primary rounded-xl font-bold hover:shadow-lg hover:shadow-primary/20 transition-all active:scale-95">
+                                Start Learning Now
+                            </button>
+</div>
+</div>
+<!-- Suggested Courses for Rank -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant shadow-sm p-6">
+<h4 class="font-card-title text-card-title text-on-surface mb-4">Strategic Skills</h4>
+<p class="text-xs text-on-surface-variant mb-6">Boost your rank by mastering these high-value competencies.</p>
+<div class="space-y-4">
+<div class="flex gap-4 p-3 hover:bg-surface-container-low rounded-xl transition-colors cursor-pointer border border-transparent hover:border-outline-variant">
+<div class="w-12 h-12 rounded-lg bg-tertiary/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-tertiary">architecture</span>
+</div>
+<div>
+<p class="text-sm font-bold text-on-surface leading-tight">Advanced Systems Design</p>
+<p class="text-[11px] text-tertiary font-bold mt-1 uppercase">+4.2 Rank Points</p>
+</div>
+</div>
+<div class="flex gap-4 p-3 hover:bg-surface-container-low rounded-xl transition-colors cursor-pointer border border-transparent hover:border-outline-variant">
+<div class="w-12 h-12 rounded-lg bg-secondary/10 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-secondary">insights</span>
+</div>
+<div>
+<p class="text-sm font-bold text-on-surface leading-tight">Product Strategy for Leads</p>
+<p class="text-[11px] text-secondary font-bold mt-1 uppercase">+3.8 Rank Points</p>
+</div>
+</div>
+<div class="flex gap-4 p-3 hover:bg-surface-container-low rounded-xl transition-colors cursor-pointer border border-transparent hover:border-outline-variant">
+<div class="w-12 h-12 rounded-lg bg-green-100 flex items-center justify-center shrink-0">
+<span class="material-symbols-outlined text-green-700">groups</span>
+</div>
+<div>
+<p class="text-sm font-bold text-on-surface leading-tight">Empathetic Leadership</p>
+<p class="text-[11px] text-green-700 font-bold mt-1 uppercase">+2.5 Rank Points</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+</main>
+<!-- FAB (Suppressed on Details/Analytics/Settings but visible on Dashboard/Leaderboard) -->
+<button class="fixed bottom-8 right-8 w-14 h-14 bg-primary text-on-primary rounded-full shadow-xl flex items-center justify-center hover:scale-110 active:scale-95 transition-transform z-50">
+<span class="material-symbols-outlined text-2xl">chat_bubble</span>
+</button>
+<script>
+        // Simple micro-interaction for rows
+        document.querySelectorAll('tbody tr').forEach(row => {
+            row.addEventListener('click', () => {
+                row.classList.add('opacity-50');
+                setTimeout(() => row.classList.remove('opacity-50'), 150);
+            });
+        });
+    </script>
+</body></html>

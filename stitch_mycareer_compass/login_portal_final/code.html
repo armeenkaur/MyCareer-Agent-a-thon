@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MyCareer Compass - Secure Login</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "surface-container-lowest": "#ffffff",
+                      "surface-container-low": "#fff0ef",
+                      "surface-tint": "#c0001f",
+                      "on-secondary-fixed": "#001c3b",
+                      "inverse-surface": "#402b2a",
+                      "on-primary-fixed-variant": "#930015",
+                      "on-primary": "#ffffff",
+                      "on-tertiary-container": "#eef7ff",
+                      "on-secondary-container": "#fefcff",
+                      "secondary-fixed-dim": "#a6c8ff",
+                      "on-primary-fixed": "#410004",
+                      "error-container": "#ffdad6",
+                      "on-surface": "#291716",
+                      "tertiary-fixed": "#c3e8ff",
+                      "surface-dim": "#f4d2d0",
+                      "outline": "#926e6c",
+                      "secondary-container": "#0075d7",
+                      "outline-variant": "#e7bdb9",
+                      "error": "#ba1a1a",
+                      "surface-container": "#ffe9e7",
+                      "on-error": "#ffffff",
+                      "surface-container-highest": "#fddbd8",
+                      "surface-bright": "#fff8f7",
+                      "inverse-on-surface": "#ffedeb",
+                      "surface-variant": "#fddbd8",
+                      "on-error-container": "#93000a",
+                      "surface": "#fff8f7",
+                      "secondary": "#005cab",
+                      "primary-fixed-dim": "#ffb3ae",
+                      "on-tertiary-fixed": "#001e2c",
+                      "tertiary": "#005f81",
+                      "primary": "#df162b",
+                      "primary-container": "#df162b",
+                      "on-tertiary": "#ffffff",
+                      "on-secondary": "#ffffff",
+                      "on-primary-container": "#fff4f3",
+                      "on-tertiary-fixed-variant": "#004c68",
+                      "tertiary-fixed-dim": "#7bd0fe",
+                      "inverse-primary": "#ffb3ae",
+                      "background": "#fff8f7",
+                      "on-background": "#291716",
+                      "surface-container-high": "#ffe1df",
+                      "secondary-fixed": "#d5e3ff",
+                      "primary-fixed": "#ffdad7",
+                      "on-secondary-fixed-variant": "#004786",
+                      "on-surface-variant": "#5d3f3d",
+                      "tertiary-container": "#0079a3"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "margin-desktop": "32px",
+                      "stack-gap-lg": "24px",
+                      "stack-gap-md": "16px",
+                      "grid-columns": "12",
+                      "canvas-max-width": "1440px",
+                      "margin-mobile": "16px",
+                      "card-padding": "24px",
+                      "gutter": "24px",
+                      "content-max-width": "1280px",
+                      "stack-gap-sm": "8px"
+              },
+              "fontFamily": {
+                      "metadata": ["Inter"],
+                      "card-title": ["Inter"],
+                      "body-sm": ["Inter"],
+                      "section-title": ["Inter"],
+                      "button": ["Inter"],
+                      "page-title-mobile": ["Inter"],
+                      "display-lg": ["Inter"],
+                      "body-md": ["Inter"],
+                      "page-title": ["Inter"],
+                      "display-lg-mobile": ["Inter"]
+              },
+              "fontSize": {
+                      "metadata": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                      "card-title": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                      "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                      "section-title": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                      "button": ["14px", {"lineHeight": "20px", "fontWeight": "600"}],
+                      "page-title-mobile": ["24px", {"lineHeight": "30px", "fontWeight": "600"}],
+                      "display-lg": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                      "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "page-title": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                      "display-lg-mobile": ["28px", {"lineHeight": "34px", "fontWeight": "600"}]
+              }
+            },
+          },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #fff8f7; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .glass-card { background: #ffffff; border: 1px solid #e7bdb9; }
+        .animate-fade-in { animation: fadeIn 0.5s ease-out forwards; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-margin-mobile md:p-margin-desktop overflow-x-hidden">
+<!-- Ambient Background Element -->
+<div class="fixed inset-0 -z-10 overflow-hidden">
+<div class="absolute top-0 right-0 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px] -mr-64 -mt-64"></div>
+<div class="absolute bottom-0 left-0 w-[500px] h-[500px] bg-secondary/10 rounded-full blur-[100px] -ml-48 -mb-48"></div>
+</div>
+<!-- Main Container -->
+<div class="w-full max-w-[1100px] grid md:grid-cols-2 gap-gutter items-center animate-fade-in">
+<!-- Branding Side (Left) -->
+<div class="hidden md:flex flex-col space-y-stack-gap-lg pr-margin-desktop">
+<div class="space-y-stack-gap-sm">
+<span class="inline-flex items-center px-3 py-1 rounded-full bg-primary/10 text-primary font-metadata text-metadata">
+                    MMT Enterprise Edition
+                </span>
+<h1 class="font-display-lg text-display-lg text-on-surface leading-tight">
+                    Your Future, <br/> <span class="text-secondary">Navigated.</span>
+</h1>
+<div class="mt-stack-gap-md space-y-4">
+<div class="flex items-start gap-3">
+<span class="material-symbols-outlined text-secondary mt-1">verified</span>
+<p class="font-body-md text-body-md text-on-surface-variant">Evidence-informed competency development</p>
+</div>
+<div class="flex items-start gap-3">
+<span class="material-symbols-outlined text-secondary mt-1">explore</span>
+<p class="font-body-md text-body-md text-on-surface-variant">Personalized career exploration</p>
+</div>
+<div class="flex items-start gap-3">
+<span class="material-symbols-outlined text-secondary mt-1">school</span>
+<p class="font-body-md text-body-md text-on-surface-variant">Curated learning through LinkedIn Learning</p>
+</div>
+<div class="flex items-start gap-3">
+<span class="material-symbols-outlined text-secondary mt-1">balance</span>
+<p class="font-body-md text-body-md text-on-surface-variant">Fair, transparent proficiency framework</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Login Canvas (Right) -->
+<div class="relative" id="auth-canvas">
+<!-- Standard Login Card -->
+<div class="glass-card p-margin-desktop rounded-xl shadow-xl w-full" id="login-card">
+<div class="flex items-center gap-3 mb-stack-gap-lg">
+<div class="w-10 h-10 bg-secondary rounded-lg flex items-center justify-center text-white shadow-md">
+<span class="material-symbols-outlined">explore</span>
+</div>
+<div>
+<h2 class="font-section-title text-section-title text-on-surface">MyCareer Compass</h2>
+<p class="font-metadata text-metadata text-on-surface-variant">Secure Login Portal</p>
+</div>
+</div>
+<div class="mb-stack-gap-lg">
+<p class="font-body-sm text-body-sm text-on-surface-variant mb-stack-gap-sm">Select your portal access:</p>
+<div class="grid grid-cols-4 gap-2">
+<button class="role-btn group flex flex-col items-center gap-1 p-2 rounded-lg border border-outline-variant hover:border-secondary hover:bg-secondary/5 transition-all" onclick="selectRole('Admin')">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-secondary transition-colors">admin_panel_settings</span>
+<span class="font-metadata text-[10px] uppercase font-bold tracking-wider text-on-surface-variant">Admin</span>
+</button>
+<button class="role-btn group flex flex-col items-center gap-1 p-2 rounded-lg border border-outline-variant hover:border-secondary hover:bg-secondary/5 transition-all" onclick="selectRole('ZM')">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-secondary transition-colors">hub</span>
+<span class="font-metadata text-[10px] uppercase font-bold tracking-wider text-on-surface-variant">ZM</span>
+</button>
+<button class="role-btn group flex flex-col items-center gap-1 p-2 rounded-lg border border-outline-variant hover:border-secondary hover:bg-secondary/5 transition-all" onclick="selectRole('RD')">
+<span class="material-symbols-outlined text-on-surface-variant group-hover:text-secondary transition-colors">language</span>
+<span class="font-metadata text-[10px] uppercase font-bold tracking-wider text-on-surface-variant">RD</span>
+</button>
+<button class="role-btn active-role group flex flex-col items-center gap-1 p-2 rounded-lg border-2 border-secondary bg-secondary/5 transition-all" onclick="selectRole('Employee')">
+<span class="material-symbols-outlined text-secondary">person</span>
+<span class="font-metadata text-[10px] uppercase font-bold tracking-wider text-secondary">Employee</span>
+</button>
+</div>
+</div>
+<!-- Error State (Hidden by default) -->
+<div class="hidden mb-stack-gap-md p-stack-gap-md bg-error-container text-on-error-container border border-error/20 rounded-lg flex items-center gap-3" id="error-message">
+<span class="material-symbols-outlined text-error">error</span>
+<span class="font-body-sm text-body-sm font-semibold">Invalid credentials. Please try again.</span>
+</div>
+<form class="space-y-stack-gap-md" onsubmit="handleLogin(event)">
+<div>
+<label class="block font-metadata text-metadata text-on-surface mb-2">Employee/Manager Code</label>
+<div class="relative">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-variant text-[20px]">badge</span>
+<input class="w-full pl-10 pr-4 py-3 rounded-lg border border-outline-variant focus:ring-2 focus:ring-secondary/20 focus:border-secondary outline-none transition-all font-body-md text-body-md text-on-surface placeholder:text-outline" placeholder="Enter code" required="" type="text"/>
+</div>
+</div>
+<div>
+<label class="block font-metadata text-metadata text-on-surface mb-2">Password</label>
+<div class="relative">
+<span class="absolute left-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-variant text-[20px]">lock</span>
+<input class="w-full pl-10 pr-12 py-3 rounded-lg border border-outline-variant focus:ring-2 focus:ring-secondary/20 focus:border-secondary outline-none transition-all font-body-md text-body-md text-on-surface placeholder:text-outline" id="password-input" placeholder="••••••••" required="" type="password"/>
+<button class="absolute right-3 top-1/2 -translate-y-1/2 material-symbols-outlined text-on-surface-variant hover:text-secondary transition-colors" onclick="togglePassword()" type="button">visibility</button>
+</div>
+<p class="mt-2 font-metadata text-metadata text-on-surface-variant italic">Hint: First name with first letter capitalized.</p>
+</div>
+<button class="w-full py-4 bg-primary text-on-primary rounded-lg font-button text-button hover:bg-primary/90 active:scale-[0.98] transition-all shadow-lg shadow-primary/25 flex items-center justify-center gap-2" type="submit">
+<span>Sign In</span>
+<span class="material-symbols-outlined text-[18px]">login</span>
+</button>
+</form>
+</div>
+<!-- Portal Closed State (Hidden overlay) -->
+<div class="hidden absolute inset-0 glass-card p-margin-desktop rounded-xl border border-outline-variant shadow-xl w-full flex flex-col items-center justify-center text-center animate-fade-in z-20" id="portal-closed-card">
+<div class="w-20 h-20 bg-tertiary-container/10 rounded-full flex items-center justify-center text-tertiary mb-stack-gap-md">
+<span class="material-symbols-outlined text-[48px]">lock_clock</span>
+</div>
+<h3 class="font-section-title text-section-title text-on-surface mb-2">Portal closed</h3>
+<p class="font-body-md text-body-md text-on-surface-variant max-w-xs mb-stack-gap-lg">
+                    This phase is not open yet. You will be notified when access becomes available.
+                </p>
+<button class="px-8 py-3 border border-outline-variant rounded-full font-button text-button text-on-surface hover:bg-surface-container-high transition-all" onclick="hidePortalClosed()">
+                    Return to Login
+                </button>
+</div>
+</div>
+</div>
+<script>
+        function togglePassword() {
+            const input = document.getElementById('password-input');
+            const icon = event.target;
+            if (input.type === 'password') {
+                input.type = 'text';
+                icon.innerText = 'visibility_off';
+            } else {
+                input.type = 'password';
+                icon.innerText = 'visibility';
+            }
+        }
+
+        function selectRole(role) {
+            document.querySelectorAll('.role-btn').forEach(btn => {
+                btn.classList.remove('active-role', 'border-2', 'border-secondary', 'bg-secondary/5');
+                btn.classList.add('border', 'border-outline-variant');
+                btn.querySelector('span:first-child').classList.remove('text-secondary');
+                btn.querySelector('span:first-child').classList.add('text-on-surface-variant');
+                btn.querySelector('span:last-child').classList.remove('text-secondary');
+                btn.querySelector('span:last-child').classList.add('text-on-surface-variant');
+            });
+
+            const activeBtn = event.currentTarget;
+            activeBtn.classList.add('active-role', 'border-2', 'border-secondary', 'bg-secondary/5');
+            activeBtn.classList.remove('border-outline-variant');
+            activeBtn.querySelector('span:first-child').classList.add('text-secondary');
+            activeBtn.querySelector('span:first-child').classList.remove('text-on-surface-variant');
+            activeBtn.querySelector('span:last-child').classList.add('text-secondary');
+            activeBtn.querySelector('span:last-child').classList.remove('text-on-surface-variant');
+        }
+
+        let attempts = 0;
+        function handleLogin(e) {
+            e.preventDefault();
+            attempts++;
+            
+            if (attempts === 1) {
+                document.getElementById('error-message').classList.remove('hidden');
+                document.getElementById('error-message').classList.add('animate-fade-in');
+            } else {
+                showPortalClosed();
+            }
+        }
+
+        function showPortalClosed() {
+            document.getElementById('portal-closed-card').classList.remove('hidden');
+            document.getElementById('login-card').classList.add('opacity-10', 'blur-sm', 'pointer-events-none');
+        }
+
+        function hidePortalClosed() {
+            document.getElementById('portal-closed-card').classList.add('hidden');
+            document.getElementById('login-card').classList.remove('opacity-10', 'blur-sm', 'pointer-events-none');
+            document.getElementById('error-message').classList.add('hidden');
+            attempts = 0;
+        }
+    </script>
+</body></html>

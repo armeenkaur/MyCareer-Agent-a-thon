@@ -8,6 +8,7 @@ ROOT = Path(__file__).resolve().parents[2]
 UPLOAD_DIR = ROOT / "uploads"
 STATIC_DIR = Path(__file__).resolve().parents[1] / "static"
 TEMPLATE_DIR = Path(__file__).resolve().parents[1] / "templates"
+STITCH_DIR = ROOT / "stitch_mycareer_compass"
 
 
 def _load_dotenv() -> None:
@@ -27,6 +28,8 @@ def _load_dotenv() -> None:
 
 _load_dotenv()
 
+DATABASE_PATH = Path(os.environ.get("MYCAREER_DATABASE_PATH", ROOT / "data" / "mycareer.db"))
+
 PROFICIENCY_ORDER = ["Beginner", "Intermediate", "Proficient", "Advanced"]
 PROFICIENCY_VALUE = {name: idx + 1 for idx, name in enumerate(PROFICIENCY_ORDER)}
 VALUE_PROFICIENCY = {value: name for name, value in PROFICIENCY_VALUE.items()}
@@ -37,15 +40,14 @@ SOURCE_FILES = {
     "tna": ROOT / "data" / "Cleaned Up TNA data.xlsx",
     "appraisal": ROOT / "data" / "Appraisal Input.xlsx",
     "amber": ROOT / "data" / "Agent-a-thon (Amber).xlsx",
-    "variable": ROOT / "data" / "Variable Pay scores.xlsx",
     "interview": ROOT / "data" / "Interview Input.xlsx",
     "courses": ROOT / "data" / "LinkedIn_Learning_Courses_EN.xlsx",
 }
 
 OPENAI_API_URL = os.environ.get("OPENAI_API_URL", "https://api.openai.com/v1/chat/completions")
 OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-5.4-mini")
-# OCR stays local and deterministic; OpenAI receives extracted text only.
-OCR_BACKEND = "tesseract"
+# OpenAI Vision is primary for screenshot transcription; Tesseract remains local fallback.
+OCR_BACKEND = "openai-vision+tesseract"
 TESSERACT_CMD = os.environ.get("TESSERACT_CMD", "")
 AGENT_DECISION_LOG = ROOT / "agent_decisions.jsonl"
 FEW_SHOT_LIMIT = 3
