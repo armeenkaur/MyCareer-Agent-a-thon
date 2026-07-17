@@ -13,7 +13,7 @@ from .agents.course_recommendation import (
     _prefilter,
     _rank_all_with_agent,
 )
-from .agents.evidence_curator import AGENT_NAME as EVIDENCE_AGENT, curate_evidence
+from .agents.evidence_curator import AGENT_NAME as EVIDENCE_AGENT, CURATOR_VERSION, curate_evidence
 from .agents.roleplay_assessment import AGENT_NAME as ROLEPLAY_AGENT, assess_roleplay
 from .core.config import PROFICIENCY_ORDER, PROFICIENCY_VALUE, UPLOAD_DIR
 from .core.logging_setup import get_logger
@@ -68,9 +68,27 @@ class MyCareerBackend:
             raise BackendError("You do not have access to this resource.", "forbidden", 403)
         return user
 
-    @staticmethod
-    def public_user(user: dict[str, Any]) -> dict[str, Any]:
-        return {key: user.get(key) for key in ("login_id", "role", "display_name", "employee_code")}
+    def public_user(self, user: dict[str, Any]) -> dict[str, Any]:
+        payload = {key: user.get(key) for key in ("login_id", "role", "display_name", "employee_code")}
+        role = user.get("role")
+        # Immediate supervisor / skip-level titles (not Darwin employee rows).
+        if role == "zm":
+            payload["designation"] = "Zonal Manager"
+            return payload
+        if role == "rd":
+            payload["designation"] = "Regional Director"
+            return payload
+        # Employees: job title from Darwin only — never system role or grade/level.
+        if role == "employee" and user.get("employee_code"):
+            try:
+                employee = self.employee(str(user["employee_code"]))
+            except BackendError:
+                employee = {}
+            designation = str(employee.get("designation") or "").strip()
+            role_name = str(employee.get("role_name") or "").strip()
+            if designation or role_name:
+                payload["designation"] = designation or role_name
+        return payload
 
     def phase(self, phase: str) -> dict[str, Any]:
         if phase not in PHASES:
@@ -315,17 +333,28 @@ class MyCareerBackend:
             )
         runtime = RuntimeState()
         evidence = {}
+        rd_assessment = self.assessment(employee_code, "rd")
+        # Agent runs only on Start/draft cache miss. View (submitted) never re-curates.
+        allow_curate = not (rd_assessment and rd_assessment.get("status") == "submitted")
         for competency in self.competencies:
             cached = self._cached_evidence(employee_code, competency)
-            if cached is None:
+            if cached is None and allow_curate:
                 cached = curate_evidence(self.data, employee_code, competency, runtime)
                 self._save_evidence(employee_code, competency, cached)
                 self._audit(employee_code, EVIDENCE_AGENT, competency, "Workbook evidence", cached, "ok")
+            elif cached is None:
+                cached = {
+                    "competency": competency,
+                    "evidence": [],
+                    "empty_message": "No saved evidence for this competency.",
+                    "source": "cache",
+                    "curator_version": CURATOR_VERSION,
+                }
             evidence[competency] = cached
         return {
             "employee": self.employee(employee_code),
             "zm_assessment": zm_assessment,
-            "rd_assessment": self.assessment(employee_code, "rd"),
+            "rd_assessment": rd_assessment,
             "evidence": evidence,
             "rubric": self.data.level_definitions,
         }
@@ -1083,7 +1112,15 @@ class MyCareerBackend:
                 "SELECT evidence_json FROM curated_evidence WHERE employee_code=? AND competency=?",
                 (employee_code, competency),
             ).fetchone()
-        return self.db.decode_json(row["evidence_json"], None) if row else None
+        if not row:
+            return None
+        payload = self.db.decode_json(row["evidence_json"], None)
+        if not isinstance(payload, dict):
+            return None
+        # Bust stale curator output so RD always sees competency-scoped evidence.
+        if payload.get("curator_version") != CURATOR_VERSION:
+            return None
+        return payload
 
     def _save_evidence(self, employee_code: str, competency: str, payload: dict[str, Any]) -> None:
         with self.db.transaction() as connection:

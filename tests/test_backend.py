@@ -56,7 +56,7 @@ class BackendWorkflowTest(unittest.TestCase):
 
         with self.db.connect() as connection:
             self.assertEqual(connection.execute("SELECT COUNT(*) FROM sessions").fetchone()[0], 0)
-            self.assertEqual(connection.execute("SELECT COUNT(*) FROM curated_evidence").fetchone()[0], 0)
+            self.assertEqual(connection.execute("SELECT COUNT(*) FROM curated_evidence").fetchone()[0], 1)
             self.assertEqual(connection.execute("SELECT COUNT(*) FROM course_recommendations").fetchone()[0], 1)
             self.assertEqual(connection.execute("SELECT COUNT(*) FROM employees").fetchone()[0], 44)
 
