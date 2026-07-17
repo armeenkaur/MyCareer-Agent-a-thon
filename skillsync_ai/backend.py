@@ -188,6 +188,17 @@ class MyCareerBackend:
                     "SELECT aspiration_role,target_key,locked_at FROM career_choices WHERE employee_code=?",
                     (employee["employee_code"],),
                 ).fetchone()
+                learning_locked = int(
+                    connection.execute(
+                        "SELECT COUNT(*) FROM learning_selections WHERE employee_code=?",
+                        (employee["employee_code"],),
+                    ).fetchone()[0]
+                ) > 0 or int(
+                    connection.execute(
+                        "SELECT COUNT(*) FROM external_learning WHERE employee_code=?",
+                        (employee["employee_code"],),
+                    ).fetchone()[0]
+                ) > 0
             output.append(
                 {
                     **employee,
@@ -197,6 +208,7 @@ class MyCareerBackend:
                     "roleplays_completed": roleplay_count,
                     "roleplays_total": len(self.competencies),
                     "aspiration": dict(choice) if choice else None,
+                    "learning_locked": learning_locked,
                 }
             )
         return output
@@ -483,6 +495,23 @@ class MyCareerBackend:
         with self.db.transaction() as connection:
             connection.execute("DELETE FROM career_choices WHERE employee_code=?", (employee_code,))
             connection.execute("DELETE FROM learning_selections WHERE employee_code=?", (employee_code,))
+            connection.execute("DELETE FROM external_learning WHERE employee_code=?", (employee_code,))
+            connection.execute("DELETE FROM course_progress WHERE employee_code=?", (employee_code,))
+
+    def reset_learning(self, admin: dict[str, Any], employee_code: str) -> dict[str, Any]:
+        """Unlock Shop Your Courses for an employee without clearing aspiration."""
+        if admin["role"] != "admin":
+            raise BackendError("Admin access required.", "forbidden", 403)
+        employee = self.employee(employee_code)
+        with self.db.transaction() as connection:
+            connection.execute("DELETE FROM learning_selections WHERE employee_code=?", (employee_code,))
+            connection.execute("DELETE FROM external_learning WHERE employee_code=?", (employee_code,))
+            connection.execute("DELETE FROM course_progress WHERE employee_code=?", (employee_code,))
+        return {
+            "status": "reset",
+            "employee_code": employee["employee_code"],
+            "learning_locked": False,
+        }
 
     def final_profile(self, employee_code: str) -> dict[str, str] | None:
         assessment = self.assessment(employee_code, "rd")
@@ -625,12 +654,21 @@ class MyCareerBackend:
             "ready": bool(rows) or not target["gaps"],
         }
 
-    def checkout(self, user: dict[str, Any], course_ids: list[str]) -> dict[str, Any]:
+    def checkout(self, user: dict[str, Any], course_ids: list[str], other_sources: list[dict[str, Any]] | None = None) -> dict[str, Any]:
         if user["role"] != "employee":
             raise BackendError("Employee access required.", "forbidden", 403)
         employee_code = user["employee_code"]
+        existing = self.learning_journey(employee_code)
+        if existing.get("locked"):
+            if course_ids:
+                raise BackendError(
+                    "Learning journey is already locked. Course selection cannot be changed.",
+                    "journey_locked",
+                    409,
+                )
+            return self.add_other_sources(user, other_sources or [])
         recommendations = self.recommendations(employee_code)
-        selected = {str(value) for value in course_ids}
+        selected = {str(value) for value in course_ids if not str(value).startswith("other:")}
         valid: dict[str, dict[str, Any]] = {}
         missing = []
         for competency, courses in recommendations["competencies"].items():
@@ -645,13 +683,179 @@ class MyCareerBackend:
                 "course_selection_incomplete",
                 409,
             )
+        extras = []
+        for item in other_sources or []:
+            if not isinstance(item, dict):
+                continue
+            resource_id = str(item.get("id") or "").strip()
+            competency = str(item.get("competency") or "").strip()
+            title = str(item.get("title") or "").strip()
+            kind = str(item.get("kind") or "other").strip()
+            if not resource_id.startswith("other:") or not competency or not title:
+                continue
+            extras.append(
+                {
+                    "resource_id": resource_id,
+                    "competency": competency,
+                    "resource_json": json.dumps(
+                        {"id": resource_id, "title": title, "kind": kind, "source": "other", "provider": kind.replace("_", " ").title()}
+                    ),
+                }
+            )
         with self.db.transaction() as connection:
             connection.execute("DELETE FROM learning_selections WHERE employee_code=?", (employee_code,))
+            connection.execute("DELETE FROM external_learning WHERE employee_code=?", (employee_code,))
+            connection.execute("DELETE FROM course_progress WHERE employee_code=?", (employee_code,))
             for course_id, row in valid.items():
                 connection.execute(
                     "INSERT INTO learning_selections(employee_code,competency,course_id,selected_at) VALUES(?,?,?,?)",
                     (employee_code, row["competency"], course_id, utc_now()),
                 )
+                connection.execute(
+                    """
+                    INSERT OR IGNORE INTO course_progress(employee_code,course_id,status,progress_pct,launched_at,completed_at)
+                    VALUES(?,?,?,?,?,?)
+                    """,
+                    (employee_code, course_id, "not_started", 0, None, None),
+                )
+            for extra in extras:
+                connection.execute(
+                    """
+                    INSERT INTO external_learning(employee_code,resource_id,competency,resource_json,clicked_at,completed_at)
+                    VALUES(?,?,?,?,?,?)
+                    """,
+                    (employee_code, extra["resource_id"], extra["competency"], extra["resource_json"], None, None),
+                )
+                connection.execute(
+                    """
+                    INSERT OR IGNORE INTO course_progress(employee_code,course_id,status,progress_pct,launched_at,completed_at)
+                    VALUES(?,?,?,?,?,?)
+                    """,
+                    (employee_code, extra["resource_id"], "not_started", 0, None, None),
+                )
+        return self.learning_journey(employee_code)
+
+    def add_other_sources(self, user: dict[str, Any], other_sources: list[dict[str, Any]]) -> dict[str, Any]:
+        if user["role"] != "employee":
+            raise BackendError("Employee access required.", "forbidden", 403)
+        employee_code = user["employee_code"]
+        journey = self.learning_journey(employee_code)
+        if not journey.get("locked"):
+            raise BackendError("Lock LinkedIn courses before adding other sources.", "journey_not_locked", 409)
+        allowed = {str(course.get("competency") or "") for course in journey["courses"]}
+        extras = []
+        for item in other_sources or []:
+            if not isinstance(item, dict):
+                continue
+            resource_id = str(item.get("id") or "").strip()
+            competency = str(item.get("competency") or "").strip()
+            title = str(item.get("title") or "").strip()
+            kind = str(item.get("kind") or "other").strip()
+            if not resource_id.startswith("other:") or not competency or not title:
+                continue
+            if competency not in allowed:
+                continue
+            extras.append(
+                {
+                    "resource_id": resource_id,
+                    "competency": competency,
+                    "resource_json": json.dumps(
+                        {
+                            "id": resource_id,
+                            "title": title,
+                            "kind": kind,
+                            "source": "other",
+                            "provider": kind.replace("_", " ").title(),
+                        }
+                    ),
+                }
+            )
+        if not extras:
+            raise BackendError("No valid other sources to add.", "validation_error", 400)
+        with self.db.transaction() as connection:
+            for extra in extras:
+                connection.execute(
+                    """
+                    INSERT INTO external_learning(employee_code,resource_id,competency,resource_json,clicked_at,completed_at)
+                    VALUES(?,?,?,?,?,?)
+                    ON CONFLICT(employee_code, resource_id) DO UPDATE SET
+                        competency=excluded.competency,
+                        resource_json=excluded.resource_json
+                    """,
+                    (employee_code, extra["resource_id"], extra["competency"], extra["resource_json"], None, None),
+                )
+                connection.execute(
+                    """
+                    INSERT OR IGNORE INTO course_progress(employee_code,course_id,status,progress_pct,launched_at,completed_at)
+                    VALUES(?,?,?,?,?,?)
+                    """,
+                    (employee_code, extra["resource_id"], "not_started", 0, None, None),
+                )
+        return self.learning_journey(employee_code)
+
+    def update_course_progress(self, user: dict[str, Any], course_id: str, action: str) -> dict[str, Any]:
+        if user["role"] != "employee":
+            raise BackendError("Employee access required.", "forbidden", 403)
+        employee_code = user["employee_code"]
+        course_id = str(course_id or "").strip()
+        action = str(action or "").strip().lower()
+        if not course_id:
+            raise BackendError("course_id is required.", "validation_error", 400)
+        if action not in {"launch", "complete"}:
+            raise BackendError("action must be launch or complete.", "validation_error", 400)
+        journey = self.learning_journey(employee_code)
+        if not journey.get("locked"):
+            raise BackendError("Lock your learning journey before tracking progress.", "journey_not_locked", 409)
+        known = {str(course.get("id") or course.get("course_id")) for course in journey["courses"]}
+        if course_id not in known:
+            raise BackendError("Course is not part of the locked journey.", "course_not_in_journey", 404)
+        now = utc_now()
+        with self.db.transaction() as connection:
+            row = connection.execute(
+                "SELECT * FROM course_progress WHERE employee_code=? AND course_id=?",
+                (employee_code, course_id),
+            ).fetchone()
+            if not row:
+                connection.execute(
+                    """
+                    INSERT INTO course_progress(employee_code,course_id,status,progress_pct,launched_at,completed_at)
+                    VALUES(?,?,?,?,?,?)
+                    """,
+                    (employee_code, course_id, "not_started", 0, None, None),
+                )
+                row = connection.execute(
+                    "SELECT * FROM course_progress WHERE employee_code=? AND course_id=?",
+                    (employee_code, course_id),
+                ).fetchone()
+            if action == "launch":
+                if row["status"] != "completed":
+                    connection.execute(
+                        """
+                        UPDATE course_progress
+                        SET status='in_progress', launched_at=COALESCE(launched_at, ?)
+                        WHERE employee_code=? AND course_id=?
+                        """,
+                        (now, employee_code, course_id),
+                    )
+                if course_id.startswith("other:"):
+                    connection.execute(
+                        "UPDATE external_learning SET clicked_at=COALESCE(clicked_at, ?) WHERE employee_code=? AND resource_id=?",
+                        (now, employee_code, course_id),
+                    )
+            else:
+                connection.execute(
+                    """
+                    UPDATE course_progress
+                    SET status='completed', progress_pct=100, launched_at=COALESCE(launched_at, ?), completed_at=?
+                    WHERE employee_code=? AND course_id=?
+                    """,
+                    (now, now, employee_code, course_id),
+                )
+                if course_id.startswith("other:"):
+                    connection.execute(
+                        "UPDATE external_learning SET completed_at=? WHERE employee_code=? AND resource_id=?",
+                        (now, employee_code, course_id),
+                    )
         return self.learning_journey(employee_code)
 
     def learning_journey(self, employee_code: str) -> dict[str, Any]:
@@ -665,13 +869,68 @@ class MyCareerBackend:
             selections = connection.execute(
                 "SELECT * FROM learning_selections WHERE employee_code=? ORDER BY competency,course_id", (employee_code,)
             ).fetchall()
+            external = connection.execute(
+                "SELECT * FROM external_learning WHERE employee_code=? ORDER BY competency,resource_id", (employee_code,)
+            ).fetchall()
+            progress_rows = connection.execute(
+                "SELECT * FROM course_progress WHERE employee_code=?", (employee_code,)
+            ).fetchall()
             activity = connection.execute(
                 "SELECT * FROM linkedin_activity WHERE employee_code=?", (employee_code,)
             ).fetchone()
+        progress_by_id = {row["course_id"]: dict(row) for row in progress_rows}
+        courses = []
+        for row in selections:
+            course = {**dict(row), **by_id.get(row["course_id"], {})}
+            course["id"] = str(course.get("id") or row["course_id"])
+            course["source"] = course.get("source") or "linkedin"
+            courses.append(self._with_course_progress(course, progress_by_id.get(row["course_id"])))
+        for row in external:
+            payload = self.db.decode_json(row["resource_json"], {})
+            course = {
+                "id": row["resource_id"],
+                "course_id": row["resource_id"],
+                "competency": row["competency"],
+                "title": payload.get("title") or row["resource_id"],
+                "provider": payload.get("provider") or "Other source",
+                "duration": "",
+                "url": payload.get("url") or "",
+                "source": "other",
+                "kind": payload.get("kind") or "other",
+            }
+            courses.append(self._with_course_progress(course, progress_by_id.get(row["resource_id"])))
+        completed = sum(1 for course in courses if course.get("status") == "completed")
+        in_progress = sum(1 for course in courses if course.get("status") == "in_progress")
         return {
             "target": recommendations["target"],
-            "courses": [{**dict(row), **by_id.get(row["course_id"], {})} for row in selections],
+            "courses": courses,
+            "locked": bool(courses),
+            "progress": {
+                "completed": completed,
+                "in_progress": in_progress,
+                "total": len(courses),
+                "percentage": round((completed / len(courses)) * 100) if courses else 0,
+            },
             "linkedin": dict(activity) if activity else {"learning_hours": 0.0, "completions": 0, "synced_at": None},
+        }
+
+    @staticmethod
+    def _with_course_progress(course: dict[str, Any], progress: dict[str, Any] | None) -> dict[str, Any]:
+        status = "not_started"
+        progress_pct = 0
+        launched_at = None
+        completed_at = None
+        if progress:
+            status = progress.get("status") or "not_started"
+            progress_pct = int(progress.get("progress_pct") or 0)
+            launched_at = progress.get("launched_at")
+            completed_at = progress.get("completed_at")
+        return {
+            **course,
+            "status": status,
+            "progress_pct": progress_pct,
+            "launched_at": launched_at,
+            "completed_at": completed_at,
         }
 
     # Deterministic confidence and leaderboard

@@ -198,6 +198,16 @@ class Database:
                     synced_at TEXT NOT NULL
                 );
 
+                CREATE TABLE IF NOT EXISTS course_progress (
+                    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
+                    course_id TEXT NOT NULL,
+                    status TEXT NOT NULL CHECK(status IN ('not_started','in_progress','completed')) DEFAULT 'not_started',
+                    progress_pct INTEGER NOT NULL DEFAULT 0 CHECK(progress_pct >= 0 AND progress_pct <= 100),
+                    launched_at TEXT,
+                    completed_at TEXT,
+                    PRIMARY KEY(employee_code, course_id)
+                );
+
                 CREATE TABLE IF NOT EXISTS agent_audit (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     employee_code TEXT NOT NULL,
@@ -212,6 +222,19 @@ class Database:
             )
             for phase in PHASES:
                 connection.execute("INSERT OR IGNORE INTO phases(phase, status) VALUES (?, 'closed')", (phase,))
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS course_progress (
+                    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
+                    course_id TEXT NOT NULL,
+                    status TEXT NOT NULL CHECK(status IN ('not_started','in_progress','completed')) DEFAULT 'not_started',
+                    progress_pct INTEGER NOT NULL DEFAULT 0 CHECK(progress_pct >= 0 AND progress_pct <= 100),
+                    launched_at TEXT,
+                    completed_at TEXT,
+                    PRIMARY KEY(employee_code, course_id)
+                )
+                """
+            )
 
     def clear_runtime_cache(self) -> None:
         """Clear restart-scoped sessions and evidence cache."""

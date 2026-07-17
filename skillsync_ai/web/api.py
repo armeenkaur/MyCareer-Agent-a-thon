@@ -190,13 +190,36 @@ class BackendAPI:
                 self._require_role(user, {"admin"})
                 self.backend.reset_career(user, str(body.get("employee_code") or ""))
                 self._send(handler, 200, {"status": "reset"})
+            elif parsed.path == "/api/admin/learning/reset":
+                self._require_role(user, {"admin"})
+                self._send(
+                    handler,
+                    200,
+                    self.backend.reset_learning(user, str(body.get("employee_code") or "")),
+                )
             elif parsed.path == "/api/employee/courses/generate":
                 self._require_role(user, {"employee"})
                 self._send(handler, 200, self.backend.generate_recommendations(user["employee_code"]))
             elif parsed.path == "/api/employee/learning/checkout":
                 self._require_role(user, {"employee"})
                 course_ids = body.get("course_ids") if isinstance(body.get("course_ids"), list) else []
-                self._send(handler, 200, self.backend.checkout(user, [str(value) for value in course_ids]))
+                other_sources = body.get("other_sources") if isinstance(body.get("other_sources"), list) else []
+                self._send(
+                    handler,
+                    200,
+                    self.backend.checkout(user, [str(value) for value in course_ids], other_sources),
+                )
+            elif parsed.path == "/api/employee/learning/progress":
+                self._require_role(user, {"employee"})
+                self._send(
+                    handler,
+                    200,
+                    self.backend.update_course_progress(
+                        user,
+                        str(body.get("course_id") or ""),
+                        str(body.get("action") or ""),
+                    ),
+                )
             elif parsed.path == "/api/admin/linkedin/sync":
                 self._require_role(user, {"admin"})
                 self._send(handler, 200, self.backend.sync_linkedin(user))

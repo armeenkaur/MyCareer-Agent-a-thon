@@ -47,7 +47,7 @@ STITCH_PAGES = {
 
 def prepare_stitch_html(html: str, route: str) -> str:
     injection = f'<script>window.MYCAREER_PAGE={route!r};</script><script src="/stitch/runtime.js"></script>'
-    if route == "login":
+    if route in {"login", "employee/welcome"}:
         return html.replace("</body>", f"{injection}</body>")
     return re.sub(
         r"<body\b[^>]*>.*?</body>",
