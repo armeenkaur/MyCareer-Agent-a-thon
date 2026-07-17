@@ -237,10 +237,9 @@ class Database:
             )
 
     def clear_runtime_cache(self) -> None:
-        """Clear restart-scoped sessions and evidence cache."""
+        """Clear restart-scoped sessions. Keep curated RD evidence on disk."""
         with self.transaction() as connection:
             connection.execute("DELETE FROM sessions")
-            connection.execute("DELETE FROM curated_evidence")
 
     def seed_from_workbooks(self, data: Any) -> None:
         now = utc_now()

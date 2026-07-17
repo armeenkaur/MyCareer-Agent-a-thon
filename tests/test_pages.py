@@ -60,16 +60,21 @@ class HandoffContractTest(unittest.TestCase):
         self.assertIn('id="password-input"', page)
         self.assertIn("/stitch/runtime.js", page)
 
-    def test_employee_welcome_keeps_mmt_design_body(self) -> None:
+    def test_employee_welcome_uses_shared_shell_mount(self) -> None:
         source = (STITCH_DIR / "employee_welcome_screen" / "code.html").read_text(encoding="utf-8")
         page = prepare_stitch_html(source, "employee/welcome")
 
-        self.assertIn("Your journey in four steps", page)
-        self.assertIn('data-step="roleplays"', page)
-        self.assertIn('data-progress-count', page)
-        self.assertNotIn("7/7 complete", page)
+        self.assertIn('<div id="mycareer-app"></div>', page)
         self.assertIn("/stitch/runtime.js", page)
-        self.assertNotIn('<div id="mycareer-app"></div>', page)
+        self.assertNotIn("Jordan Smith", page)
+
+    def test_zm_welcome_uses_shared_shell_mount(self) -> None:
+        source = (STITCH_DIR / "zm_welcome_screen" / "code.html").read_text(encoding="utf-8")
+        page = prepare_stitch_html(source, "zm/welcome")
+
+        self.assertIn('<div id="mycareer-app"></div>', page)
+        self.assertIn("/stitch/runtime.js", page)
+        self.assertNotIn("Jordan Smith", page)
 
 
 if __name__ == "__main__":

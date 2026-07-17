@@ -166,7 +166,7 @@
 <div class="flex items-center gap-md">
 <div class="text-right hidden sm:block">
 <p class="font-bold text-body-sm leading-none" data-user-name>Employee</p>
-<p class="text-[10px] uppercase tracking-wide text-on-surface-variant mt-xs">Employee</p>
+<p class="text-[10px] tracking-wide text-on-surface-variant mt-xs normal-case" data-user-role></p>
 </div>
 <div class="w-9 h-9 rounded-full bg-secondary-container text-white flex items-center justify-center font-bold text-sm" data-user-initials>MC</div>
 <button class="text-body-sm font-bold text-secondary-container" data-logout type="button">Sign out</button>
@@ -185,7 +185,7 @@
                                 Own your growth. <br/><span class="text-secondary-container">Explore what could be next.</span>
 </h2>
 <p class="font-body-lg text-body-lg text-on-surface-variant leading-relaxed">
-                                Complete assessments, choose an aspiration, and build your learning journey. This personalized path is designed to help you navigate your career evolution within the MMT ecosystem.
+                                Choose your career aspiration and embark on a personalized learning journey designed to support your growth and help you shape your career.
                             </p>
 </div>
 </div>
@@ -193,12 +193,30 @@
 <span class="material-symbols-outlined text-[320px] text-primary rotate-12" style="font-variation-settings: 'FILL' 0;">explore</span>
 </div>
 </section>
+<!-- Disclaimer -->
+<section class="py-md bg-surface-container-low hero-pattern">
+<div class="max-w-[1200px] mx-auto px-margin-desktop">
+<aside class="bg-error-container/70 border border-outline-variant/40 rounded-lg px-md py-sm text-on-surface w-full">
+<div class="flex items-center gap-xs mb-xs">
+<span class="material-symbols-outlined text-on-error-container text-[18px]">info</span>
+<h4 class="font-bold text-on-error-container text-body-sm">Important to know...</h4>
+</div>
+<p class="text-[12px] leading-relaxed text-on-surface whitespace-nowrap overflow-x-auto">
+                                Completing a learning journey does not guarantee promotion. While growth leads to opportunities, promotions are determined by business requirements, performance metrics, and sustained delivery of results at the next level.
+                            </p>
+<a class="mt-sm inline-flex items-center gap-xs text-secondary-container font-bold text-[12px] hover:underline" href="#" data-growth-philosophy>
+                            Read more about our growth philosophy
+                            <span aria-hidden="true">→</span>
+</a>
+</aside>
+</div>
+</section>
 <!-- Roadmap Section -->
 <section class="py-xl bg-surface-container">
 <div class="max-w-[1200px] mx-auto px-margin-desktop">
 <div class="text-center mb-xl">
 <h2 class="font-headline-lg text-headline-lg mb-sm">Your journey in four steps</h2>
-<p class="text-on-surface-variant max-w-xl mx-auto">A structured approach to navigating your development and achieving your professional aspirations.</p>
+<p class="text-on-surface-variant whitespace-nowrap overflow-x-auto">A structured approach to navigating your development and achieving your professional aspirations.</p>
 </div>
 <div class="relative" data-journey-steps>
 <div class="absolute top-8 left-0 w-full h-[2px] path-line opacity-30 hidden lg:block"></div>
@@ -235,13 +253,12 @@
 <section class="py-lg max-w-[1200px] mx-auto px-margin-desktop">
 <div class="border-t border-outline-variant pt-lg">
 <div class="flex justify-between items-end mb-sm">
-<span class="font-bold text-on-background">Current progress</span>
+<span class="font-bold text-on-background">Assessment Completion Status</span>
 <span class="text-body-sm text-on-surface-variant" data-progress-count>0/7 complete</span>
 </div>
 <div class="w-full h-3 bg-surface-container-highest rounded-full overflow-hidden mb-sm">
 <div class="h-full bg-secondary-container" data-progress-bar style="width:0%"></div>
 </div>
-<p class="text-body-sm text-on-surface-variant" data-phase-status>Phase status: closed. Values come from persisted submissions only.</p>
 </div>
 </section>
 <!-- Features Grid -->
@@ -273,31 +290,15 @@
 <span class="material-symbols-outlined">rocket_launch</span>
 </div>
 <h3 class="font-headline-sm text-headline-sm mb-sm">Turn learning into action</h3>
-<p class="text-on-surface-variant font-body-sm text-body-sm">Apply your new knowledge in real-world scenarios and track your tangible impact on business outcomes.</p>
+<p class="text-on-surface-variant font-body-sm text-body-sm">Apply your new skills in real-world scenarios and unlock your full potential.</p>
 </div>
 </div>
 </section>
-<!-- Journey visual + disclaimer -->
+</section>
+<!-- Journey visual -->
 <section class="pb-xl max-w-[1200px] mx-auto px-margin-desktop">
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-gutter items-stretch">
-<div class="lg:col-span-2 rounded-xl overflow-hidden min-h-[220px]">
+<div class="rounded-xl overflow-hidden min-h-[220px]">
 <img alt="Welcome to our journey — collaborators around a project board" class="w-full h-full object-cover" src="/stitch/employee_welcome_screen/journey_hero.png"/>
-</div>
-<aside class="bg-error-container/70 border border-outline-variant/40 rounded-xl p-lg flex flex-col justify-between text-on-surface">
-<div>
-<div class="flex items-center gap-sm mb-md">
-<span class="material-symbols-outlined text-on-error-container text-[22px]">info</span>
-<h4 class="font-bold text-on-error-container text-body-md">Important to know...</h4>
-</div>
-<p class="text-body-sm text-on-surface leading-relaxed">
-                                Completing a learning journey does not guarantee promotion. While growth leads to opportunities, promotions are determined by business requirements, performance metrics, and sustained delivery of results at the next level.
-                            </p>
-</div>
-<a class="mt-lg inline-flex items-center gap-xs text-secondary-container font-bold text-body-sm hover:underline" href="#" data-growth-philosophy>
-                            Read more about our growth philosophy
-                            <span aria-hidden="true">→</span>
-</a>
-</aside>
 </div>
 </section>
 </main>
