@@ -1,0 +1,470 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>RD Competency Validation | MyCareer Compass</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<!-- Shared Components Logic & Tailwind Config -->
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                "on-tertiary-fixed": "#380d00",
+                "tertiary-fixed": "#ffdbcf",
+                "surface-container": "#ecedf9",
+                "surface-variant": "#e1e2ee",
+                "inverse-on-surface": "#eff0fc",
+                "surface-dim": "#d8d9e5",
+                "on-error-container": "#93000a",
+                "on-surface-variant": "#424655",
+                "on-tertiary": "#ffffff",
+                "secondary-fixed": "#dae2ff",
+                "on-error": "#ffffff",
+                "surface-container-lowest": "#ffffff",
+                "on-tertiary-container": "#fff0ec",
+                "inverse-primary": "#b3c5ff",
+                "surface-container-low": "#f2f3ff",
+                "primary-fixed-dim": "#b3c5ff",
+                "background": "#faf8ff",
+                "on-secondary-container": "#003183",
+                "on-secondary": "#ffffff",
+                "on-surface": "#191b24",
+                "on-primary-fixed": "#001849",
+                "surface-container-high": "#e7e7f3",
+                "on-secondary-fixed": "#001849",
+                "primary": "#004dc6",
+                "on-primary": "#ffffff",
+                "tertiary-container": "#c44400",
+                "outline-variant": "#c2c6d8",
+                "outline": "#737687",
+                "tertiary": "#9b3400",
+                "on-secondary-fixed-variant": "#0e409d",
+                "tertiary-fixed-dim": "#ffb59a",
+                "error": "#ba1a1a",
+                "on-background": "#191b24",
+                "surface-container-highest": "#e1e2ee",
+                "on-tertiary-fixed-variant": "#802a00",
+                "primary-container": "#1464f4",
+                "secondary-container": "#799dfe",
+                "error-container": "#ffdad6",
+                "surface": "#faf8ff",
+                "surface-bright": "#faf8ff",
+                "surface-tint": "#0054d7",
+                "secondary": "#3159b6",
+                "on-primary-fixed-variant": "#003fa5",
+                "primary-fixed": "#dbe1ff",
+                "on-primary-container": "#f1f2ff",
+                "inverse-surface": "#2e3039",
+                "secondary-fixed-dim": "#b3c5ff"
+            },
+            "borderRadius": {
+                "DEFAULT": "0.25rem",
+                "lg": "0.5rem",
+                "xl": "0.75rem",
+                "full": "9999px"
+            },
+            "spacing": {
+                "margin-desktop": "32px",
+                "canvas-max-width": "1440px",
+                "gutter": "24px",
+                "card-padding": "24px",
+                "stack-gap-lg": "24px",
+                "margin-mobile": "16px",
+                "grid-columns": "12",
+                "stack-gap-sm": "8px",
+                "stack-gap-md": "16px",
+                "content-max-width": "1280px"
+            },
+            "fontFamily": {
+                "display-lg": ["Inter"],
+                "button": ["Inter"],
+                "section-title": ["Inter"],
+                "metadata": ["Inter"],
+                "page-title-mobile": ["Inter"],
+                "display-lg-mobile": ["Inter"],
+                "body-md": ["Inter"],
+                "page-title": ["Inter"],
+                "body-sm": ["Inter"],
+                "card-title": ["Inter"]
+            },
+            "fontSize": {
+                "display-lg": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                "button": ["14px", {"lineHeight": "20px", "fontWeight": "600"}],
+                "section-title": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                "metadata": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                "page-title-mobile": ["24px", {"lineHeight": "30px", "fontWeight": "600"}],
+                "display-lg-mobile": ["28px", {"lineHeight": "34px", "fontWeight": "600"}],
+                "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                "page-title": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                "card-title": ["16px", {"lineHeight": "24px", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .competency-card {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .competency-card:hover {
+            box-shadow: 0px 4px 12px rgba(23, 32, 51, 0.05);
+        }
+        .progress-bar-fill {
+            transition: width 1s ease-in-out;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-md min-h-screen">
+<!-- Top Navigation Bar -->
+<header class="bg-surface sticky top-0 z-40 w-full border-b border-outline-variant flex justify-between items-center h-16 px-margin-desktop">
+<div class="flex items-center gap-4">
+<span class="font-display-lg text-display-lg font-bold text-primary">MyCareer Compass</span>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative group">
+<button class="p-2 hover:bg-surface-container-low transition-colors rounded-full">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="notifications">notifications</span>
+</button>
+</div>
+<div class="relative group">
+<button class="p-2 hover:bg-surface-container-low transition-colors rounded-full">
+<span class="material-symbols-outlined text-on-surface-variant" data-icon="settings">settings</span>
+</button>
+</div>
+<div class="flex items-center gap-3 pl-4 border-l border-outline-variant">
+<div class="text-right">
+<p class="font-button text-on-surface">Alex Rivera</p>
+<p class="font-metadata text-on-surface-variant">Regional Director</p>
+</div>
+<img class="w-10 h-10 rounded-full border border-outline-variant object-cover" data-alt="A professional headshot of a Regional Director named Alex Rivera, wearing business casual attire in a modern, brightly lit office environment with soft focus backgrounds. The lighting is warm and natural, emphasizing a high-trust leadership persona." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDYMp_b-bcoNkqXwOv3wMBORRwBm7bzEtI2LRYEypv6pnVdQoSO10WFaa30CzeMNyrOOykFogzpmS9mUNyWr6IJjKgO1UCQhzfdN9mKDbr7W7WzSU-SSsCUUeM-aDUOl4WWMEqeTgvEeU8ANIq8L3fQ1djXNcZZCMfrBCM6x9MJB6m8hqYL2x4p-lJtfjCI18iG4MZAcTNLe1RgUvV5wI8qTqqiUOanjG4fIYLBUnsiEsMf513ER3vh"/>
+</div>
+</div>
+</header>
+<div class="flex min-h-[calc(100vh-64px)]">
+<!-- Side Navigation Bar -->
+<aside class="hidden md:flex flex-col h-full w-72 bg-surface-container-low border-r border-outline-variant py-6 px-4 gap-stack-gap-md sticky top-16 h-[calc(100vh-64px)]">
+<nav class="flex-1 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="dashboard">dashboard</span>
+<span class="font-body-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 bg-primary-container text-on-primary-container font-bold rounded-lg transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="explore">explore</span>
+<span class="font-body-md">Career Path</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="psychology">psychology</span>
+<span class="font-body-md">Skills Lab</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="groups">groups</span>
+<span class="font-body-md">Mentorship</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="school">school</span>
+<span class="font-body-md">Learning</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="leaderboard">leaderboard</span>
+<span class="font-body-md">Analytics</span>
+</a>
+</nav>
+<div class="mt-auto flex flex-col gap-1">
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="help">help</span>
+<span class="font-body-md">Support</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined" data-icon="logout">logout</span>
+<span class="font-body-md">Sign Out</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 max-w-content-max-width mx-auto p-margin-desktop">
+<!-- 1. Header: Employee Identity -->
+<section class="bg-surface border border-outline-variant rounded-xl p-card-padding mb-gutter flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+<div class="flex items-center gap-6">
+<div class="relative">
+<img class="w-20 h-20 rounded-xl object-cover shadow-sm" data-alt="Close up portrait of Jordan Smith, a mid-level manager with a focused and professional expression. The background is a clean white professional setting with soft teal accents, matching a modern corporate identity." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDHvy_71MUABqpYq_3wsHiu4mqVAiuFgf7zub4Xh30U7k-8FSCPzCZswB7aoXcFt-lTCUJov1Nb6WhTmfmyozOT-EFs71bYx4_4oEaSKt7kKnKAHXmYoOvDquDOALmbep8Cmbjb52yFVQTlJYhrCZj4PqH7BnQt610QwcKeJiVLNmwq2vUbQHPSShyhEBdtYvXoHJBKZ84JjiGeHeA8yp4o2vNFRb-fWdIcWN0flwiN0IsJlHY7ebnJ"/>
+<div class="absolute -bottom-2 -right-2 bg-primary text-on-primary text-[10px] font-bold px-2 py-1 rounded-full uppercase tracking-wider">L5 Grade</div>
+</div>
+<div>
+<h1 class="font-page-title text-page-title text-on-surface">Jordan Smith</h1>
+<div class="flex flex-wrap gap-x-4 gap-y-1 mt-1">
+<span class="font-body-sm text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[18px]" data-icon="work">work</span> Senior Project Manager
+                            </span>
+<span class="font-body-sm text-on-surface-variant flex items-center gap-1">
+<span class="material-symbols-outlined text-[18px]" data-icon="person">person</span> ZM: Marcus Thorne
+                            </span>
+</div>
+</div>
+</div>
+<div class="w-full md:w-64">
+<div class="flex justify-between items-end mb-2">
+<span class="font-metadata text-on-surface-variant">Validation Progress</span>
+<span class="font-button text-primary">3 / 7 Completed</span>
+</div>
+<div class="w-full bg-surface-container-highest h-2 rounded-full overflow-hidden">
+<div class="progress-bar-fill bg-primary h-full" style="width: 42%;"></div>
+</div>
+</div>
+</section>
+<!-- 2. Rubric Panel -->
+<section class="mb-gutter">
+<div class="bg-surface border border-outline-variant rounded-xl overflow-hidden shadow-sm">
+<div class="bg-surface-container px-card-padding py-3 border-b border-outline-variant flex items-center gap-2">
+<span class="material-symbols-outlined text-primary" data-icon="info">info</span>
+<h2 class="font-card-title text-card-title text-on-surface">Proficiency Rubric Reference</h2>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-4 divide-y md:divide-y-0 md:divide-x divide-outline-variant">
+<div class="p-card-padding">
+<span class="inline-block px-2 py-1 rounded bg-surface-container-high text-on-surface-variant font-bold text-[10px] mb-2 uppercase tracking-tight">Level 1</span>
+<h3 class="font-card-title text-card-title text-on-surface mb-1">Beginner</h3>
+<p class="font-body-sm text-on-surface-variant">Requires guidance and direct supervision to complete tasks. Grasping fundamental concepts.</p>
+</div>
+<div class="p-card-padding">
+<span class="inline-block px-2 py-1 rounded bg-secondary-container text-on-secondary-container font-bold text-[10px] mb-2 uppercase tracking-tight">Level 2</span>
+<h3 class="font-card-title text-card-title text-on-surface mb-1">Intermediate</h3>
+<p class="font-body-sm text-on-surface-variant">Handles routine tasks independently. Understands core workflows but needs help with complexity.</p>
+</div>
+<div class="p-card-padding">
+<span class="inline-block px-2 py-1 rounded bg-primary-container text-on-primary-container font-bold text-[10px] mb-2 uppercase tracking-tight">Level 3</span>
+<h3 class="font-card-title text-card-title text-on-surface mb-1">Proficient</h3>
+<p class="font-body-sm text-on-surface-variant">Consistent performance in complex scenarios. Mentors others and drives standard processes.</p>
+</div>
+<div class="p-card-padding">
+<span class="inline-block px-2 py-1 rounded bg-on-tertiary-fixed text-tertiary-fixed font-bold text-[10px] mb-2 uppercase tracking-tight">Level 4</span>
+<h3 class="font-card-title text-card-title text-on-surface mb-1">Advanced</h3>
+<p class="font-body-sm text-on-surface-variant">Sets benchmarks, innovates strategy, and manages multi-layered cross-functional initiatives.</p>
+</div>
+</div>
+</div>
+</section>
+<!-- 5. Evidence Disclaimer -->
+<div class="mb-6 flex items-center gap-3 p-4 bg-tertiary-container/10 border border-tertiary/20 rounded-lg text-tertiary">
+<span class="material-symbols-outlined" data-icon="visibility">visibility</span>
+<p class="font-body-sm italic">Evidence supports review and does not determine rating. Use your professional judgment to validate proficiency.</p>
+</div>
+<!-- 3 & 4. Competency Cards -->
+<div class="flex flex-col gap-stack-gap-lg pb-32">
+<!-- Competency 1: Communication -->
+<article class="competency-card bg-surface border border-outline-variant rounded-xl overflow-hidden">
+<div class="grid grid-cols-1 lg:grid-cols-12">
+<!-- Left: Definition & ZM Input -->
+<div class="lg:col-span-5 p-card-padding border-b lg:border-b-0 lg:border-r border-outline-variant">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h3 class="font-section-title text-section-title text-on-surface">Communication</h3>
+<p class="font-body-sm text-on-surface-variant mt-1">Ability to convey information effectively across diverse stakeholders and media.</p>
+</div>
+<span class="bg-primary-container text-on-primary-container px-3 py-1 rounded-full text-[12px] font-bold">ZM Rating: Proficient</span>
+</div>
+<div class="bg-surface-container-low p-4 rounded-lg mb-6 border border-outline-variant/30">
+<p class="font-metadata text-on-surface-variant uppercase font-bold tracking-widest mb-2">ZM Note</p>
+<p class="font-body-sm text-on-surface italic">"Jordan has shown significant improvement in client presentations. They are clear, concise, and manage Q&amp;A sessions with confidence."</p>
+</div>
+<div class="space-y-4">
+<label class="font-card-title text-card-title block text-on-surface">RD Proficiency Selector</label>
+<div class="grid grid-cols-4 gap-2">
+<button class="flex flex-col items-center justify-center py-3 px-2 border border-outline-variant rounded-lg hover:bg-surface-container-high transition-colors">
+<span class="font-metadata font-bold">BEG</span>
+</button>
+<button class="flex flex-col items-center justify-center py-3 px-2 border border-outline-variant rounded-lg hover:bg-surface-container-high transition-colors">
+<span class="font-metadata font-bold">INT</span>
+</button>
+<button class="flex flex-col items-center justify-center py-3 px-2 bg-primary border border-primary text-on-primary rounded-lg shadow-md ring-2 ring-primary/20">
+<span class="font-metadata font-bold">PRO</span>
+</button>
+<button class="flex flex-col items-center justify-center py-3 px-2 border border-outline-variant rounded-lg hover:bg-surface-container-high transition-colors">
+<span class="font-metadata font-bold">ADV</span>
+</button>
+</div>
+<div class="mt-4">
+<label class="font-metadata text-on-surface-variant block mb-2">RD Validation Note (Optional)</label>
+<textarea class="w-full rounded-lg border-outline-variant focus:ring-primary focus:border-primary font-body-sm bg-surface" placeholder="Add context for your rating..." rows="3"></textarea>
+</div>
+</div>
+</div>
+<!-- Right: Evidence Fragments -->
+<div class="lg:col-span-7 p-card-padding bg-background/50">
+<h4 class="font-metadata text-on-surface-variant uppercase font-bold tracking-widest mb-4">Supporting Evidence</h4>
+<div class="space-y-4">
+<div class="bg-surface border border-outline-variant rounded-lg p-3">
+<div class="flex items-center gap-2 mb-2">
+<span class="bg-secondary-container/20 text-on-secondary-container px-2 py-0.5 rounded text-[10px] font-bold">APPRAISAL</span>
+<span class="font-metadata text-on-surface-variant">FY23 Q4 Review</span>
+</div>
+<p class="font-body-sm text-on-surface">"Effectively led the regional kickoff meeting with 40+ attendees. Feedback from stakeholders was 4.8/5 on clarity."</p>
+</div>
+<div class="bg-surface border border-outline-variant rounded-lg p-3">
+<div class="flex items-center gap-2 mb-2">
+<span class="bg-primary-container/20 text-on-primary-container px-2 py-0.5 rounded text-[10px] font-bold">INTERVIEW</span>
+<span class="font-metadata text-on-surface-variant">L5 Panel Assessment</span>
+</div>
+<p class="font-body-sm text-on-surface">"Candidate articulated complex technical roadmaps in layman's terms during the whiteboard session."</p>
+</div>
+<div class="bg-surface border border-outline-variant rounded-lg p-3">
+<div class="flex items-center gap-2 mb-2">
+<span class="bg-error-container/20 text-on-error-container px-2 py-0.5 rounded text-[10px] font-bold">AMBER</span>
+<span class="font-metadata text-on-surface-variant">Sentiment Analysis</span>
+</div>
+<p class="font-body-sm text-on-surface">"Positive interaction trends in project slack channels; proactive communication noted on 90% of tickets."</p>
+</div>
+</div>
+</div>
+</div>
+</article>
+<!-- Competency 2: Stakeholder Management -->
+<article class="competency-card bg-surface border border-outline-variant rounded-xl overflow-hidden">
+<div class="grid grid-cols-1 lg:grid-cols-12">
+<div class="lg:col-span-5 p-card-padding border-b lg:border-b-0 lg:border-r border-outline-variant">
+<div class="flex justify-between items-start mb-4">
+<div>
+<h3 class="font-section-title text-section-title text-on-surface">Stakeholder Management</h3>
+<p class="font-body-sm text-on-surface-variant mt-1">Managing expectations and building trust with internal and external partners.</p>
+</div>
+<span class="bg-secondary-container text-on-secondary-container px-3 py-1 rounded-full text-[12px] font-bold">ZM Rating: Intermediate</span>
+</div>
+<div class="bg-surface-container-low p-4 rounded-lg mb-6 border border-outline-variant/30">
+<p class="font-metadata text-on-surface-variant uppercase font-bold tracking-widest mb-2">ZM Note</p>
+<p class="font-body-sm text-on-surface italic">"Still struggling with high-pressure escalations from the Engineering lead. Needs more focus on proactive alignment."</p>
+</div>
+<div class="space-y-4">
+<label class="font-card-title text-card-title block text-on-surface">RD Proficiency Selector</label>
+<div class="grid grid-cols-4 gap-2">
+<button class="flex flex-col items-center justify-center py-3 px-2 border border-outline-variant rounded-lg hover:bg-surface-container-high">
+<span class="font-metadata font-bold">BEG</span>
+</button>
+<button class="flex flex-col items-center justify-center py-3 px-2 bg-primary border border-primary text-on-primary rounded-lg shadow-md ring-2 ring-primary/20">
+<span class="font-metadata font-bold">INT</span>
+</button>
+<button class="flex flex-col items-center justify-center py-3 px-2 border border-outline-variant rounded-lg hover:bg-surface-container-high">
+<span class="font-metadata font-bold">PRO</span>
+</button>
+<button class="flex flex-col items-center justify-center py-3 px-2 border border-outline-variant rounded-lg hover:bg-surface-container-high">
+<span class="font-metadata font-bold">ADV</span>
+</button>
+</div>
+<textarea class="w-full mt-4 rounded-lg border-outline-variant focus:ring-primary focus:border-primary font-body-sm bg-surface" placeholder="Add context for your rating..." rows="3"></textarea>
+</div>
+</div>
+<div class="lg:col-span-7 p-card-padding bg-background/50">
+<h4 class="font-metadata text-on-surface-variant uppercase font-bold tracking-widest mb-4">Supporting Evidence</h4>
+<div class="bg-surface border border-outline-dashed border-outline-variant rounded-xl p-8 flex flex-col items-center justify-center text-center opacity-60">
+<span class="material-symbols-outlined text-4xl mb-2 text-outline" data-icon="search_off">search_off</span>
+<p class="font-body-md text-on-surface-variant">No relevant evidence found for this competency.</p>
+</div>
+</div>
+</div>
+</article>
+<!-- Competency 3: Ownership & Accountability (Collapsed Style for visual variety) -->
+<article class="competency-card bg-surface border border-outline-variant rounded-xl overflow-hidden opacity-80 hover:opacity-100">
+<div class="grid grid-cols-1 lg:grid-cols-12">
+<div class="lg:col-span-5 p-card-padding border-b lg:border-b-0 lg:border-r border-outline-variant">
+<h3 class="font-section-title text-section-title text-on-surface">Ownership &amp; Accountability</h3>
+<p class="font-body-sm text-on-surface-variant mt-1">Taking full responsibility for outcomes and following through on commitments.</p>
+<div class="mt-6">
+<label class="font-card-title text-card-title block text-on-surface mb-2">RD Proficiency Selector</label>
+<div class="grid grid-cols-4 gap-2">
+<button class="flex flex-col items-center justify-center py-2 border border-outline-variant rounded-lg hover:bg-surface-container-high">BEG</button>
+<button class="flex flex-col items-center justify-center py-2 border border-outline-variant rounded-lg hover:bg-surface-container-high">INT</button>
+<button class="flex flex-col items-center justify-center py-2 border border-outline-variant rounded-lg hover:bg-surface-container-high">PRO</button>
+<button class="flex flex-col items-center justify-center py-2 border border-outline-variant rounded-lg hover:bg-surface-container-high">ADV</button>
+</div>
+</div>
+</div>
+<div class="lg:col-span-7 p-card-padding flex items-center justify-center bg-surface-container-lowest">
+<button class="flex items-center gap-2 text-primary font-button hover:underline">
+<span class="material-symbols-outlined" data-icon="expand_more">expand_more</span>
+                                Expand Evidence (4 items)
+                            </button>
+</div>
+</div>
+</article>
+<!-- Placeholder for the rest of the cards (4, 5, 6, 7) -->
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+<div class="p-card-padding bg-surface border border-outline-variant rounded-xl flex items-center justify-between">
+<span class="font-card-title">Team Management</span>
+<span class="material-symbols-outlined text-outline" data-icon="chevron_right">chevron_right</span>
+</div>
+<div class="p-card-padding bg-surface border border-outline-variant rounded-xl flex items-center justify-between">
+<span class="font-card-title">Executive Presence</span>
+<span class="material-symbols-outlined text-outline" data-icon="chevron_right">chevron_right</span>
+</div>
+<div class="p-card-padding bg-surface border border-outline-variant rounded-xl flex items-center justify-between">
+<span class="font-card-title">Consultative Selling</span>
+<span class="material-symbols-outlined text-outline" data-icon="chevron_right">chevron_right</span>
+</div>
+<div class="p-card-padding bg-surface border border-outline-variant rounded-xl flex items-center justify-between">
+<span class="font-card-title">Data Analytics</span>
+<span class="material-symbols-outlined text-outline" data-icon="chevron_right">chevron_right</span>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Floating Actions Bar -->
+<div class="fixed bottom-0 left-0 right-0 z-50 bg-surface/90 backdrop-blur-md border-t border-outline-variant px-margin-desktop py-4 shadow-2xl">
+<div class="max-w-content-max-width mx-auto flex flex-col md:flex-row items-center justify-between gap-4">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-primary" data-icon="verified_user">verified_user</span>
+<div>
+<p class="font-button text-on-surface">Validating Jordan Smith's Profile</p>
+<p class="font-metadata text-on-surface-variant">Changes will be saved as a draft unless submitted.</p>
+</div>
+</div>
+<div class="flex items-center gap-stack-gap-md w-full md:w-auto">
+<button class="flex-1 md:flex-none font-button px-6 py-3 border border-outline-variant rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors">
+                    Save Draft
+                </button>
+<button class="flex-1 md:flex-none font-button px-8 py-3 bg-primary text-on-primary rounded-lg shadow-lg hover:shadow-primary/20 transition-all hover:-translate-y-0.5 active:translate-y-0" onclick="document.getElementById('confirmation-modal').classList.remove('hidden')">
+                    Submit Final Profile
+                </button>
+</div>
+</div>
+</div>
+<!-- Confirmation Modal (Hidden by default) -->
+<div class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-on-surface/40 backdrop-blur-sm" id="confirmation-modal">
+<div class="bg-surface w-full max-w-md rounded-xl shadow-2xl border border-outline-variant overflow-hidden transform transition-all">
+<div class="p-card-padding text-center">
+<div class="w-16 h-16 bg-error-container/20 text-error rounded-full flex items-center justify-center mx-auto mb-4">
+<span class="material-symbols-outlined text-4xl" data-icon="lock_reset">lock_reset</span>
+</div>
+<h3 class="font-page-title text-on-surface mb-2">Finalize Ratings?</h3>
+<p class="font-body-md text-on-surface-variant mb-6">This action will <strong>lock the competency ratings</strong> and push them to the system of record. You will not be able to edit this profile further.</p>
+<div class="flex flex-col gap-2">
+<button class="w-full py-3 bg-primary text-on-primary font-button rounded-lg">Confirm &amp; Submit</button>
+<button class="w-full py-3 border border-outline-variant text-on-surface-variant font-button rounded-lg" onclick="document.getElementById('confirmation-modal').classList.add('hidden')">Cancel</button>
+</div>
+</div>
+</div>
+</div>
+<script>
+        // Micro-interaction for proficiency buttons
+        document.querySelectorAll('article button').forEach(btn => {
+            if(btn.querySelector('.font-metadata')) {
+                btn.addEventListener('click', function() {
+                    const parent = this.closest('.grid');
+                    parent.querySelectorAll('button').forEach(b => {
+                        b.classList.remove('bg-primary', 'text-on-primary', 'shadow-md', 'ring-2', 'ring-primary/20');
+                        b.classList.add('border-outline-variant', 'hover:bg-surface-container-high');
+                    });
+                    this.classList.add('bg-primary', 'text-on-primary', 'shadow-md', 'ring-2', 'ring-primary/20');
+                    this.classList.remove('border-outline-variant', 'hover:bg-surface-container-high');
+                });
+            }
+        });
+    </script>
+</body></html>

@@ -1,0 +1,612 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Admin Agent Audit | MyCareer Compass</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@100..900&display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-lowest": "#ffffff",
+                        "surface-container-low": "#f2f3ff",
+                        "surface-tint": "#0054d7",
+                        "on-secondary-fixed": "#001849",
+                        "inverse-surface": "#2e3039",
+                        "on-primary-fixed-variant": "#003fa5",
+                        "on-primary": "#ffffff",
+                        "on-tertiary-container": "#fff0ec",
+                        "on-secondary-container": "#003183",
+                        "secondary-fixed-dim": "#b3c5ff",
+                        "on-primary-fixed": "#001849",
+                        "error-container": "#ffdad6",
+                        "on-surface": "#191b24",
+                        "tertiary-fixed": "#ffdbcf",
+                        "surface-dim": "#d8d9e5",
+                        "outline": "#737687",
+                        "secondary-container": "#799dfe",
+                        "outline-variant": "#c2c6d8",
+                        "error": "#ba1a1a",
+                        "surface-container": "#ecedf9",
+                        "on-error": "#ffffff",
+                        "surface-container-highest": "#e1e2ee",
+                        "surface-bright": "#faf8ff",
+                        "inverse-on-surface": "#eff0fc",
+                        "surface-variant": "#e1e2ee",
+                        "on-error-container": "#93000a",
+                        "surface": "#faf8ff",
+                        "secondary": "#3159b6",
+                        "primary-fixed-dim": "#b3c5ff",
+                        "on-tertiary-fixed": "#380d00",
+                        "tertiary": "#9b3400",
+                        "primary": "#004dc6",
+                        "primary-container": "#1464f4",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary": "#ffffff",
+                        "on-primary-container": "#f1f2ff",
+                        "on-tertiary-fixed-variant": "#802a00",
+                        "tertiary-fixed-dim": "#ffb59a",
+                        "inverse-primary": "#b3c5ff",
+                        "background": "#faf8ff",
+                        "on-background": "#191b24",
+                        "surface-container-high": "#e7e7f3",
+                        "secondary-fixed": "#dae2ff",
+                        "primary-fixed": "#dbe1ff",
+                        "on-secondary-fixed-variant": "#0e409d",
+                        "on-surface-variant": "#424655",
+                        "tertiary-container": "#c44400"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "margin-desktop": "32px",
+                        "stack-gap-lg": "24px",
+                        "stack-gap-md": "16px",
+                        "grid-columns": "12",
+                        "canvas-max-width": "1440px",
+                        "margin-mobile": "16px",
+                        "card-padding": "24px",
+                        "gutter": "24px",
+                        "content-max-width": "1280px",
+                        "stack-gap-sm": "8px"
+                    },
+                    "fontFamily": {
+                        "metadata": ["Inter"],
+                        "card-title": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "section-title": ["Inter"],
+                        "button": ["Inter"],
+                        "page-title-mobile": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "body-md": ["Inter"],
+                        "page-title": ["Inter"],
+                        "display-lg-mobile": ["Inter"]
+                    },
+                    "fontSize": {
+                        "metadata": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                        "card-title": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                        "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "section-title": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "button": ["14px", {"lineHeight": "20px", "fontWeight": "600"}],
+                        "page-title-mobile": ["24px", {"lineHeight": "30px", "fontWeight": "600"}],
+                        "display-lg": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "page-title": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "display-lg-mobile": ["28px", {"lineHeight": "34px", "fontWeight": "600"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #F5F7FA;
+            font-family: 'Inter', sans-serif;
+        }
+        .audit-table-row:hover {
+            box-shadow: 0px 4px 12px rgba(23, 32, 51, 0.05);
+            background-color: #fcfdff;
+        }
+    </style>
+</head>
+<body class="flex min-h-screen">
+<!-- SideNavBar (Shared Component) -->
+<aside class="hidden md:flex flex-col h-screen w-72 sticky top-0 bg-surface-container-low dark:bg-surface-container-highest border-r border-outline-variant py-6 px-4 gap-stack-gap-md z-50">
+<div class="flex items-center gap-3 px-2 mb-6">
+<div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary">radar</span>
+</div>
+<div>
+<h1 class="font-section-title text-section-title font-black text-primary">MyCareer Compass</h1>
+<p class="font-metadata text-metadata text-on-surface-variant">Enterprise Edition</p>
+</div>
+</div>
+<nav class="flex-1 space-y-2">
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-md text-body-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all" href="#">
+<span class="material-symbols-outlined">explore</span>
+<span class="font-body-md text-body-md">Career Path</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all" href="#">
+<span class="material-symbols-outlined">psychology</span>
+<span class="font-body-md text-body-md">Skills Lab</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all" href="#">
+<span class="material-symbols-outlined">groups</span>
+<span class="font-body-md text-body-md">Mentorship</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface hover:bg-surface-container-high transition-all" href="#">
+<span class="material-symbols-outlined">school</span>
+<span class="font-body-md text-body-md">Learning</span>
+</a>
+<!-- Active Tab: Analytics (Since it's an Audit/Admin page) -->
+<a class="flex items-center gap-3 px-3 py-2 bg-primary-container text-on-primary-container font-bold rounded-lg transition-all scale-95" href="#">
+<span class="material-symbols-outlined">leaderboard</span>
+<span class="font-body-md text-body-md">Analytics</span>
+</a>
+</nav>
+<div class="mt-auto pt-6 border-t border-outline-variant space-y-2">
+<button class="w-full bg-primary text-white font-button py-2 rounded-lg hover:opacity-90 transition-opacity">View Progress</button>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface transition-all" href="#">
+<span class="material-symbols-outlined">help</span>
+<span class="font-body-md text-body-md">Support</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:text-on-surface transition-all" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-body-md text-body-md">Sign Out</span>
+</a>
+</div>
+</aside>
+<main class="flex-1 flex flex-col min-w-0">
+<!-- TopNavBar (Shared Component) -->
+<header class="flex justify-between items-center h-16 px-margin-desktop w-full sticky top-0 z-40 bg-surface dark:bg-surface-dim border-b border-outline-variant">
+<div class="flex items-center gap-4 flex-1">
+<div class="relative max-w-md w-full">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="w-full bg-surface-container border border-outline-variant rounded-lg py-2 pl-10 pr-4 focus:ring-2 focus:ring-primary focus:outline-none font-body-sm text-body-sm" placeholder="Search audit logs..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-stack-gap-md ml-margin-desktop">
+<button class="p-2 text-primary hover:bg-surface-container-low rounded-full transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-primary hover:bg-surface-container-low rounded-full transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-px bg-outline-variant mx-2"></div>
+<div class="flex items-center gap-3 cursor-pointer p-1 rounded-lg hover:bg-surface-container-low transition-colors">
+<img class="w-8 h-8 rounded-full border border-primary" data-alt="A professional headshot of a corporate administrator, female, wearing a sharp navy blue blazer, smiling warmly in a bright, modern corporate office background with soft bokeh lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB76CVO90Ir1U1jz6gq1g_ZUxQdrkmsAvUSeKk7S38f9KhJPY84VMQB-Ot7Rybd1sZGMWctsHiEW6PAlwvkKP3rhwxAVXuc71MRndSDnwcfV5wSBVUJBBYS_br747eMlSpLtBgdbHfcEQxZrKMoZVoDf2Y9F0Pf7wLbNLZL4YpZ70K8ha2UYlddZkrqBfoO3qtxLKq9XmuaD86kdbh-PHCk6c8hl6bViD74BLIroIywMu6m9bQwbLJd"/>
+<div class="hidden lg:block text-left">
+<p class="font-button text-button text-primary">Admin User</p>
+<p class="font-metadata text-metadata text-on-surface-variant">Systems Overseer</p>
+</div>
+</div>
+</div>
+</header>
+<!-- Content Canvas -->
+<div class="p-margin-desktop space-y-stack-gap-lg max-w-content-max-width mx-auto w-full">
+<!-- Page Header & Key Metrics Bento Grid -->
+<section class="grid grid-cols-1 md:grid-cols-12 gap-gutter">
+<div class="md:col-span-8">
+<h2 class="font-page-title text-page-title text-on-surface">Agent Activity Audit</h2>
+<p class="font-body-md text-body-md text-on-surface-variant mt-2">Comprehensive logs for the enterprise agentic ecosystem. Monitor outcomes and input integrity across all career modules.</p>
+</div>
+<div class="md:col-span-4 flex justify-end items-end gap-stack-gap-sm">
+<button class="flex items-center gap-2 px-4 py-2 border border-outline-variant rounded-lg font-button text-button text-on-surface hover:bg-white transition-colors">
+<span class="material-symbols-outlined text-[18px]">download</span>
+                        Export Report
+                    </button>
+<button class="flex items-center gap-2 px-4 py-2 bg-primary text-white rounded-lg font-button text-button hover:opacity-90 transition-opacity shadow-sm">
+<span class="material-symbols-outlined text-[18px]">filter_alt</span>
+                        Filters
+                    </button>
+</div>
+<!-- Metrics Cards -->
+<div class="md:col-span-4 bg-white border border-outline-variant rounded-xl p-card-padding">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-primary-container/10 rounded-lg">
+<span class="material-symbols-outlined text-primary">analytics</span>
+</div>
+<span class="font-metadata text-metadata text-green-600 bg-green-50 px-2 py-0.5 rounded-full">+12.5%</span>
+</div>
+<p class="font-metadata text-metadata text-on-surface-variant uppercase tracking-wider">Total Outcomes</p>
+<h3 class="font-display-lg text-display-lg text-primary mt-1">1,482</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-2">Last 24 hours</p>
+</div>
+<div class="md:col-span-4 bg-white border border-outline-variant rounded-xl p-card-padding">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-secondary-container/20 rounded-lg">
+<span class="material-symbols-outlined text-secondary">verified_user</span>
+</div>
+<span class="font-metadata text-metadata text-primary bg-primary-fixed/30 px-2 py-0.5 rounded-full">Optimal</span>
+</div>
+<p class="font-metadata text-metadata text-on-surface-variant uppercase tracking-wider">Avg. Confidence</p>
+<h3 class="font-display-lg text-display-lg text-primary mt-1">94.8%</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-2">Evidence Curator</p>
+</div>
+<div class="md:col-span-4 bg-white border border-outline-variant rounded-xl p-card-padding">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-error-container/20 rounded-lg">
+<span class="material-symbols-outlined text-error">warning</span>
+</div>
+<span class="font-metadata text-metadata text-error bg-error-container px-2 py-0.5 rounded-full">3 Active</span>
+</div>
+<p class="font-metadata text-metadata text-on-surface-variant uppercase tracking-wider">Alerts Flagged</p>
+<h3 class="font-display-lg text-display-lg text-primary mt-1">14</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-2">Requires Review</p>
+</div>
+</section>
+<!-- Audit Table Section -->
+<section class="bg-white border border-outline-variant rounded-xl overflow-hidden shadow-sm">
+<div class="px-card-padding py-4 border-b border-outline-variant flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+<h4 class="font-section-title text-section-title text-on-surface">Agent Activity Feed</h4>
+<div class="flex gap-2 w-full md:w-auto">
+<select class="bg-surface-container border-none rounded-lg font-body-sm text-body-sm px-3 py-1.5 focus:ring-1 focus:ring-primary cursor-pointer">
+<option>All Agents</option>
+<option>Evidence Curator Agent</option>
+<option>Role-play Assessment Agent</option>
+<option>Course Recommendation Agent</option>
+</select>
+<select class="bg-surface-container border-none rounded-lg font-body-sm text-body-sm px-3 py-1.5 focus:ring-1 focus:ring-primary cursor-pointer">
+<option>Last 7 Days</option>
+<option>Today</option>
+<option>Last 30 Days</option>
+</select>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low">
+<th class="px-6 py-4 font-button text-on-surface-variant uppercase tracking-tighter text-[11px]">Timestamp</th>
+<th class="px-6 py-4 font-button text-on-surface-variant uppercase tracking-tighter text-[11px]">Employee</th>
+<th class="px-6 py-4 font-button text-on-surface-variant uppercase tracking-tighter text-[11px]">Agent</th>
+<th class="px-6 py-4 font-button text-on-surface-variant uppercase tracking-tighter text-[11px]">Competency</th>
+<th class="px-6 py-4 font-button text-on-surface-variant uppercase tracking-tighter text-[11px]">Input Source</th>
+<th class="px-6 py-4 font-button text-on-surface-variant uppercase tracking-tighter text-[11px]">Outcome</th>
+<th class="px-6 py-4 font-button text-on-surface-variant uppercase tracking-tighter text-[11px]">Status</th>
+<th class="px-6 py-4 font-button text-on-surface-variant uppercase tracking-tighter text-[11px] text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<!-- Row 1 -->
+<tr class="audit-table-row transition-all duration-150">
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex flex-col">
+<span class="font-body-md text-on-surface">Oct 24, 14:32</span>
+<span class="font-metadata text-on-surface-variant">2 mins ago</span>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center font-bold text-primary text-[10px]">JD</div>
+<span class="font-body-md text-on-surface">Jordan Davis</span>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="px-2.5 py-1 rounded-full bg-primary-fixed/20 text-primary font-metadata text-[11px] font-bold">Evidence Curator Agent</span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="font-body-sm text-on-surface">Strategic Planning</span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center gap-1.5 text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]">description</span>
+<span class="font-body-sm">Project_Q3.pdf</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="font-body-sm text-on-surface line-clamp-1">Extracted 4 high-impact skill markers.</span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center gap-1.5 text-green-600">
+<div class="w-2 h-2 rounded-full bg-green-500"></div>
+<span class="font-metadata font-bold uppercase text-[11px]">Verified</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-primary font-button hover:underline">View Details</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="audit-table-row transition-all duration-150">
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex flex-col">
+<span class="font-body-md text-on-surface">Oct 24, 13:15</span>
+<span class="font-metadata text-on-surface-variant">1 hr ago</span>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center font-bold text-primary text-[10px]">ML</div>
+<span class="font-body-md text-on-surface">Maria Lopez</span>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="px-2.5 py-1 rounded-full bg-secondary-container/20 text-secondary font-metadata text-[11px] font-bold">Role-play Assessment Agent</span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="font-body-sm text-on-surface">Leadership Dial.</span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center gap-1.5 text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]">mic</span>
+<span class="font-body-sm">Audio Session #402</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="font-body-sm text-on-surface line-clamp-1">Emotional intelligence score: 8.2/10.</span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center gap-1.5 text-secondary">
+<div class="w-2 h-2 rounded-full bg-secondary"></div>
+<span class="font-metadata font-bold uppercase text-[11px]">Processing</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-primary font-button hover:underline">View Details</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="audit-table-row transition-all duration-150">
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex flex-col">
+<span class="font-body-md text-on-surface">Oct 24, 11:40</span>
+<span class="font-metadata text-on-surface-variant">3 hrs ago</span>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center font-bold text-primary text-[10px]">TC</div>
+<span class="font-body-md text-on-surface">Tom Chen</span>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="px-2.5 py-1 rounded-full bg-tertiary-fixed/20 text-tertiary font-metadata text-[11px] font-bold">Course Recommendation Agent</span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="font-body-sm text-on-surface">Python Data Sci.</span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center gap-1.5 text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]">quiz</span>
+<span class="font-body-sm">Skill Gap Quiz</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="font-body-sm text-on-surface line-clamp-1">3 courses matched based on gap analysis.</span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center gap-1.5 text-orange-600">
+<div class="w-2 h-2 rounded-full bg-orange-500"></div>
+<span class="font-metadata font-bold uppercase text-[11px]">Flagged Review</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-primary font-button hover:underline">View Details</button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="audit-table-row transition-all duration-150">
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex flex-col">
+<span class="font-body-md text-on-surface">Oct 24, 10:02</span>
+<span class="font-metadata text-on-surface-variant">5 hrs ago</span>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center font-bold text-primary text-[10px]">SW</div>
+<span class="font-body-md text-on-surface">Sarah White</span>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="px-2.5 py-1 rounded-full bg-primary-fixed/20 text-primary font-metadata text-[11px] font-bold">Evidence Curator Agent</span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="font-body-sm text-on-surface">Change Mgmt.</span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center gap-1.5 text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]">link</span>
+<span class="font-body-sm">Git Commit Logs</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="font-body-sm text-on-surface line-clamp-1">Synthesized technical contribution history.</span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center gap-1.5 text-green-600">
+<div class="w-2 h-2 rounded-full bg-green-500"></div>
+<span class="font-metadata font-bold uppercase text-[11px]">Verified</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-primary font-button hover:underline">View Details</button>
+</td>
+</tr>
+<!-- Row 5 -->
+<tr class="audit-table-row transition-all duration-150">
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex flex-col">
+<span class="font-body-md text-on-surface">Oct 24, 09:12</span>
+<span class="font-metadata text-on-surface-variant">6 hrs ago</span>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-container flex items-center justify-center font-bold text-primary text-[10px]">BK</div>
+<span class="font-body-md text-on-surface">Ben King</span>
+</div>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="px-2.5 py-1 rounded-full bg-secondary-container/20 text-secondary font-metadata text-[11px] font-bold">Role-play Assessment Agent</span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<span class="font-body-sm text-on-surface">Sales Negotiation</span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center gap-1.5 text-on-surface-variant">
+<span class="material-symbols-outlined text-[16px]">chat_bubble</span>
+<span class="font-body-sm">Simulated Chat</span>
+</div>
+</td>
+<td class="px-6 py-4">
+<span class="font-body-sm text-on-surface line-clamp-1">Critical feedback provided on closing techniques.</span>
+</td>
+<td class="px-6 py-4 whitespace-nowrap">
+<div class="flex items-center gap-1.5 text-green-600">
+<div class="w-2 h-2 rounded-full bg-green-500"></div>
+<span class="font-metadata font-bold uppercase text-[11px]">Verified</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-primary font-button hover:underline">View Details</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination -->
+<div class="px-card-padding py-4 border-t border-outline-variant flex items-center justify-between">
+<span class="font-metadata text-metadata text-on-surface-variant">Showing 5 of 1,482 entries</span>
+<div class="flex gap-2">
+<button class="p-2 border border-outline-variant rounded hover:bg-surface-container transition-colors disabled:opacity-50" disabled="">
+<span class="material-symbols-outlined text-[18px]">chevron_left</span>
+</button>
+<button class="px-3 py-1 bg-primary text-white rounded font-button text-button">1</button>
+<button class="px-3 py-1 hover:bg-surface-container rounded font-button text-button">2</button>
+<button class="px-3 py-1 hover:bg-surface-container rounded font-button text-button">3</button>
+<span class="px-3 py-1">...</span>
+<button class="px-3 py-1 hover:bg-surface-container rounded font-button text-button text-on-surface-variant">297</button>
+<button class="p-2 border border-outline-variant rounded hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Bottom Contextual Section (Agent Health) -->
+<section class="grid grid-cols-1 lg:grid-cols-3 gap-gutter">
+<div class="lg:col-span-2 bg-white border border-outline-variant rounded-xl p-card-padding">
+<h4 class="font-card-title text-card-title text-on-surface mb-6">Agent System Health</h4>
+<div class="space-y-6">
+<div class="flex items-center justify-between gap-4">
+<div class="flex-1">
+<div class="flex justify-between mb-2">
+<span class="font-button text-button text-on-surface">Evidence Curator Agent</span>
+<span class="font-metadata text-metadata text-primary">Operational - 99.8% Uptime</span>
+</div>
+<div class="w-full bg-surface-container-low h-2 rounded-full overflow-hidden">
+<div class="bg-primary h-full rounded-full" style="width: 98%;"></div>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between gap-4">
+<div class="flex-1">
+<div class="flex justify-between mb-2">
+<span class="font-button text-button text-on-surface">Role-play Assessment Agent</span>
+<span class="font-metadata text-metadata text-secondary">High Load - 94.2% Uptime</span>
+</div>
+<div class="w-full bg-surface-container-low h-2 rounded-full overflow-hidden">
+<div class="bg-secondary h-full rounded-full" style="width: 85%;"></div>
+</div>
+</div>
+</div>
+<div class="flex items-center justify-between gap-4">
+<div class="flex-1">
+<div class="flex justify-between mb-2">
+<span class="font-button text-button text-on-surface">Course Recommendation Agent</span>
+<span class="font-metadata text-metadata text-on-surface-variant">Maintenance - 100% Uptime</span>
+</div>
+<div class="w-full bg-surface-container-low h-2 rounded-full overflow-hidden">
+<div class="bg-primary-container h-full rounded-full" style="width: 100%;"></div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Quick Actions / Warnings -->
+<div class="bg-white border border-outline-variant rounded-xl p-card-padding">
+<h4 class="font-card-title text-card-title text-on-surface mb-4">Integrity Watch</h4>
+<div class="space-y-stack-gap-md">
+<div class="p-3 bg-error-container/10 border-l-4 border-error rounded flex gap-3">
+<span class="material-symbols-outlined text-error">gpp_maybe</span>
+<div>
+<p class="font-button text-button text-on-surface">Abnormal Input Detected</p>
+<p class="font-metadata text-metadata text-on-surface-variant">Employee 829-X submitted a 500MB plain text file to Evidence Curator.</p>
+</div>
+</div>
+<div class="p-3 bg-secondary-container/10 border-l-4 border-secondary rounded flex gap-3">
+<span class="material-symbols-outlined text-secondary">model_training</span>
+<div>
+<p class="font-button text-button text-on-surface">Retraining Suggested</p>
+<p class="font-metadata text-metadata text-on-surface-variant">Role-play Agent confidence dropped by 4% in "Soft Skills" category.</p>
+</div>
+</div>
+<button class="w-full py-3 bg-surface-container text-primary font-button rounded-lg hover:bg-surface-container-high transition-colors">
+                            Manage All Alerts
+                        </button>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- Mobile Navigation (Shared Component) -->
+<nav class="md:hidden fixed bottom-0 left-0 right-0 bg-surface border-t border-outline-variant flex justify-around items-center h-16 z-50 px-4">
+<button class="flex flex-col items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-[10px] font-metadata">Home</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined">explore</span>
+<span class="text-[10px] font-metadata">Path</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined">psychology</span>
+<span class="text-[10px] font-metadata">Lab</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">leaderboard</span>
+<span class="text-[10px] font-metadata font-bold">Audit</span>
+</button>
+</nav>
+<script>
+        // Micro-interactions
+        document.querySelectorAll('.audit-table-row').forEach(row => {
+            row.addEventListener('click', () => {
+                row.classList.add('scale-[0.99]', 'bg-surface-container-lowest');
+                setTimeout(() => {
+                    row.classList.remove('scale-[0.99]', 'bg-surface-container-lowest');
+                }, 150);
+            });
+        });
+
+        // Simulating loading state for filtering
+        const filterSelects = document.querySelectorAll('select');
+        filterSelects.forEach(select => {
+            select.addEventListener('change', () => {
+                const tbody = document.querySelector('tbody');
+                tbody.style.opacity = '0.5';
+                setTimeout(() => {
+                    tbody.style.opacity = '1';
+                }, 400);
+            });
+        });
+    </script>
+</body></html>

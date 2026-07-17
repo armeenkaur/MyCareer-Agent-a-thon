@@ -15,13 +15,13 @@ class WorkbookData:
     def __init__(self) -> None:
         self.generated_at = datetime.now()
         self.competencies = self._load_competencies()
+        self.level_definitions = self._load_level_definitions()
         self.roleplay_links = self._load_roleplay_links()
         self.employees = self._load_employees()
         self.tna = self._load_tna()
         self.appraisal = self._load_appraisal()
         self.interview = self._load_interview()
         self.amber = self._load_amber()
-        self.variable = self._load_variable()
         self.courses = self._load_courses()
 
     @property
@@ -39,10 +39,32 @@ class WorkbookData:
         names = {emp.get("manager") for emp in self.employees.values() if emp.get("manager")}
         return sorted(names)
 
+    def manager_accounts(self) -> list[dict[str, str]]:
+        accounts: dict[str, dict[str, str]] = {}
+        for employee in self.employees.values():
+            code = employee.get("manager_code", "")
+            if code:
+                accounts[code] = {"code": code, "name": employee.get("manager", "")}
+        return sorted(accounts.values(), key=lambda row: row["code"])
+
+    def rd_accounts(self) -> list[dict[str, str]]:
+        accounts: dict[str, dict[str, str]] = {}
+        for employee in self.employees.values():
+            code = employee.get("rd_code", "")
+            if code:
+                accounts[code] = {"code": code, "name": employee.get("rd", "")}
+        return sorted(accounts.values(), key=lambda row: row["code"])
+
     def team_for_manager(self, manager: str | None) -> list[dict[str, Any]]:
         if not manager:
             return self.employee_options()
         return [emp for emp in self.employee_options() if emp.get("manager") == manager]
+
+    def team_for_manager_code(self, manager_code: str) -> list[dict[str, Any]]:
+        return [emp for emp in self.employee_options() if emp.get("manager_code") == manager_code]
+
+    def team_for_rd_code(self, rd_code: str) -> list[dict[str, Any]]:
+        return [emp for emp in self.employee_options() if emp.get("rd_code") == rd_code]
 
     def ideal_for_employee(self, emp_code: str) -> dict[str, str]:
         employee = self.employees.get(emp_code, {})
@@ -52,43 +74,83 @@ class WorkbookData:
     def ideal_for_role_key(self, key: str) -> dict[str, str]:
         ideal: dict[str, str] = {}
         for row in self.competencies:
-            ideal[row["skill"]] = row["ideals"].get(key) or row["ideals"].get("BDM (RL1-2)") or "Intermediate"
+            ideal[row["skill"]] = row["ideals"].get(key) or row["ideals"].get("BDM (RL2-3)") or "Intermediate"
         return ideal
 
     def _load_competencies(self) -> list[dict[str, Any]]:
         wb = load_workbook(SOURCE_FILES["competency"], data_only=True, read_only=True)
-        ws = wb["Competency"]
-        headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
+        sheet_name = "Role-Competency Mapping" if "Role-Competency Mapping" in wb.sheetnames else "Competency"
+        ws = wb[sheet_name]
+        headers = [str(cell.value or "").strip() for cell in next(ws.iter_rows(min_row=1, max_row=1))]
         rows: list[dict[str, Any]] = []
-        for cells in ws.iter_rows(min_row=3, values_only=True):
+        start_row = 2 if sheet_name == "Role-Competency Mapping" else 3
+        for cells in ws.iter_rows(min_row=start_row, values_only=True):
             if not cells[0] or not cells[1]:
                 continue
             ideals = {}
-            for idx, header in enumerate(headers[4:], start=4):
+            ideal_start = 3 if sheet_name == "Role-Competency Mapping" else 4
+            for idx, header in enumerate(headers[ideal_start:], start=ideal_start):
                 if header and cells[idx]:
-                    ideals[str(header).strip()] = str(cells[idx]).strip()
+                    value = str(cells[idx]).strip()
+                    if value.upper() != "NA":
+                        ideals[self._normalize_role_key(header)] = value
             rows.append(
                 {
                     "skill": str(cells[0]).strip(),
                     "tag": str(cells[1]).strip(),
+                    "definition": str(cells[2] or "").strip(),
                     "sales_note": str(cells[2] or "").strip(),
-                    "product_note": str(cells[3] or "").strip(),
+                    "product_note": "" if sheet_name == "Role-Competency Mapping" else str(cells[3] or "").strip(),
                     "ideals": ideals,
                 }
             )
         return rows
 
+    @staticmethod
+    def _normalize_role_key(value: str) -> str:
+        text = str(value).strip().replace(" ", "")
+        aliases = {
+            "BDM(RL2-3)": "BDM (RL2-3)",
+            "BDM(RL4)": "BDM (RL4)",
+            "KAM(RL2-3)": "KAM (RL2-3)",
+            "KAM(RL4)": "KAM (RL4)",
+            "ZM(RL4-5)": "ZM (RL4-5)",
+            "ZM(RL6)": "ZM (RL6)",
+            "RD(RL7-8)": "RD (RL7-8)",
+        }
+        return aliases.get(text, str(value).strip())
+
+    def _load_level_definitions(self) -> dict[str, dict[str, str]]:
+        wb = load_workbook(SOURCE_FILES["competency"], data_only=True, read_only=True)
+        if "Competency vs Level Definitions" not in wb.sheetnames:
+            return {}
+        ws = wb["Competency vs Level Definitions"]
+        headers = [str(value or "").strip() for value in next(ws.iter_rows(values_only=True))]
+        definitions: dict[str, dict[str, str]] = {}
+        for values in ws.iter_rows(min_row=2, values_only=True):
+            competency = clean(values[0])
+            if not competency or any(
+                competency.lower().startswith(f"{level.lower()}:")
+                for level in ("Beginner", "Intermediate", "Proficient", "Advanced")
+            ):
+                continue
+            definitions[competency] = {
+                headers[index]: clean(values[index])
+                for index in range(1, min(len(headers), len(values)))
+                if headers[index] and values[index]
+            }
+        return definitions
+
     def _load_roleplay_links(self) -> dict[str, str]:
         wb = load_workbook(SOURCE_FILES["competency"], data_only=True, read_only=True)
         links: dict[str, str] = {}
-        if "Sheet4" in wb.sheetnames:
-            for skill, link in wb["Sheet4"].iter_rows(min_row=2, values_only=True):
+        sheet_name = "Role Plays" if "Role Plays" in wb.sheetnames else "Sheet4" if "Sheet4" in wb.sheetnames else ""
+        if sheet_name:
+            for skill, link in wb[sheet_name].iter_rows(min_row=2, values_only=True):
                 if skill and link:
-                    links[str(skill).strip()] = str(link).strip()
-        links.setdefault(
-            "Team Management",
-            "https://www.linkedin.com/learning/role-play/scenarios/urn:li:la_rolePlayScenario:urn:li:llsServeScenario:127536712?u=236676260",
-        )
+                    url = str(link).strip()
+                    if url.startswith("https://") and "…" not in url and "..." not in url:
+                        links[str(skill).strip()] = url
         return links
 
     def _load_employees(self) -> dict[str, dict[str, Any]]:
@@ -114,6 +176,9 @@ class WorkbookData:
                 "function": clean(row.get("Function")),
                 "manager": clean(row.get("Immediate Supervisor")),
                 "manager_code": clean(row.get("Immediate Supervisor Code")),
+                "rd": clean(row.get("Skip Manager")).split("(", 1)[0].strip(),
+                "rd_code": clean(row.get("Skip Manager ID")),
+                "role": clean(row.get("Role")),
                 "past_exp_years": past_years,
                 "past_exp_months": past_months,
                 "total_exp_years": round(past_years + past_months / 12, 1),
@@ -172,22 +237,6 @@ class WorkbookData:
             if code:
                 grouped.setdefault(code, []).append({key: row.get(key, "") for key in keep})
         return grouped
-
-    def _load_variable(self) -> dict[str, dict[str, Any]]:
-        wb = load_workbook(SOURCE_FILES["variable"], data_only=True, read_only=True)
-        ws = wb.active
-        headers = [str(v or "").strip() for v in next(ws.iter_rows(min_row=1, max_row=1, values_only=True))]
-        rows: dict[str, dict[str, Any]] = {}
-        for values in ws.iter_rows(min_row=2, values_only=True):
-            row = dict(zip(headers, values))
-            code = clean(row.get("EMP Code"))
-            if code:
-                rows[code] = {
-                    "avg": float(row.get("Avg") or 0),
-                    "cohort": clean(row.get("Cohort")),
-                    "level": clean(row.get("Level")),
-                }
-        return rows
 
     def _load_courses(self) -> list[dict[str, Any]]:
         path = SOURCE_FILES["courses"]

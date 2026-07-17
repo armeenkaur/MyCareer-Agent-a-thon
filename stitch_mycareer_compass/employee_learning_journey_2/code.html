@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>My Learning Journey | MyCareer Compass</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .sync-pulse {
+            animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: .5; }
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f2ff;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c2c6d8;
+            border-radius: 10px;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-error": "#ffffff",
+                      "on-secondary": "#ffffff",
+                      "surface-tint": "#0054d7",
+                      "error-container": "#ffdad6",
+                      "on-tertiary-fixed-variant": "#802a00",
+                      "secondary-fixed": "#dae2ff",
+                      "on-primary-fixed-variant": "#003fa5",
+                      "secondary-fixed-dim": "#b3c5ff",
+                      "on-secondary-fixed": "#001849",
+                      "primary-container": "#1464f4",
+                      "on-surface-variant": "#424655",
+                      "inverse-surface": "#2e3039",
+                      "on-surface": "#191b24",
+                      "on-secondary-fixed-variant": "#0e409d",
+                      "on-tertiary": "#ffffff",
+                      "surface-container-low": "#f2f3ff",
+                      "background": "#faf8ff",
+                      "surface-container": "#ecedf9",
+                      "on-tertiary-container": "#fff0ec",
+                      "on-error-container": "#93000a",
+                      "on-primary-container": "#f1f2ff",
+                      "inverse-on-surface": "#eff0fc",
+                      "surface-container-high": "#e7e7f3",
+                      "tertiary-fixed-dim": "#ffb59a",
+                      "surface-container-highest": "#e1e2ee",
+                      "surface-bright": "#faf8ff",
+                      "tertiary-fixed": "#ffdbcf",
+                      "on-tertiary-fixed": "#380d00",
+                      "outline-variant": "#c2c6d8",
+                      "on-secondary-container": "#003183",
+                      "primary-fixed-dim": "#b3c5ff",
+                      "on-background": "#191b24",
+                      "inverse-primary": "#b3c5ff",
+                      "surface-dim": "#d8d9e5",
+                      "on-primary-fixed": "#001849",
+                      "error": "#ba1a1a",
+                      "surface": "#faf8ff",
+                      "primary-fixed": "#dbe1ff",
+                      "primary": "#004dc6",
+                      "outline": "#737687",
+                      "surface-container-lowest": "#ffffff",
+                      "tertiary-container": "#c44400",
+                      "surface-variant": "#e1e2ee",
+                      "secondary-container": "#799dfe",
+                      "on-primary": "#ffffff",
+                      "tertiary": "#9b3400",
+                      "secondary": "#3159b6"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "margin-mobile": "16px",
+                      "stack-gap-sm": "8px",
+                      "grid-columns": "12",
+                      "content-max-width": "1280px",
+                      "margin-desktop": "32px",
+                      "stack-gap-md": "16px",
+                      "stack-gap-lg": "24px",
+                      "gutter": "24px",
+                      "canvas-max-width": "1440px",
+                      "card-padding": "24px"
+              },
+              "fontFamily": {
+                      "page-title": ["Inter"],
+                      "display-lg-mobile": ["Inter"],
+                      "card-title": ["Inter"],
+                      "body-md": ["Inter"],
+                      "section-title": ["Inter"],
+                      "page-title-mobile": ["Inter"],
+                      "metadata": ["Inter"],
+                      "body-sm": ["Inter"],
+                      "button": ["Inter"],
+                      "display-lg": ["Inter"]
+              },
+              "fontSize": {
+                      "page-title": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                      "display-lg-mobile": ["28px", {"lineHeight": "34px", "fontWeight": "600"}],
+                      "card-title": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                      "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "section-title": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                      "page-title-mobile": ["24px", {"lineHeight": "30px", "fontWeight": "600"}],
+                      "metadata": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                      "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                      "button": ["14px", {"lineHeight": "20px", "fontWeight": "600"}],
+                      "display-lg": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "600"}]
+              }
+            },
+          },
+        }
+      </script>
+</head>
+<body class="bg-background text-on-background font-body-md overflow-x-hidden">
+<div class="flex min-h-screen">
+<!-- SideNavBar -->
+<aside class="hidden md:flex flex-col h-screen w-72 bg-surface-container-low dark:bg-surface-container-highest border-r border-outline-variant py-6 px-4 gap-stack-gap-md sticky top-0">
+<div class="flex items-center gap-3 px-2 mb-4">
+<div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center">
+<span class="material-symbols-outlined text-on-primary">school</span>
+</div>
+<div>
+<h1 class="font-section-title text-section-title font-black text-primary leading-none">MyCareer Compass</h1>
+<p class="text-xs text-on-surface-variant font-medium mt-1">Enterprise Edition</p>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary">dashboard</span>
+<span class="font-body-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary">explore</span>
+<span class="font-body-md">Career Lattice</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary">shopping_bag</span>
+<span class="font-body-md">Shop Your Courses</span>
+</a>
+<!-- Active Item -->
+<a class="flex items-center gap-3 px-3 py-2.5 bg-primary-container text-on-primary-container font-bold rounded-lg transition-transform scale-95" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">auto_stories</span>
+<span class="font-body-md">Learning Journey</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary">leaderboard</span>
+<span class="font-body-md">Leaderboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2.5 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:text-primary">analytics</span>
+<span class="font-body-md">Analytics</span>
+</a>
+</nav>
+<div class="mt-auto pt-6 border-t border-outline-variant space-y-1">
+<div class="mb-4 bg-primary/5 p-4 rounded-xl border border-primary/10">
+<p class="text-xs text-primary font-bold uppercase tracking-wider mb-2">Next Milestone</p>
+<p class="text-on-surface font-semibold text-sm mb-3">Senior Zone Manager</p>
+<div class="h-1.5 w-full bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary" style="width: 67%"></div>
+</div>
+<button class="mt-3 w-full py-2 bg-primary text-on-primary text-xs font-bold rounded-lg hover:opacity-90 transition-opacity">View Progress</button>
+</div>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high rounded-lg" href="#">
+<span class="material-symbols-outlined">help</span>
+<span class="font-body-md">Support</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high rounded-lg" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-body-md">Sign Out</span>
+</a>
+</div>
+</aside>
+<!-- Main Content -->
+<main class="flex-1 flex flex-col min-w-0 bg-surface">
+<!-- TopNavBar -->
+<header class="flex justify-between items-center h-16 px-margin-desktop w-full bg-surface border-b border-outline-variant sticky top-0 z-40">
+<div class="flex items-center gap-4 flex-1">
+<div class="relative w-full max-w-md hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-xl">search</span>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-full py-1.5 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary focus:border-primary outline-none transition-all" placeholder="Search competencies, courses..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border-2 border-surface"></span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-px bg-outline-variant mx-1"></div>
+<div class="flex items-center gap-3 ml-2">
+<div class="text-right hidden sm:block">
+<p class="text-sm font-bold text-on-surface">Alex Rivera</p>
+<p class="text-xs text-on-surface-variant">Zone Associate</p>
+</div>
+<img class="w-10 h-10 rounded-full border border-outline-variant object-cover" data-alt="Professional headshot of a young male professional with a warm, confident smile, wearing a modern navy polo shirt against a blurred office environment with soft morning sunlight filtering through windows." src="https://lh3.googleusercontent.com/aida-public/AB6AXuC7cwQQ4pn6-YdDSRIk_hJggKUHPJDY_tad0W3JOUdkDMczveBJ9Qx92G4oEPqN3NmmCAlK8FtuSqwxInjETeOgsZPlEOLjf1okMPybnBmRCXGlG5qBgj-NQ9bnbG6nvzKbugKgQeu8uqnS4LxJpNvuE__h74dMlvdZcS9MeYF-WOSPvEKUKkTF0c9Y5qy6PfGBqaJFINw1z6IeMJmM1CKLp3yF3IofUrstUbJWglpkX1x7ERhjEp5S"/>
+</div>
+</div>
+</header>
+<!-- Dashboard Content -->
+<div class="flex-1 overflow-y-auto p-margin-desktop space-y-stack-gap-lg max-w-content-max-width mx-auto w-full">
+<!-- Hero Progress Summary -->
+<section class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+<div class="lg:col-span-2 bg-white rounded-xl border border-outline-variant p-card-padding flex flex-col md:flex-row gap-8 items-center relative overflow-hidden group">
+<div class="absolute top-0 right-0 w-64 h-64 -mr-20 -mt-20 bg-primary/5 rounded-full blur-3xl"></div>
+<div class="relative flex flex-col items-center">
+<div class="relative w-32 h-32 flex items-center justify-center">
+<svg class="w-full h-full transform -rotate-90">
+<circle class="text-surface-container-highest" cx="64" cy="64" fill="transparent" r="58" stroke="currentColor" stroke-width="8"></circle>
+<circle class="text-primary transition-all duration-1000 ease-out" cx="64" cy="64" fill="transparent" r="58" stroke="currentColor" stroke-dasharray="364.4" stroke-dashoffset="120.2" stroke-width="8"></circle>
+</svg>
+<div class="absolute inset-0 flex flex-col items-center justify-center">
+<span class="text-3xl font-black text-on-surface">67%</span>
+<span class="text-[10px] uppercase font-bold text-on-surface-variant tracking-tighter">Progress</span>
+</div>
+</div>
+</div>
+<div class="flex-1 space-y-4">
+<div>
+<h2 class="font-page-title text-page-title text-on-surface">My Learning Journey</h2>
+<p class="text-on-surface-variant mt-1">You are on track to reach your next career milestone by October.</p>
+</div>
+<div class="grid grid-cols-2 gap-4">
+<div class="bg-surface-container-low p-3 rounded-lg border border-outline-variant">
+<p class="text-xs text-on-surface-variant font-medium">Aspiration</p>
+<p class="text-lg font-bold text-primary">ZM (Zone Manager)</p>
+</div>
+<div class="bg-surface-container-low p-3 rounded-lg border border-outline-variant">
+<p class="text-xs text-on-surface-variant font-medium">Est. Completion</p>
+<p class="text-lg font-bold text-on-surface">6 Weeks</p>
+</div>
+</div>
+</div>
+</div>
+<!-- LinkedIn Sync Control -->
+<div class="bg-white rounded-xl border border-outline-variant p-card-padding flex flex-col justify-between">
+<div class="flex items-center justify-between mb-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-[#0A66C2] rounded-lg flex items-center justify-center">
+<svg class="w-6 h-6 fill-white" viewbox="0 0 24 24"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"></path></svg>
+</div>
+<div>
+<h3 class="font-bold text-on-surface leading-tight">LinkedIn Sync</h3>
+<div class="flex items-center gap-1.5">
+<span class="w-2 h-2 bg-success-green bg-green-500 rounded-full sync-pulse"></span>
+<span class="text-xs text-green-600 font-medium">Active</span>
+</div>
+</div>
+</div>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low rounded-lg transition-colors">
+<span class="material-symbols-outlined">sync</span>
+</button>
+</div>
+<div class="space-y-4">
+<div class="flex justify-between text-xs border-b border-outline-variant pb-2">
+<span class="text-on-surface-variant">Last synced</span>
+<span class="font-bold text-on-surface">Today, 09:42 AM</span>
+</div>
+<div class="flex justify-between text-xs border-b border-outline-variant pb-2">
+<span class="text-on-surface-variant">Courses Tracked</span>
+<span class="font-bold text-on-surface">14 Items</span>
+</div>
+<button class="w-full py-2.5 bg-[#0A66C2] text-white font-bold rounded-lg hover:brightness-110 transition-all flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm">refresh</span>
+                                Sync Now
+                            </button>
+</div>
+</div>
+</section>
+<!-- Learning Items by Competency -->
+<div class="space-y-8">
+<!-- Competency Block 01 -->
+<div class="space-y-4">
+<div class="flex items-center justify-between border-b border-outline-variant pb-2">
+<div class="flex items-center gap-3">
+<span class="p-2 bg-tertiary-container text-on-tertiary-container rounded-lg material-symbols-outlined">strategy</span>
+<h3 class="font-section-title text-section-title text-on-surface">Strategic Operations</h3>
+</div>
+<span class="px-3 py-1 bg-surface-container-high text-on-surface-variant text-xs font-bold rounded-full">3 of 5 Completed</span>
+</div>
+<div class="bg-white rounded-xl border border-outline-variant overflow-hidden">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-low border-b border-outline-variant">
+<tr>
+<th class="px-6 py-3 text-xs font-bold text-on-surface-variant uppercase tracking-wider w-12">Status</th>
+<th class="px-6 py-3 text-xs font-bold text-on-surface-variant uppercase tracking-wider">Resource Name</th>
+<th class="px-6 py-3 text-xs font-bold text-on-surface-variant uppercase tracking-wider">Source</th>
+<th class="px-6 py-3 text-xs font-bold text-on-surface-variant uppercase tracking-wider">Hours</th>
+<th class="px-6 py-3 text-xs font-bold text-on-surface-variant uppercase tracking-wider text-right">Sync Status</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<!-- LinkedIn Item -->
+<tr class="hover:bg-surface-container-lowest transition-colors group">
+<td class="px-6 py-4">
+<input checked="" class="w-5 h-5 rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="A clean, minimalist digital graphic showing complex business logistics and network nodes connecting, using a professional color scheme of blues and grays, representing advanced operations management." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCvHG4cBhlSo_v9XLTGN9S9mzYTUovjF4M4v2pn5KqQZpcyrYcE5JCPr58_uqb8hJXh80YoLVY2d4qS5H04N7DwzuB6EQsgKPDo6S6ojtLHMoRPX3s8iNa79uKkjYO236JnoOn8VD-THt6QJc-FOoiMV3xjJ33wcKmybn0TwE3Bc8FnSpOxASbw5gLbRwvq2kxYlkALZm82dzLiEnrUsVEyYV7MlpWXm_SZJMnwMd8RePiSheGwG586"/>
+</div>
+<div>
+<p class="text-sm font-bold text-on-surface">Advanced Warehouse Logistics &amp; Planning</p>
+<p class="text-xs text-on-surface-variant">Master-level operations course</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<svg class="w-4 h-4 fill-[#0A66C2]" viewbox="0 0 24 24"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"></path></svg>
+<span class="text-xs font-medium">LinkedIn Learning</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm font-medium text-on-surface">4.5h</td>
+<td class="px-6 py-4 text-right">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-100 text-green-700 text-[10px] font-black uppercase">
+<span class="material-symbols-outlined text-xs">done_all</span> Synced
+                                            </span>
+</td>
+</tr>
+<!-- YouTube Item -->
+<tr class="hover:bg-surface-container-lowest transition-colors group">
+<td class="px-6 py-4">
+<input class="w-5 h-5 rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-error/10 rounded-lg flex items-center justify-center text-error">
+<span class="material-symbols-outlined">play_circle</span>
+</div>
+<div>
+<p class="text-sm font-bold text-on-surface">Supply Chain Resilience 2024</p>
+<p class="text-xs text-on-surface-variant">Global Trends Webinar</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-error text-lg">smart_display</span>
+<span class="text-xs font-medium">YouTube</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm font-medium text-on-surface">1.2h</td>
+<td class="px-6 py-4 text-right">
+<span class="text-xs text-on-surface-variant italic">Manual Entry</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Competency Block 02 -->
+<div class="space-y-4">
+<div class="flex items-center justify-between border-b border-outline-variant pb-2">
+<div class="flex items-center gap-3">
+<span class="p-2 bg-primary-container text-on-primary-container rounded-lg material-symbols-outlined">groups</span>
+<h3 class="font-section-title text-section-title text-on-surface">Leadership &amp; Mentoring</h3>
+</div>
+<span class="px-3 py-1 bg-surface-container-high text-on-surface-variant text-xs font-bold rounded-full">1 of 4 Completed</span>
+</div>
+<div class="bg-white rounded-xl border border-outline-variant overflow-hidden">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-low border-b border-outline-variant">
+<tr>
+<th class="px-6 py-3 text-xs font-bold text-on-surface-variant uppercase tracking-wider w-12">Status</th>
+<th class="px-6 py-3 text-xs font-bold text-on-surface-variant uppercase tracking-wider">Resource Name</th>
+<th class="px-6 py-3 text-xs font-bold text-on-surface-variant uppercase tracking-wider">Source</th>
+<th class="px-6 py-3 text-xs font-bold text-on-surface-variant uppercase tracking-wider">Hours</th>
+<th class="px-6 py-3 text-xs font-bold text-on-surface-variant uppercase tracking-wider text-right">Sync Status</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<!-- LinkedIn Item -->
+<tr class="hover:bg-surface-container-lowest transition-colors group">
+<td class="px-6 py-4">
+<input class="w-5 h-5 rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-lg overflow-hidden flex-shrink-0">
+<img class="w-full h-full object-cover" data-alt="Close up of two professionals engaged in a supportive mentorship session in a modern, brightly lit collaboration hub. The focus is on their expressive, positive faces and professional attire, radiating a mood of growth and leadership development." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBFxN2NU4aesrRPoDlU6JT1t18b2shV_iw-nXdPJtyBGyOAsBjXxloWqtoa9eHgO1SpWIIVVfnTPmM3jm4mkpC3VxT4dMv83_eOWmYBgoRf1CDv8jFrMIve_9WbcKuCdVGjR4BpaU4YAMomakrwdnhZpd0evgB4VKngbBSadCXDNeOttQGck1LgxrRfWkL1x2C9QOCbQcD-Uaa7pR1CYpxUxve6If4FQlc7vASRIEU9ALHDfGNsWvoQ"/>
+</div>
+<div>
+<p class="text-sm font-bold text-on-surface">Leading High-Performance Teams</p>
+<p class="text-xs text-on-surface-variant">Emotional Intelligence focus</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<svg class="w-4 h-4 fill-[#0A66C2]" viewbox="0 0 24 24"><path d="M19 3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h14m-.5 15.5v-5.3a3.26 3.26 0 0 0-3.26-3.26c-.85 0-1.84.52-2.32 1.3v-1.11h-2.79v8.37h2.79v-4.93c0-.77.62-1.4 1.39-1.4a1.4 1.4 0 0 1 1.4 1.4v4.93h2.79M6.88 8.56a1.68 1.68 0 0 0 1.68-1.68c0-.93-.75-1.69-1.68-1.69a1.69 1.69 0 0 0-1.69 1.69c0 .93.76 1.68 1.69 1.68m1.39 9.94v-8.37H5.5v8.37h2.77z"></path></svg>
+<span class="text-xs font-medium">LinkedIn Learning</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm font-medium text-on-surface">3.8h</td>
+<td class="px-6 py-4 text-right">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-surface-container-high text-on-surface-variant text-[10px] font-black uppercase">
+<span class="material-symbols-outlined text-xs">pending</span> Pending
+                                            </span>
+</td>
+</tr>
+<!-- PDF Item -->
+<tr class="hover:bg-surface-container-lowest transition-colors group">
+<td class="px-6 py-4">
+<input checked="" class="w-5 h-5 rounded border-outline-variant text-primary focus:ring-primary" type="checkbox"/>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-tertiary/10 rounded-lg flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined">description</span>
+</div>
+<div>
+<p class="text-sm font-bold text-on-surface">Internal Mentorship Handbook</p>
+<p class="text-xs text-on-surface-variant">Company Protocol Guide</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-2">
+<span class="material-symbols-outlined text-on-surface-variant text-lg">file_open</span>
+<span class="text-xs font-medium">Internal PDF</span>
+</div>
+</td>
+<td class="px-6 py-4 text-sm font-medium text-on-surface">0.5h</td>
+<td class="px-6 py-4 text-right">
+<span class="text-xs text-on-surface-variant italic">Manual Entry</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+</div>
+<!-- Next Recommended (Asymmetric Layout) -->
+<section class="mt-8">
+<h3 class="font-section-title text-section-title text-on-surface mb-6">Recommended for your Lattice path</h3>
+<div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+<div class="md:col-span-2 bg-gradient-to-br from-primary to-secondary p-8 rounded-3xl text-white flex flex-col justify-between relative overflow-hidden group">
+<div class="absolute -right-12 -top-12 w-48 h-48 bg-white/10 rounded-full blur-2xl group-hover:scale-125 transition-transform duration-700"></div>
+<div>
+<span class="bg-white/20 text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full mb-4 inline-block">Flash Course</span>
+<h4 class="text-2xl font-bold leading-tight mt-2">Critical Thinking in Supply Management</h4>
+<p class="text-white/80 mt-2 text-sm max-w-xs">Gain the skills to handle high-pressure operational decisions with confidence.</p>
+</div>
+<div class="mt-8 flex items-center gap-4">
+<button class="bg-white text-primary px-6 py-2.5 rounded-full font-bold text-sm hover:bg-opacity-90 transition-all">Enroll Now</button>
+<span class="text-xs font-medium flex items-center gap-1 opacity-80"><span class="material-symbols-outlined text-sm">schedule</span> 45 mins</span>
+</div>
+</div>
+<div class="bg-white p-6 rounded-3xl border border-outline-variant flex flex-col justify-between hover:shadow-lg transition-shadow">
+<div>
+<div class="w-12 h-12 bg-surface-container-high rounded-xl flex items-center justify-center mb-4">
+<span class="material-symbols-outlined text-primary">psychology</span>
+</div>
+<h4 class="font-bold text-on-surface">Data Literacy 101</h4>
+<p class="text-xs text-on-surface-variant mt-2">Essential for Analytics track progress.</p>
+</div>
+<button class="mt-4 flex items-center text-primary text-sm font-bold gap-1 group">
+                                Explore <span class="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</button>
+</div>
+<div class="bg-white p-6 rounded-3xl border border-outline-variant flex flex-col justify-between hover:shadow-lg transition-shadow">
+<div>
+<div class="w-12 h-12 bg-surface-container-high rounded-xl flex items-center justify-center mb-4">
+<span class="material-symbols-outlined text-primary">diversity_3</span>
+</div>
+<h4 class="font-bold text-on-surface">Inclusive Leadership</h4>
+<p class="text-xs text-on-surface-variant mt-2">Bridge the gap to Zone Manager status.</p>
+</div>
+<button class="mt-4 flex items-center text-primary text-sm font-bold gap-1 group">
+                                Explore <span class="material-symbols-outlined text-sm group-hover:translate-x-1 transition-transform">arrow_forward</span>
+</button>
+</div>
+</div>
+</section>
+</div>
+</main>
+</div>
+<!-- Mobile Navigation -->
+<div class="md:hidden fixed bottom-0 left-0 right-0 bg-surface border-t border-outline-variant flex justify-around items-center h-16 z-50 px-4">
+<button class="flex flex-col items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-[10px] font-bold">Home</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">auto_stories</span>
+<span class="text-[10px] font-bold">Journey</span>
+</button>
+<div class="-mt-8">
+<button class="w-12 h-12 bg-primary text-on-primary rounded-full shadow-lg flex items-center justify-center">
+<span class="material-symbols-outlined">add</span>
+</button>
+</div>
+<button class="flex flex-col items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined">leaderboard</span>
+<span class="text-[10px] font-bold">Leader</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined">account_circle</span>
+<span class="text-[10px] font-bold">Profile</span>
+</button>
+</div>
+<script>
+        // Simple Interaction logic
+        document.querySelectorAll('input[type="checkbox"]').forEach(checkbox => {
+            checkbox.addEventListener('change', (e) => {
+                const row = e.target.closest('tr');
+                if (e.target.checked) {
+                    row.classList.add('bg-primary/5');
+                } else {
+                    row.classList.remove('bg-primary/5');
+                }
+            });
+        });
+
+        // Sync Simulation
+        const syncBtn = document.querySelector('button:has(.material-symbols-outlined:contains("refresh"))');
+        if(syncBtn) {
+            syncBtn.addEventListener('click', () => {
+                const icon = syncBtn.querySelector('.material-symbols-outlined');
+                icon.classList.add('animate-spin');
+                syncBtn.disabled = true;
+                syncBtn.innerText = 'Syncing...';
+                
+                setTimeout(() => {
+                    icon.classList.remove('animate-spin');
+                    syncBtn.disabled = false;
+                    syncBtn.innerHTML = '<span class="material-symbols-outlined text-sm">refresh</span> Sync Now';
+                    alert('LinkedIn Learning sync completed successfully!');
+                }, 2000);
+            });
+        }
+    </script>
+</body></html>

@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+
+<html lang="en" style=""><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MyCareer Compass - Own Your Growth</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "primary-fixed": "#ffdad7",
+                        "on-error-container": "#93000a",
+                        "on-secondary-fixed-variant": "#004786",
+                        "inverse-on-surface": "#ffedeb",
+                        "on-primary": "#ffffff",
+                        "secondary-fixed": "#d5e3ff",
+                        "inverse-surface": "#402b2a",
+                        "error": "#ba1a1a",
+                        "surface-container-low": "#fff0ef",
+                        "error-container": "#ffdad6",
+                        "surface-dim": "#f4d2d0",
+                        "surface-container": "#ffe9e7",
+                        "outline": "#926e6c",
+                        "secondary": "#005cab",
+                        "on-background": "#291716",
+                        "on-tertiary": "#ffffff",
+                        "tertiary-fixed": "#c3e8ff",
+                        "on-secondary": "#ffffff",
+                        "inverse-primary": "#ffb3ae",
+                        "on-tertiary-fixed-variant": "#004c68",
+                        "on-primary-fixed-variant": "#930015",
+                        "on-primary-container": "#fff4f3",
+                        "on-tertiary-container": "#eef7ff",
+                        "on-primary-fixed": "#410004",
+                        "tertiary-container": "#0079a3",
+                        "primary-fixed-dim": "#ffb3ae",
+                        "on-tertiary-fixed": "#001e2c",
+                        "surface-tint": "#c0001f",
+                        "surface": "#fff8f7",
+                        "primary": "#df162b",
+                        "primary-container": "#df162b",
+                        "surface-container-high": "#ffe1df",
+                        "secondary-container": "#1464F4",
+                        "surface-variant": "#fddbd8",
+                        "on-surface": "#291716",
+                        "on-error": "#ffffff",
+                        "tertiary": "#005f81",
+                        "surface-container-highest": "#fddbd8",
+                        "background": "#fff8f7",
+                        "secondary-fixed-dim": "#a6c8ff",
+                        "surface-container-lowest": "#ffffff",
+                        "on-surface-variant": "#5d3f3d",
+                        "surface-bright": "#fff8f7",
+                        "on-secondary-fixed": "#001c3b",
+                        "outline-variant": "#e7bdb9",
+                        "tertiary-fixed-dim": "#7bd0fe",
+                        "on-secondary-container": "#fefcff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "1.5rem",
+                        "md": "1rem",
+                        "xl": "2rem",
+                        "xs": "0.25rem",
+                        "margin-mobile": "1rem",
+                        "sm": "0.5rem",
+                        "margin-desktop": "2.5rem",
+                        "lg": "1.5rem"
+                    },
+                    "fontFamily": {
+                        "headline-sm": ["Inter"],
+                        "headline-lg-mobile": ["Inter"],
+                        "label-md": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "body-md": ["Inter"],
+                        "headline-md": ["Inter"],
+                        "headline-xl": ["Inter"],
+                        "headline-lg": ["Inter"],
+                        "body-lg": ["Inter"]
+                    },
+                    "fontSize": {
+                        "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "700"}],
+                        "label-md": ["12px", {"lineHeight": "16px", "fontWeight": "600"}],
+                        "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                        "headline-xl": ["40px", {"lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .hero-pattern {
+            background-image: radial-gradient(circle at 2px 2px, #df162b22 1px, transparent 0);
+            background-size: 24px 24px;
+        }
+        .path-line {
+            background: repeating-linear-gradient(90deg, #1464F4 0, #1464F4 8px, transparent 8px, transparent 16px);
+        }
+    </style>
+</head>
+<body class="bg-background font-body-md text-on-background min-h-screen flex">
+<div class="flex min-h-screen w-full overflow-hidden">
+<!-- Sidebar -->
+<aside class="w-64 bg-surface border-r border-outline-variant flex flex-col sticky top-0 h-screen z-50">
+<div class="p-lg border-b border-outline-variant">
+<div class="flex items-center gap-sm">
+<div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-white font-bold text-lg">MC</div>
+<div>
+<h1 class="font-headline-sm text-headline-sm text-primary leading-tight">MMT Talent</h1>
+<p class="text-[10px] uppercase tracking-widest text-on-surface-variant font-bold">Enterprise</p>
+</div>
+</div>
+</div>
+<nav class="flex-grow py-lg px-md flex flex-col gap-xs">
+<a class="flex items-center gap-md p-md rounded-lg bg-primary text-white font-bold" data-route="employee/welcome" href="/app/employee/welcome">
+<span class="material-symbols-outlined">home</span>
+<span class="">Home</span>
+</a>
+<a class="flex items-center gap-md p-md rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors" data-route="employee/roleplays" href="/app/employee/roleplays">
+<span class="material-symbols-outlined">theater_comedy</span>
+<span class="">Assessments</span>
+</a>
+<a class="flex items-center gap-md p-md rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors" data-route="employee/career" href="/app/employee/career">
+<span class="material-symbols-outlined">account_tree</span>
+<span class="">Career Lattice</span>
+</a>
+<a class="flex items-center gap-md p-md rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors" data-route="employee/courses" href="/app/employee/courses">
+<span class="material-symbols-outlined">school</span>
+<span class="">Courses</span>
+</a>
+<a class="flex items-center gap-md p-md rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors" data-route="employee/learning" href="/app/employee/learning">
+<span class="material-symbols-outlined">map</span>
+<span class="">Learning Journey</span>
+</a>
+<a class="flex items-center gap-md p-md rounded-lg text-on-surface-variant hover:bg-surface-container-high transition-colors" data-route="employee/leaderboard" href="/app/employee/leaderboard">
+<span class="material-symbols-outlined">leaderboard</span>
+<span class="">Leaderboard</span>
+</a>
+</nav>
+</aside>
+<!-- Main Content Area -->
+<div class="flex-grow flex flex-col h-screen overflow-y-auto">
+<header class="bg-surface sticky top-0 z-40 border-b border-outline-variant">
+<div class="max-w-[1200px] mx-auto px-margin-desktop h-16 flex justify-between items-center">
+<div class="flex items-center gap-md">
+<h2 class="font-headline-sm text-headline-sm">Dashboard</h2>
+</div>
+<div class="flex items-center gap-md">
+<div class="text-right hidden sm:block">
+<p class="font-bold text-body-sm leading-none" data-user-name>Employee</p>
+<p class="text-[10px] uppercase tracking-wide text-on-surface-variant mt-xs">Employee</p>
+</div>
+<div class="w-9 h-9 rounded-full bg-secondary-container text-white flex items-center justify-center font-bold text-sm" data-user-initials>MC</div>
+<button class="text-body-sm font-bold text-secondary-container" data-logout type="button">Sign out</button>
+</div>
+</div>
+</header>
+<main class="flex-grow">
+<!-- Hero Section -->
+<section class="relative py-xl bg-surface-container-low hero-pattern overflow-hidden">
+<div class="max-w-[1200px] mx-auto px-margin-desktop relative z-10">
+<div class="max-w-2xl">
+<span class="inline-block px-sm py-xs bg-tertiary-container/10 text-tertiary-container font-label-md text-label-md rounded-full mb-md">
+                                MyCareer Compass · Your Development Journey
+                            </span>
+<h2 class="font-headline-xl text-headline-xl text-on-background mb-md">
+                                Own your growth. <br/><span class="text-secondary-container">Explore what could be next.</span>
+</h2>
+<p class="font-body-lg text-body-lg text-on-surface-variant leading-relaxed">
+                                Complete assessments, choose an aspiration, and build your learning journey. This personalized path is designed to help you navigate your career evolution within the MMT ecosystem.
+                            </p>
+</div>
+</div>
+<div class="absolute right-0 top-1/2 -translate-y-1/2 opacity-10 pointer-events-none hidden lg:block">
+<span class="material-symbols-outlined text-[320px] text-primary rotate-12" style="font-variation-settings: 'FILL' 0;">explore</span>
+</div>
+</section>
+<!-- Roadmap Section -->
+<section class="py-xl bg-surface-container">
+<div class="max-w-[1200px] mx-auto px-margin-desktop">
+<div class="text-center mb-xl">
+<h2 class="font-headline-lg text-headline-lg mb-sm">Your journey in four steps</h2>
+<p class="text-on-surface-variant max-w-xl mx-auto">A structured approach to navigating your development and achieving your professional aspirations.</p>
+</div>
+<div class="relative" data-journey-steps>
+<div class="absolute top-8 left-0 w-full h-[2px] path-line opacity-30 hidden lg:block"></div>
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-xl relative z-10">
+<div class="flex flex-col items-center lg:items-start text-center lg:text-left" data-step="roleplays">
+<div class="w-16 h-16 rounded-full bg-surface-container-highest text-on-surface-variant flex items-center justify-center font-bold text-xl mb-md border-4 border-white shadow-sm" data-step-badge>1</div>
+<h4 class="font-bold mb-xs">Assessments</h4>
+<p class="text-body-sm text-on-surface-variant" data-step-copy>Complete all seven competency assessments.</p>
+<button class="mt-md text-secondary-container font-bold text-body-sm" data-step-action="employee/roleplays" type="button">Open Assessments</button>
+</div>
+<div class="flex flex-col items-center lg:items-start text-center lg:text-left" data-step="lattice">
+<div class="w-16 h-16 rounded-full bg-surface-container-highest text-on-surface-variant flex items-center justify-center font-bold text-xl mb-md border-4 border-white shadow-sm" data-step-badge>2</div>
+<h4 class="font-bold mb-xs">Career Lattice</h4>
+<p class="text-body-sm text-on-surface-variant" data-step-copy>Unlock Career Lattice and explore your future.</p>
+<button class="mt-md text-secondary-container font-bold text-body-sm" data-step-action="employee/career" type="button">Open Lattice</button>
+</div>
+<div class="flex flex-col items-center lg:items-start text-center lg:text-left" data-step="aspiration">
+<div class="w-16 h-16 rounded-full bg-surface-container-highest text-on-surface-variant flex items-center justify-center font-bold text-xl mb-md border-4 border-white shadow-sm" data-step-badge>3</div>
+<h4 class="font-bold mb-xs">Aspiration</h4>
+<p class="text-body-sm text-on-surface-variant" data-step-copy>Choose and confirm one career aspiration.</p>
+<button class="mt-md text-secondary-container font-bold text-body-sm" data-step-action="employee/career" type="button">Choose Aspiration</button>
+</div>
+<div class="flex flex-col items-center lg:items-start text-center lg:text-left" data-step="learning">
+<div class="w-16 h-16 rounded-full bg-surface-container-highest text-on-surface-variant flex items-center justify-center font-bold text-xl mb-md border-4 border-white shadow-sm" data-step-badge>4</div>
+<h4 class="font-bold mb-xs">Learning</h4>
+<p class="text-body-sm text-on-surface-variant" data-step-copy>Shop recommended courses and start learning.</p>
+<button class="mt-md text-secondary-container font-bold text-body-sm" data-step-action="employee/courses" type="button">Open Courses</button>
+</div>
+</div>
+</div>
+</div>
+</section>
+<!-- Progress Section -->
+<section class="py-lg max-w-[1200px] mx-auto px-margin-desktop">
+<div class="border-t border-outline-variant pt-lg">
+<div class="flex justify-between items-end mb-sm">
+<span class="font-bold text-on-background">Current progress</span>
+<span class="text-body-sm text-on-surface-variant" data-progress-count>0/7 complete</span>
+</div>
+<div class="w-full h-3 bg-surface-container-highest rounded-full overflow-hidden mb-sm">
+<div class="h-full bg-secondary-container" data-progress-bar style="width:0%"></div>
+</div>
+<p class="text-body-sm text-on-surface-variant" data-phase-status>Phase status: closed. Values come from persisted submissions only.</p>
+</div>
+</section>
+<!-- Features Grid -->
+<section class="py-xl max-w-[1200px] mx-auto px-margin-desktop">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gutter">
+<div class="bg-white p-lg rounded-xl border border-outline-variant hover:shadow-md transition-shadow group">
+<div class="w-12 h-12 rounded-lg bg-surface-container-high flex items-center justify-center mb-md text-secondary-container group-hover:bg-secondary-container group-hover:text-white transition-colors">
+<span class="material-symbols-outlined">analytics</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm mb-sm">Understand where you are</h3>
+<p class="text-on-surface-variant font-body-sm text-body-sm">Assess your current skills and performance through comprehensive data-driven insights and feedback loops.</p>
+</div>
+<div class="bg-white p-lg rounded-xl border border-outline-variant hover:shadow-md transition-shadow group">
+<div class="w-12 h-12 rounded-lg bg-surface-container-high flex items-center justify-center mb-md text-secondary-container group-hover:bg-secondary-container group-hover:text-white transition-colors">
+<span class="material-symbols-outlined">visibility</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm mb-sm">Explore relevant possibilities</h3>
+<p class="text-on-surface-variant font-body-sm text-body-sm">Discover potential career paths and roles that align with your strengths and the organization's strategic needs.</p>
+</div>
+<div class="bg-white p-lg rounded-xl border border-outline-variant hover:shadow-md transition-shadow group">
+<div class="w-12 h-12 rounded-lg bg-surface-container-high flex items-center justify-center mb-md text-secondary-container group-hover:bg-secondary-container group-hover:text-white transition-colors">
+<span class="material-symbols-outlined">school</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm mb-sm">Build capability through learning</h3>
+<p class="text-on-surface-variant font-body-sm text-body-sm">Access curated content and training programs designed to bridge your skill gaps and prepare you for the next level.</p>
+</div>
+<div class="bg-white p-lg rounded-xl border border-outline-variant hover:shadow-md transition-shadow group">
+<div class="w-12 h-12 rounded-lg bg-surface-container-high flex items-center justify-center mb-md text-secondary-container group-hover:bg-secondary-container group-hover:text-white transition-colors">
+<span class="material-symbols-outlined">rocket_launch</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm mb-sm">Turn learning into action</h3>
+<p class="text-on-surface-variant font-body-sm text-body-sm">Apply your new knowledge in real-world scenarios and track your tangible impact on business outcomes.</p>
+</div>
+</div>
+</section>
+<!-- Journey visual + disclaimer -->
+<section class="pb-xl max-w-[1200px] mx-auto px-margin-desktop">
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-gutter items-stretch">
+<div class="lg:col-span-2 rounded-xl overflow-hidden min-h-[220px]">
+<img alt="Welcome to our journey — collaborators around a project board" class="w-full h-full object-cover" src="/stitch/employee_welcome_screen/journey_hero.png"/>
+</div>
+<aside class="bg-error-container/70 border border-outline-variant/40 rounded-xl p-lg flex flex-col justify-between text-on-surface">
+<div>
+<div class="flex items-center gap-sm mb-md">
+<span class="material-symbols-outlined text-on-error-container text-[22px]">info</span>
+<h4 class="font-bold text-on-error-container text-body-md">Important to know...</h4>
+</div>
+<p class="text-body-sm text-on-surface leading-relaxed">
+                                Completing a learning journey does not guarantee promotion. While growth leads to opportunities, promotions are determined by business requirements, performance metrics, and sustained delivery of results at the next level.
+                            </p>
+</div>
+<a class="mt-lg inline-flex items-center gap-xs text-secondary-container font-bold text-body-sm hover:underline" href="#" data-growth-philosophy>
+                            Read more about our growth philosophy
+                            <span aria-hidden="true">→</span>
+</a>
+</aside>
+</div>
+</section>
+</main>
+</div>
+</div>
+</body></html>

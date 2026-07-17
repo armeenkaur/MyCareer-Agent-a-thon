@@ -34,13 +34,8 @@ def role_level_key(designation: str, level: str) -> str:
     elif "zonal" in title or title.startswith("zm"):
         role = "ZM"
 
-    if level in {"RL1", "RL2"}:
-        band = "RL1-2"
-    elif level in {"RL3", "RL4"}:
-        band = "RL3-4"
-    else:
-        band = "RL1-2"
-
     if role == "ZM":
-        return "ZM (RL5-6)"
-    return f"{role} ({band})"
+        return "ZM (RL6)" if level == "RL6" else "ZM (RL4-5)"
+    if role == "KAM":
+        return "KAM (RL4)" if level == "RL4" else "KAM (RL2-3)"
+    return "BDM (RL4)" if level == "RL4" else "BDM (RL2-3)"

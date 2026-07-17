@@ -1,0 +1,461 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MyCareer Compass - Regional Learning Leaderboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "secondary-container": "#799dfe",
+                        "inverse-surface": "#2e3039",
+                        "on-primary": "#ffffff",
+                        "surface-variant": "#e1e2ee",
+                        "on-tertiary": "#ffffff",
+                        "on-primary-container": "#f1f2ff",
+                        "on-background": "#191b24",
+                        "on-secondary": "#ffffff",
+                        "tertiary-fixed-dim": "#ffb59a",
+                        "surface-container": "#ecedf9",
+                        "outline-variant": "#c2c6d8",
+                        "secondary": "#3159b6",
+                        "primary-container": "#1464f4",
+                        "surface-container-highest": "#e1e2ee",
+                        "on-surface": "#191b24",
+                        "surface-bright": "#faf8ff",
+                        "on-tertiary-container": "#fff0ec",
+                        "inverse-on-surface": "#eff0fc",
+                        "primary-fixed-dim": "#b3c5ff",
+                        "inverse-primary": "#b3c5ff",
+                        "surface-container-low": "#f2f3ff",
+                        "surface-container-high": "#e7e7f3",
+                        "surface": "#faf8ff",
+                        "error-container": "#ffdad6",
+                        "background": "#faf8ff",
+                        "on-secondary-container": "#003183",
+                        "on-primary-fixed": "#001849",
+                        "tertiary-container": "#c44400",
+                        "secondary-fixed": "#dae2ff",
+                        "surface-tint": "#0054d7",
+                        "on-surface-variant": "#424655",
+                        "outline": "#737687",
+                        "on-tertiary-fixed": "#380d00",
+                        "on-secondary-fixed-variant": "#0e409d",
+                        "surface-container-lowest": "#ffffff",
+                        "tertiary": "#9b3400",
+                        "error": "#ba1a1a",
+                        "secondary-fixed-dim": "#b3c5ff",
+                        "primary-fixed": "#dbe1ff",
+                        "on-primary-fixed-variant": "#003fa5",
+                        "surface-dim": "#d8d9e5",
+                        "on-tertiary-fixed-variant": "#802a00",
+                        "tertiary-fixed": "#ffdbcf",
+                        "primary": "#004dc6",
+                        "on-secondary-fixed": "#001849",
+                        "on-error-container": "#93000a",
+                        "on-error": "#ffffff"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "gutter": "24px",
+                        "margin-mobile": "16px",
+                        "stack-gap-lg": "24px",
+                        "grid-columns": "12",
+                        "card-padding": "24px",
+                        "stack-gap-sm": "8px",
+                        "canvas-max-width": "1440px",
+                        "stack-gap-md": "16px",
+                        "content-max-width": "1280px",
+                        "margin-desktop": "32px"
+                    },
+                    "fontFamily": {
+                        "page-title": ["Inter"],
+                        "metadata": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "card-title": ["Inter"],
+                        "button": ["Inter"],
+                        "page-title-mobile": ["Inter"],
+                        "display-lg-mobile": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "section-title": ["Inter"],
+                        "body-md": ["Inter"]
+                    },
+                    "fontSize": {
+                        "page-title": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "metadata": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                        "display-lg": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                        "card-title": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                        "button": ["14px", {"lineHeight": "20px", "fontWeight": "600"}],
+                        "page-title-mobile": ["24px", {"lineHeight": "30px", "fontWeight": "600"}],
+                        "display-lg-mobile": ["28px", {"lineHeight": "34px", "fontWeight": "600"}],
+                        "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "section-title": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #F5F7FA; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .card-shadow { box-shadow: 0px 4px 12px rgba(23, 32, 51, 0.05); }
+        .sidebar-active { background-color: #1464f4; color: #f1f2ff; font-weight: bold; border-radius: 0.5rem; }
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #c2c6d8; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #737687; }
+    </style>
+</head>
+<body class="bg-background text-on-surface">
+<div class="flex h-screen overflow-hidden">
+<!-- SideNavBar -->
+<aside class="hidden md:flex flex-col h-full py-6 px-4 gap-stack-gap-md bg-surface-container-low border-r border-outline-variant w-72 flex-shrink-0">
+<div class="flex items-center gap-3 mb-8 px-2">
+<div class="w-10 h-10 bg-primary-container rounded-lg flex items-center justify-center text-white">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">analytics</span>
+</div>
+<div>
+<h1 class="font-section-title text-section-title font-black text-primary leading-tight">MyCareer Compass</h1>
+<p class="text-xs text-on-surface-variant uppercase tracking-wider font-bold">Enterprise Edition</p>
+</div>
+</div>
+<nav class="flex-1 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-md text-body-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined">explore</span>
+<span class="font-body-md text-body-md">Career Path</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined">psychology</span>
+<span class="font-body-md text-body-md">Skills Lab</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined">groups</span>
+<span class="font-body-md text-body-md">Mentorship</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined">school</span>
+<span class="font-body-md text-body-md">Learning</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 bg-primary-container text-on-primary-container font-bold rounded-lg shadow-md" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">leaderboard</span>
+<span class="font-body-md text-body-md">Analytics</span>
+</a>
+</nav>
+<div class="mt-auto border-t border-outline-variant pt-6 flex flex-col gap-1">
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined">help</span>
+<span class="font-body-md text-body-md">Support</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-body-md text-body-md">Sign Out</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col overflow-y-auto">
+<!-- TopNavBar -->
+<header class="flex justify-between items-center h-16 px-margin-desktop w-full bg-surface sticky top-0 z-40 border-b border-outline-variant">
+<div class="flex items-center">
+<h2 class="font-page-title text-page-title text-primary">Regional Learning Leaderboard</h2>
+</div>
+<div class="flex items-center gap-4">
+<div class="relative hidden sm:block">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant">search</span>
+<input class="pl-10 pr-4 py-2 bg-surface-container-low border border-outline-variant rounded-full text-sm w-64 focus:ring-2 focus:ring-primary focus:outline-none" placeholder="Search employees..." type="text"/>
+</div>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low transition-colors rounded-full relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low transition-colors rounded-full">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="w-8 h-8 rounded-full overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="A professional headshot of a corporate regional director with a warm smile, wearing business formal attire against a soft-focus office background. The lighting is bright and professional, following a clean, high-trust modern UI aesthetic with balanced contrast and natural skin tones." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDMD09J7wprp_y6C38NSXHIViBL3cJgwKoXk_zQW5Af6h71SkDLQ23on8Pi-RRJwfNa_nhdJIUXKxtrz7wbN2MBWRUBJjP-MjFgp1g31Hyf6Q9YXaidnS--KUjCc5LhjcnsBiR57Ycp1ZVxkS2o8ILpm_w-PeSnvxYCnX6o1Y5U-lLMIqjP2LqegPLkHi97SyFerbkX3TKL6zXt69ZXKvssmIpkWZWpYtrp8PK1u0RlqJBxd2or9qea"/>
+</div>
+</div>
+</header>
+<!-- Page Canvas -->
+<div class="p-gutter max-w-content-max-width mx-auto w-full space-y-gutter">
+<!-- KPI & Top Performers Row -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
+<!-- Global KPI Card -->
+<div class="lg:col-span-4 bg-primary-container text-on-primary-container p-card-padding rounded-xl relative overflow-hidden flex flex-col justify-between">
+
+<div class="relative z-10">
+<p class="font-metadata text-metadata uppercase tracking-widest opacity-80 mb-1">Learning Momentum</p>
+<h3 class="font-display-lg text-display-lg font-bold">Regional Avg. Hours: 24.8h</h3>
+</div>
+<div class="relative z-10 flex items-end justify-between mt-8">
+<div class="flex items-center gap-1 bg-white/20 px-3 py-1 rounded-full backdrop-blur-md">
+<span class="material-symbols-outlined text-sm">trending_up</span>
+<span class="text-sm font-bold">+14% vs Last Month</span>
+</div>
+<span class="material-symbols-outlined text-6xl opacity-20">query_stats</span>
+</div>
+</div>
+<!-- Top Performers Cards -->
+<div class="lg:col-span-8 grid grid-cols-1 md:grid-cols-3 gap-stack-gap-md">
+<!-- Rank 1 -->
+<div class="bg-white border border-outline-variant p-card-padding rounded-xl card-shadow flex flex-col items-center text-center relative">
+<div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-tertiary text-white px-4 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-tighter">Gold Tier</div>
+<div class="w-16 h-16 rounded-full border-4 border-primary-container p-1 mb-4">
+<img class="w-full h-full rounded-full object-cover" data-alt="Close-up professional portrait of Alex Rivera, a young male professional with a confident expression, wearing a navy blazer and light shirt. The style is crisp and modern with soft studio lighting that emphasizes clarity and high-end corporate aesthetics." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDdIaVII8NS66Q6VbkjhHMWaeig9jrIqRPUmTLYtOh0S-3TGapmESe3wU_ng-k6S8uBm3eAOhS1-F7aFPazIoYkrcI7mcMG0P0HgydTXXaKrxpgxfSFY_QryyWQldWJNxnCoMsP1OFSwI7lkoqevxOEm9VjzAJK5h9hQxtWW0zmEiVI7W8zMhgtl9UFYDAVJl2CGIMdTNps3bWa_Kee0Zr4PbNMY-smJ42TKoiR5vLszQy00Yc1zGJh"/>
+</div>
+<h4 class="font-card-title text-card-title">Alex Rivera</h4>
+<p class="text-xs text-on-surface-variant mb-3">Strategic Leader Cohort</p>
+<div class="flex flex-col gap-1 w-full border-t border-outline-variant pt-3">
+<span class="text-2xl font-bold text-primary">52.4h</span>
+<span class="text-xs text-secondary font-semibold">+22% Growth</span>
+</div>
+</div>
+<!-- Rank 2 -->
+<div class="bg-white border border-outline-variant p-card-padding rounded-xl card-shadow flex flex-col items-center text-center relative">
+<div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-outline text-white px-4 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-tighter">Silver Tier</div>
+<div class="w-16 h-16 rounded-full border-4 border-outline-variant p-1 mb-4">
+<img class="w-full h-full rounded-full object-cover" data-alt="Headshot of Sarah Chen, a professional woman in her 30s with a sharp, intelligent gaze. She is wearing stylish glasses and a professional blouse. Minimalist white background with clean, high-key lighting for a modern corporate dashboard look." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBPQDVPozQEn6DHRsAnh-gzn2xCMjvMAjHtuLfDa_d-JbHY9ND3TWPwTX44RsN65kB1T2bW7j3o5nGShRD_2mhRD_sIQyh2FKnyg-o_H40TQOfExiYe7yV4yh6zv3ZRlZ6rfu7ke-vRArMHLFNll-fIbOoeLQftOiBKLY-SW04GSmdZZcqlpOoKBSOA4fw-HxF6HDixQZq3SgKl8jpdBPyNrDwK7T0K6VicMr-5N4xn7nqJz-6YA93P"/>
+</div>
+<h4 class="font-card-title text-card-title">Sarah Chen</h4>
+<p class="text-xs text-on-surface-variant mb-3">Future Lead Cohort</p>
+<div class="flex flex-col gap-1 w-full border-t border-outline-variant pt-3">
+<span class="text-2xl font-bold text-primary">48.1h</span>
+<span class="text-xs text-secondary font-semibold">+18% Growth</span>
+</div>
+</div>
+<!-- Rank 3 -->
+<div class="bg-white border border-outline-variant p-card-padding rounded-xl card-shadow flex flex-col items-center text-center relative">
+<div class="absolute -top-3 left-1/2 -translate-x-1/2 bg-[#CD7F32] text-white px-4 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-tighter">Bronze Tier</div>
+<div class="w-16 h-16 rounded-full border-4 border-tertiary-fixed-dim p-1 mb-4">
+<img class="w-full h-full rounded-full object-cover" data-alt="Portrait of Marcus Thorne, a mature male professional with graying hair and a distinguished look. He is wearing a grey suit and look professional. The image has a soft depth of field and high-end lighting suitable for a premium career platform." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAUKlD7I5eAilormv64CAyFLiE3nJYhzXoEhGobBePBh4lX_cQ_2lBTPzJvOBMbWtqhUAc8Jlz7fDDXpEi5DkXrNXnxOgevp10K3Qr8MjgpUCn6kYawaOCoDaHUw3sjfiyt2Rk4FJ8Q1Vteiy7Yr0ZvcG0-hrx8VyLA09UhqSjuGstDLbilRZO_3YqlDFy3jd_DHMmEPxMlWzM28py-MUqg6wJ2Oas6oVD4k1fSPSAIuZlmpRBhqVqI"/>
+</div>
+<h4 class="font-card-title text-card-title">Marcus Thorne</h4>
+<p class="text-xs text-on-surface-variant mb-3">Upskilling Cohort</p>
+<div class="flex flex-col gap-1 w-full border-t border-outline-variant pt-3">
+<span class="text-2xl font-bold text-primary">44.6h</span>
+<span class="text-xs text-secondary font-semibold">+15% Growth</span>
+</div>
+</div>
+</div>
+</div>
+<!-- Main Grid: Tables & Distribution -->
+<div class="grid grid-cols-1 lg:grid-cols-12 gap-gutter">
+<!-- Employee Learning Logs Table -->
+<div class="lg:col-span-8 bg-white border border-outline-variant rounded-xl card-shadow overflow-hidden flex flex-col">
+<div class="p-card-padding border-b border-outline-variant flex justify-between items-center bg-surface-container-lowest">
+<h3 class="font-section-title text-section-title">Employee Learning Logs</h3>
+<div class="flex gap-2">
+<button class="flex items-center gap-1 px-3 py-1.5 border border-outline-variant rounded-lg text-sm font-medium hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-sm">filter_list</span>
+                                    Filter
+                                </button>
+<button class="flex items-center gap-1 px-3 py-1.5 border border-outline-variant rounded-lg text-sm font-medium hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-sm">download</span>
+                                    Export
+                                </button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low">
+<th class="px-6 py-4 font-button text-button text-on-surface-variant uppercase tracking-wider text-[11px]">Rank</th>
+<th class="px-6 py-4 font-button text-button text-on-surface-variant uppercase tracking-wider text-[11px]">Employee</th>
+<th class="px-6 py-4 font-button text-button text-on-surface-variant uppercase tracking-wider text-[11px]">Zone Manager</th>
+<th class="px-6 py-4 font-button text-button text-on-surface-variant uppercase tracking-wider text-[11px]">LinkedIn Hours</th>
+<th class="px-6 py-4 font-button text-button text-on-surface-variant uppercase tracking-wider text-[11px]">Trend</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<!-- Strategic Leaders -->
+<tr class="bg-primary/5">
+<td class="px-6 py-2 text-[11px] font-bold text-primary uppercase tracking-widest" colspan="5">Cohort: Strategic Leader</td>
+</tr>
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="px-6 py-4 font-bold text-primary">#1</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-primary-fixed text-primary flex items-center justify-center text-xs font-bold">AR</div>
+<span class="font-medium">Alex Rivera</span>
+</div>
+</td>
+<td class="px-6 py-4 text-on-surface-variant">Elena Vance</td>
+<td class="px-6 py-4 font-bold">52.4h</td>
+<td class="px-6 py-4 text-secondary"><span class="material-symbols-outlined align-middle">trending_up</span></td>
+</tr>
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="px-6 py-4 font-bold text-primary">#4</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-secondary-fixed text-secondary flex items-center justify-center text-xs font-bold">JK</div>
+<span class="font-medium">Jordan Kross</span>
+</div>
+</td>
+<td class="px-6 py-4 text-on-surface-variant">Elena Vance</td>
+<td class="px-6 py-4 font-bold">40.2h</td>
+<td class="px-6 py-4 text-secondary"><span class="material-symbols-outlined align-middle">trending_up</span></td>
+</tr>
+<!-- Future Leads -->
+<tr class="bg-secondary/5">
+<td class="px-6 py-2 text-[11px] font-bold text-secondary uppercase tracking-widest" colspan="5">Cohort: Future Lead</td>
+</tr>
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="px-6 py-4 font-bold text-primary">#2</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-tertiary-fixed text-tertiary flex items-center justify-center text-xs font-bold">SC</div>
+<span class="font-medium">Sarah Chen</span>
+</div>
+</td>
+<td class="px-6 py-4 text-on-surface-variant">David Wu</td>
+<td class="px-6 py-4 font-bold">48.1h</td>
+<td class="px-6 py-4 text-secondary"><span class="material-symbols-outlined align-middle">trending_up</span></td>
+</tr>
+<!-- Upskilling -->
+<tr class="bg-tertiary/5">
+<td class="px-6 py-2 text-[11px] font-bold text-tertiary uppercase tracking-widest" colspan="5">Cohort: Upskilling</td>
+</tr>
+<tr class="hover:bg-surface-container-lowest transition-colors">
+<td class="px-6 py-4 font-bold text-primary">#3</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-variant text-on-surface-variant flex items-center justify-center text-xs font-bold">MT</div>
+<span class="font-medium">Marcus Thorne</span>
+</div>
+</td>
+<td class="px-6 py-4 text-on-surface-variant">Sarah Jenkins</td>
+<td class="px-6 py-4 font-bold">44.6h</td>
+<td class="px-6 py-4 text-secondary"><span class="material-symbols-outlined align-middle">trending_up</span></td>
+</tr>
+</tbody>
+</table>
+</div>
+</div>
+<!-- Regional Gap Distribution Chart -->
+<div class="lg:col-span-4 bg-white border border-outline-variant rounded-xl card-shadow p-card-padding flex flex-col">
+<div class="flex justify-between items-start mb-6">
+<div>
+<h3 class="font-section-title text-section-title">Gap Distribution</h3>
+<p class="text-xs text-on-surface-variant">Regional Cohort Breakdown</p>
+</div>
+<span class="material-symbols-outlined text-primary">pie_chart</span>
+</div>
+<!-- Visual Donut Chart Representation -->
+<div class="flex-1 flex flex-col items-center justify-center py-6">
+<div class="relative w-48 h-48 rounded-full flex items-center justify-center border-[20px] border-surface-container" style="background: conic-gradient(#004dc6 0% 26%, #3159b6 26% 66%, #9b3400 66% 100%);">
+<div class="absolute inset-0 rounded-full border-[20px] border-white/10"></div>
+<div class="w-32 h-32 bg-white rounded-full flex flex-col items-center justify-center shadow-inner">
+<span class="text-2xl font-black text-on-surface">100%</span>
+<span class="text-[10px] text-on-surface-variant uppercase font-bold tracking-tighter">Total Staff</span>
+</div>
+</div>
+</div>
+<div class="space-y-4 mt-4">
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-primary"></div>
+<span class="text-sm font-medium">Elite (Strategic)</span>
+</div>
+<span class="text-sm font-bold">26%</span>
+</div>
+<div class="w-full bg-surface-container rounded-full h-1.5">
+<div class="bg-primary h-1.5 rounded-full" style="width: 26%"></div>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-secondary"></div>
+<span class="text-sm font-medium">Emerging (Future)</span>
+</div>
+<span class="text-sm font-bold">40%</span>
+</div>
+<div class="w-full bg-surface-container rounded-full h-1.5">
+<div class="bg-secondary h-1.5 rounded-full" style="width: 40%"></div>
+</div>
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-2">
+<div class="w-3 h-3 rounded-full bg-tertiary"></div>
+<span class="text-sm font-medium">Developing (Upskill)</span>
+</div>
+<span class="text-sm font-bold">34%</span>
+</div>
+<div class="w-full bg-surface-container rounded-full h-1.5">
+<div class="bg-tertiary h-1.5 rounded-full" style="width: 34%"></div>
+</div>
+</div>
+</div>
+</div>
+<!-- Bottom Featured Section: Learning Insights -->
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-gutter">
+<div class="bg-white border border-outline-variant rounded-xl card-shadow p-card-padding flex gap-6 items-center">
+<div class="flex-shrink-0 w-24 h-24 bg-primary-container rounded-lg flex items-center justify-center text-white overflow-hidden relative">
+
+<span class="material-symbols-outlined text-4xl relative z-10">military_tech</span>
+</div>
+<div>
+<h4 class="font-card-title text-card-title mb-1">Weekly Achievement</h4>
+<p class="text-body-sm text-body-sm text-on-surface-variant">12 new employees moved from 'Developing' to 'Emerging' this week through consistent LinkedIn Learning completion.</p>
+</div>
+</div>
+<div class="bg-white border border-outline-variant rounded-xl card-shadow p-card-padding flex gap-6 items-center">
+<div class="flex-shrink-0 w-24 h-24 bg-tertiary-container rounded-lg flex items-center justify-center text-white overflow-hidden relative">
+
+<span class="material-symbols-outlined text-4xl relative z-10">auto_awesome</span>
+</div>
+<div>
+<h4 class="font-card-title text-card-title mb-1">Skill Gap Alert</h4>
+<p class="text-body-sm text-body-sm text-on-surface-variant">Region-wide gap identified in 'Cloud Infrastructure Management'. Auto-assigned curriculum to the Future Lead cohort.</p>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Mobile Navigation -->
+<nav class="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-surface border-t border-outline-variant flex items-center justify-around px-6 z-50">
+<button class="flex flex-col items-center text-on-surface-variant">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-[10px] font-bold">Home</span>
+</button>
+<button class="flex flex-col items-center text-on-surface-variant">
+<span class="material-symbols-outlined">school</span>
+<span class="text-[10px] font-bold">Learning</span>
+</button>
+<button class="flex flex-col items-center text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">leaderboard</span>
+<span class="text-[10px] font-bold">Analytics</span>
+</button>
+<button class="flex flex-col items-center text-on-surface-variant">
+<span class="material-symbols-outlined">person</span>
+<span class="text-[10px] font-bold">Profile</span>
+</button>
+</nav>
+<script>
+        // Simple micro-interactions
+        document.querySelectorAll('.card-shadow').forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                card.style.transform = 'translateY(-2px)';
+                card.style.transition = 'transform 0.2s ease-out';
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = 'translateY(0px)';
+            });
+        });
+    </script>
+</body></html>
