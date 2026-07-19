@@ -780,14 +780,14 @@
       </section>
       <section class="py-4 bg-[#fff0ef]" style="background-image:radial-gradient(circle at 2px 2px,#df162b22 1px,transparent 0);background-size:24px 24px">
         <div class="max-w-[1200px] mx-auto px-5 md:px-10 text-left">
-          <aside class="bg-[#ffdad6]/70 border border-[#e7bdb9]/40 rounded-lg px-4 py-3 w-full text-left">
-            <div class="flex items-center justify-start gap-1 mb-1">
-              <span class="material-symbols-outlined text-[#93000a] text-[18px]">info</span>
-              <h4 class="font-bold text-[#93000a] text-sm">Important to know...</h4>
+          <aside class="bg-[#ffdad6]/70 border border-[#e7bdb9]/40 rounded-lg px-5 py-4 w-full text-left">
+            <div class="flex items-center justify-start gap-1.5 mb-2">
+              <span class="material-symbols-outlined text-[#93000a] text-[22px]">info</span>
+              <h4 class="font-bold text-[#93000a] text-base">Important to know...</h4>
             </div>
-            <p class="text-[12px] leading-relaxed text-[#291716] text-left">Dear Learner,
+            <p class="text-base leading-relaxed text-[#291716] text-left">Dear Learner,
 Before you begin, we encourage you to take a few minutes to understand the philosophy behind this initiative. It has been designed to support your career aspirations and continuous upskilling.</p>
-            <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-[12px]">
+            <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
               <p>
                 <button type="button" data-open-disclaimer class="text-[#0075d7] font-semibold underline hover:opacity-80">click to read more</button>
                 ${acked ? `<span data-ack-badge class="ml-2 text-[#93000a] font-semibold">· Acknowledged</span>` : `<span data-ack-badge class="hidden ml-2 text-[#93000a] font-semibold">· Acknowledged</span>`}
@@ -986,12 +986,15 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         const key = statusKey(row);
         const initialsRow = String(row.name || "E").split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() || "").join("") || "E";
         const canOpen = key !== "pending";
-        const actionLabel = key === "completed" ? "View Validation" : key === "draft" ? "Continue Validation" : key === "ready" ? "Start Validation" : "Waiting on ZM";
+        const actionLabel = key === "completed" ? "View Ratings" : key === "draft" ? "Continue Validation" : key === "ready" ? "Start Validation" : "Waiting on ZM";
         const actionClass = canOpen
           ? (key === "completed"
             ? "px-4 py-2 bg-[#005cab] text-white rounded-lg font-bold text-sm hover:opacity-90"
             : "px-4 py-2 bg-[#df162b] text-white rounded-lg font-bold text-sm hover:opacity-90")
           : "px-4 py-2 bg-slate-200 text-slate-500 rounded-lg font-bold text-sm cursor-not-allowed";
+        const actionAttr = key === "completed"
+          ? `data-view-ratings="${esc(row.employee_code)}"`
+          : `data-employee="${esc(row.employee_code)}"`;
         return `<tr class="border-t border-[#e7bdb9] hover:bg-[#fff0ef]">
           <td class="p-4">
             <div class="flex items-center gap-3">
@@ -1005,7 +1008,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           </td>
           <td class="p-4">${statusBadge(row)}</td>
           <td class="p-4 text-right">
-            <button type="button" data-employee="${esc(row.employee_code)}" ${canOpen ? "" : "disabled"} class="${actionClass}">${esc(actionLabel)}</button>
+            <button type="button" ${actionAttr} ${canOpen ? "" : "disabled"} class="${actionClass}">${esc(actionLabel)}</button>
           </td>
         </tr>`;
       }).join("") || empty(filterStatus === "all" ? "No employees in your reporting scope." : "No employees match this filter.", 3);
@@ -1016,7 +1019,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       const chipOff = "border-[#e7bdb9] text-[#5d3f3d]";
 
       render(`<div class="mb-8">
-          <h1 class="text-2xl md:text-3xl font-extrabold text-[#df162b]">RD Dashboard</h1>
+          <h1 class="text-2xl md:text-3xl font-extrabold text-[#df162b]">Your Dashboard</h1>
           <p class="text-[#5d3f3d] mt-1">Validate proficiency after ZM submission and publish final competency profiles.</p>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -1125,6 +1128,9 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         if (control.disabled) return;
         control.onclick = () => go("rd/validation", `?employee=${encodeURIComponent(control.dataset.employee)}`);
       });
+      qsa("[data-view-ratings]").forEach((control) => {
+        control.onclick = () => openFinalProfile(control.dataset.viewRatings);
+      });
       qs("[data-toggle-filter]").onclick = (event) => {
         event.stopPropagation();
         filterOpen = !filterOpen;
@@ -1211,11 +1217,15 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       const tableRows = list.map((row) => {
         const done = row.zm_status === "submitted";
         const draft = row.zm_status === "draft";
+        const finalReady = row.rd_status === "submitted" || row.final_profile_available;
         const initialsRow = String(row.name || "E").split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() || "").join("") || "E";
         const actionLabel = done ? "View Assessment" : draft ? "Continue Assessment" : "Start Assessment";
         const actionClass = done
           ? "px-4 py-2 bg-[#005cab] text-white rounded-lg font-bold text-sm hover:opacity-90"
           : "px-4 py-2 bg-[#df162b] text-white rounded-lg font-bold text-sm hover:opacity-90";
+        const finalBtn = finalReady
+          ? `<button type="button" data-view-ratings="${esc(row.employee_code)}" class="px-4 py-2 bg-emerald-700 text-white rounded-lg font-bold text-sm hover:opacity-90">View Final Rating</button>`
+          : "";
         return `<tr class="border-t border-[#e7bdb9] hover:bg-[#fff0ef]">
           <td class="p-4">
             <div class="flex items-center gap-3">
@@ -1228,7 +1238,12 @@ Before you begin, we encourage you to take a few minutes to understand the philo
             </div>
           </td>
           <td class="p-4">${statusBadge(row)}</td>
-          <td class="p-4 text-right"><button type="button" data-employee="${esc(row.employee_code)}" class="${actionClass}">${esc(actionLabel)}</button></td>
+          <td class="p-4 text-right">
+            <div class="inline-flex flex-wrap justify-end gap-2">
+              <button type="button" data-employee="${esc(row.employee_code)}" class="${actionClass}">${esc(actionLabel)}</button>
+              ${finalBtn}
+            </div>
+          </td>
         </tr>`;
       }).join("") || empty(filterStatus === "all" ? "No employees in your reporting scope." : "No employees match this filter.", 3);
 
@@ -1238,7 +1253,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       const chipOff = "border-[#e7bdb9] text-[#5d3f3d]";
 
       render(`<div class="mb-8">
-          <h1 class="text-2xl md:text-3xl font-extrabold text-[#df162b]">Manager Dashboard</h1>
+          <h1 class="text-2xl md:text-3xl font-extrabold text-[#df162b]">Your Dashboard</h1>
           <p class="text-[#5d3f3d] mt-1">Select an employee to rate their competencies.</p>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
@@ -1294,6 +1309,9 @@ Before you begin, we encourage you to take a few minutes to understand the philo
 
       qsa("[data-employee]").forEach((control) => {
         control.onclick = () => openAssessment(control.dataset.employee);
+      });
+      qsa("[data-view-ratings]").forEach((control) => {
+        control.onclick = () => openFinalProfile(control.dataset.viewRatings);
       });
       qs("[data-toggle-filter]").onclick = (event) => {
         event.stopPropagation();
@@ -1697,7 +1715,10 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       const anchor = anchors[index] || { x: 50, y: 50, side: "right" };
       const cardClass = isLocked
         ? "milestone-card locked border-[#926e6c] bg-[#fddbd8] opacity-95"
-        : "milestone-card active border-[#df162b] shadow-lg bg-white";
+        : isChosen
+          ? "milestone-card active border-[#16a34a] shadow-lg bg-white"
+          : "milestone-card active border-[#df162b] shadow-lg bg-white";
+      const accent = isLocked ? "text-[#5d3f3d]" : isChosen ? "text-[#16a34a]" : "text-[#df162b]";
       const footerText = isCurrent ? "Current" : isLocked ? "Locked" : (isChosen ? "Locked aspiration" : "Next Step");
       const footerIcon = isCurrent ? "location_on" : isLocked ? "lock" : "stars";
       const tier = isCurrent ? "Start" : isLocked ? (node.id === "rd" ? "Apex" : "Future") : "Eligible";
@@ -1705,9 +1726,9 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       return `<div class="milestone-marker side-${anchor.side}" style="left:${anchor.x}%; top:${anchor.y}%;">
         <button type="button" data-path="${esc(node.id)}" data-label="${esc(node.label)}" ${clickable ? "" : "disabled"}
           class="${cardClass} ${clickable ? "cursor-pointer hover:scale-105 transition-transform" : "cursor-default"} ${isCurrent ? "scale-110" : ""}">
-          <span class="font-bold text-[11px] uppercase block mb-1 ${isLocked ? "text-[#5d3f3d]" : "text-[#df162b]"}">${esc(tier)}</span>
+          <span class="font-bold text-[11px] uppercase block mb-1 ${accent}">${esc(tier)}</span>
           <span class="font-extrabold text-lg block ${isLocked ? "text-[#402b2a]" : "text-[#291716]"}">${esc(node.short_label || node.label)}</span>
-          <div class="flex items-center justify-center gap-1 text-[12px] mt-1 ${isLocked ? "text-[#5d3f3d]" : "text-[#df162b]"}">
+          <div class="flex items-center justify-center gap-1 text-[12px] mt-1 ${accent}">
             <span class="material-symbols-outlined text-[14px]" style="font-variation-settings:'FILL' ${isCurrent ? 1 : 0}">${footerIcon}</span>
             <span>${esc(footerText)}</span>
           </div>
@@ -1721,24 +1742,6 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       </div>
       <p class="text-sm text-[#291716]">${esc(tip)}</p>
     </li>`).join("");
-
-    const pct = insights.eligibility_pct;
-    const eligibilityCard = pct == null
-      ? `<div class="bg-[#df162b] rounded-xl p-5 text-white shadow-lg relative overflow-hidden">
-          <p class="text-3xl font-extrabold">—</p>
-          <p class="text-xs uppercase tracking-wider opacity-80 mt-1">${esc(insights.eligibility_label || "Path readiness")}</p>
-          <p class="text-[11px] mt-4 opacity-70">Available after RD validation finalizes your competency profile.</p>
-          <div class="absolute -bottom-8 -right-8 w-32 h-32 bg-white/10 rounded-full"></div>
-        </div>`
-      : `<div class="bg-[#df162b] rounded-xl p-5 text-white shadow-lg relative overflow-hidden">
-          <p class="text-4xl font-extrabold">${pct}%</p>
-          <p class="text-xs uppercase tracking-wider opacity-80 mt-1">${esc(insights.eligibility_label)} match</p>
-          <div class="w-full bg-white/20 h-2.5 rounded-full mt-4 border border-white/10">
-            <div class="bg-white h-full rounded-full" style="width:${Math.min(100, pct)}%"></div>
-          </div>
-          <p class="text-[11px] mt-4 opacity-70 italic">Based on your RD-validated profile vs ${esc(insights.eligibility_label)} ideal.</p>
-          <div class="absolute -bottom-8 -right-8 w-32 h-32 bg-white/10 rounded-full"></div>
-        </div>`;
 
     render(`<style>
       .road-stage{position:relative;width:min(100%,380px);aspect-ratio:400/800;margin:0 auto}
@@ -1799,7 +1802,6 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           <div class="flex items-center gap-2 mb-4"><span class="material-symbols-outlined text-[#df162b]">tips_and_updates</span><h3 class="font-bold text-[#291716]">Route Guide</h3></div>
           <ul class="space-y-3">${tips || `<li class="text-sm text-[#5d3f3d]">No guidance yet.</li>`}</ul>
         </div>
-        ${eligibilityCard}
       </div>
     </div>`);
 
@@ -2381,12 +2383,76 @@ Before you begin, we encourage you to take a few minutes to understand the philo
 
   async function initAdminEmployees() {
     const rows = await employeeSummaries();
-    render(`${pageHeader("Employee Master", "Workbook identity plus persisted workflow status.", button("Export CSV", "data-export", true))}
-      <label class="block mb-4"><span class="sr-only">Search employees</span><input data-search class="w-full md:w-96 border border-slate-200 rounded-lg px-4 py-3" placeholder="Search code, name, role, manager"></label>
-      <div data-table></div>`);
-    const draw = (filtered) => {
-      qs("[data-table]").innerHTML = `<div class="overflow-x-auto bg-white border rounded-xl"><table class="w-full min-w-[1000px] text-sm"><thead class="bg-slate-50 text-left"><tr><th class="p-4">Employee</th><th class="p-4">Role</th><th class="p-4">ZM</th><th class="p-4">RD</th><th class="p-4">Assessment status</th><th class="p-4">Assessments</th><th class="p-4">Aspiration</th><th class="p-4">Courses</th><th class="p-4">Actions</th></tr></thead><tbody>
-        ${filtered.map((row) => `<tr class="border-t"><td class="p-4"><strong>${esc(row.name)}</strong><div class="text-xs">${esc(row.employee_code)}</div></td><td class="p-4">${esc(row.designation)}<div class="text-xs">${esc(row.grade)}</div></td><td class="p-4">${esc(row.zm_name)}</td><td class="p-4">${esc(row.rd_name)}</td><td class="p-4">${statusChip(row.zm_status)} ${statusChip(row.rd_status)}</td><td class="p-4">${row.roleplays_completed}/${row.roleplays_total}</td><td class="p-4">${esc(row.aspiration?.aspiration_role || "Not selected")}</td><td class="p-4">${row.learning_locked ? statusChip("locked") : statusChip("open")}</td><td class="p-4 flex flex-wrap gap-2">${button("Profile", `data-profile="${row.employee_code}"`, true)}${button("Assessments", `data-roleplay-review="${row.employee_code}"`, true)}${row.learning_locked ? button("Reset Courses", `data-reset-courses="${row.employee_code}"`, true) : ""}${row.aspiration ? button("Reset Aspiration", `data-reset="${row.employee_code}"`, true) : ""}</td></tr>`).join("") || empty("No matching employees.", 9)}</tbody></table></div>`;
+    const total = rows.length;
+    let filterStatus = "all";
+    let sortMode = "name-asc";
+    let filterOpen = false;
+    let sortOpen = false;
+    let searchTerm = "";
+    let searchRaw = "";
+
+    const filterLabel = {
+      all: "All",
+      zm_pending: "ZM pending",
+      zm_draft: "ZM draft",
+      zm_submitted: "ZM submitted",
+      rd_pending: "RD pending",
+      rd_draft: "RD draft",
+      rd_submitted: "RD validated",
+      aspiration: "Aspiration locked",
+    };
+    const sortLabel = {
+      "name-asc": "Name A–Z",
+      "name-desc": "Name Z–A",
+      "code-asc": "Employee code A–Z",
+      "code-desc": "Employee code Z–A",
+      "zm-asc": "ZM status",
+      "rd-asc": "RD status",
+      "assessments-desc": "Assessments high→low",
+      "assessments-asc": "Assessments low→high",
+    };
+    const statusRank = { not_started: 0, pending: 0, draft: 1, submitted: 2 };
+
+    const matchesFilter = (row) => {
+      if (filterStatus === "all") return true;
+      if (filterStatus === "zm_pending") return row.zm_status !== "draft" && row.zm_status !== "submitted";
+      if (filterStatus === "zm_draft") return row.zm_status === "draft";
+      if (filterStatus === "zm_submitted") return row.zm_status === "submitted";
+      if (filterStatus === "rd_pending") return row.rd_status !== "draft" && row.rd_status !== "submitted";
+      if (filterStatus === "rd_draft") return row.rd_status === "draft";
+      if (filterStatus === "rd_submitted") return row.rd_status === "submitted";
+      if (filterStatus === "aspiration") return Boolean(row.aspiration);
+      return true;
+    };
+
+    const filteredSorted = () => {
+      let list = rows.filter((row) => {
+        if (!matchesFilter(row)) return false;
+        if (!searchTerm) return true;
+        return [row.employee_code, row.name, row.designation, row.zm_name, row.rd_name]
+          .some((value) => String(value || "").toLowerCase().includes(searchTerm));
+      });
+      list = [...list].sort((a, b) => {
+        if (sortMode === "name-asc") return String(a.name || "").localeCompare(String(b.name || ""));
+        if (sortMode === "name-desc") return String(b.name || "").localeCompare(String(a.name || ""));
+        if (sortMode === "code-asc") return String(a.employee_code || "").localeCompare(String(b.employee_code || ""), undefined, { numeric: true });
+        if (sortMode === "code-desc") return String(b.employee_code || "").localeCompare(String(a.employee_code || ""), undefined, { numeric: true });
+        if (sortMode === "zm-asc") {
+          return (statusRank[a.zm_status] ?? 0) - (statusRank[b.zm_status] ?? 0)
+            || String(a.name || "").localeCompare(String(b.name || ""));
+        }
+        if (sortMode === "rd-asc") {
+          return (statusRank[a.rd_status] ?? 0) - (statusRank[b.rd_status] ?? 0)
+            || String(a.name || "").localeCompare(String(b.name || ""));
+        }
+        if (sortMode === "assessments-desc") return (b.roleplays_completed || 0) - (a.roleplays_completed || 0);
+        if (sortMode === "assessments-asc") return (a.roleplays_completed || 0) - (b.roleplays_completed || 0);
+        return 0;
+      });
+      return list;
+    };
+
+    const bindRowActions = () => {
       qsa("[data-profile]").forEach((control) => { control.onclick = () => openFinalProfile(control.dataset.profile); });
       qsa("[data-roleplay-review]").forEach((control) => {
         control.onclick = () => openAdminRoleplays(control.dataset.roleplayReview);
@@ -2416,23 +2482,140 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         };
       });
     };
-    draw(rows);
-    qs("[data-search]").oninput = (event) => {
-      const term = event.target.value.trim().toLowerCase();
-      draw(rows.filter((row) => [row.employee_code, row.name, row.designation, row.zm_name, row.rd_name].some((value) => String(value || "").toLowerCase().includes(term))));
+
+    const draw = () => {
+      const list = filteredSorted();
+      const filterActive = filterStatus !== "all";
+      const chipBase = "px-3 py-1.5 bg-white border rounded-full text-xs font-bold inline-flex items-center gap-1 cursor-pointer hover:border-[#df162b] hover:text-[#df162b] transition-colors";
+      const chipOn = "border-[#df162b] text-[#df162b] bg-[#fff0ef]";
+      const chipOff = "border-[#e7bdb9] text-[#5d3f3d]";
+
+      render(`${pageHeader("Employee Master", "Workbook identity plus persisted workflow status.", button("Export CSV", "data-export", true))}
+        <label class="block mb-4"><span class="sr-only">Search employees</span>
+          <input data-search value="${esc(searchRaw)}" class="w-full md:w-96 border border-slate-200 rounded-lg px-4 py-3" placeholder="Search code, name, role, manager">
+        </label>
+        <div class="bg-white rounded-xl border border-[#e7bdb9] overflow-hidden mb-8">
+          <div class="p-4 bg-[#fff0ef] border-b border-[#e7bdb9] flex justify-between items-center gap-3 flex-wrap">
+            <div class="flex gap-2 flex-wrap items-center">
+              <div class="relative">
+                <button type="button" data-toggle-filter class="${chipBase} ${filterActive || filterOpen ? chipOn : chipOff}">
+                  <span class="material-symbols-outlined text-[16px]">filter_list</span>
+                  Filter${filterActive ? `: ${esc(filterLabel[filterStatus])}` : ""}
+                </button>
+                ${filterOpen ? `<div class="absolute left-0 top-full mt-2 z-20 min-w-[180px] bg-white border border-[#e7bdb9] rounded-xl shadow-lg py-1">
+                  ${Object.entries(filterLabel).map(([key, label]) => `<button type="button" data-filter="${key}" class="w-full text-left px-4 py-2 text-sm font-semibold hover:bg-[#fff0ef] ${filterStatus === key ? "text-[#df162b]" : "text-[#291716]"}">${esc(label)}</button>`).join("")}
+                </div>` : ""}
+              </div>
+              <div class="relative">
+                <button type="button" data-toggle-sort class="${chipBase} ${sortMode !== "name-asc" || sortOpen ? chipOn : chipOff}">
+                  <span class="material-symbols-outlined text-[16px]">sort</span>
+                  Sort: ${esc(sortLabel[sortMode])}
+                </button>
+                ${sortOpen ? `<div class="absolute left-0 top-full mt-2 z-20 min-w-[220px] bg-white border border-[#e7bdb9] rounded-xl shadow-lg py-1">
+                  ${Object.entries(sortLabel).map(([key, label]) => `<button type="button" data-sort="${key}" class="w-full text-left px-4 py-2 text-sm font-semibold hover:bg-[#fff0ef] ${sortMode === key ? "text-[#df162b]" : "text-[#291716]"}">${esc(label)}</button>`).join("")}
+                </div>` : ""}
+              </div>
+            </div>
+            <span class="text-xs text-[#5d3f3d]">Showing ${list.length}${filterActive || searchTerm ? ` of ${total}` : ""} employee${list.length === 1 ? "" : "s"}</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[1000px] text-sm text-left">
+              <thead class="bg-slate-50"><tr>
+                <th class="p-4">Employee</th><th class="p-4">Role</th><th class="p-4">ZM</th><th class="p-4">RD</th>
+                <th class="p-4">Assessment status</th><th class="p-4">Assessments</th><th class="p-4">Aspiration</th>
+                <th class="p-4">Courses</th><th class="p-4">Actions</th>
+              </tr></thead>
+              <tbody>
+                ${list.map((row) => `<tr class="border-t border-[#e7bdb9] hover:bg-[#fff0ef]">
+                  <td class="p-4"><strong>${esc(row.name)}</strong><div class="text-xs text-[#5d3f3d]">${esc(row.employee_code)}</div></td>
+                  <td class="p-4">${esc(row.designation)}<div class="text-xs text-[#5d3f3d]">${esc(row.grade)}</div></td>
+                  <td class="p-4">${esc(row.zm_name)}</td>
+                  <td class="p-4">${esc(row.rd_name)}</td>
+                  <td class="p-4">${statusChip(row.zm_status)} ${statusChip(row.rd_status)}</td>
+                  <td class="p-4">${row.roleplays_completed}/${row.roleplays_total}</td>
+                  <td class="p-4">${esc(row.aspiration?.aspiration_role ? String(row.aspiration.aspiration_role).toUpperCase() : "Not selected")}</td>
+                  <td class="p-4">${row.learning_locked ? statusChip("locked") : statusChip("open")}</td>
+                  <td class="p-4 flex flex-wrap gap-2">${button("Profile", `data-profile="${row.employee_code}"`, true)}${button("Assessments", `data-roleplay-review="${row.employee_code}"`, true)}${row.learning_locked ? button("Reset Courses", `data-reset-courses="${row.employee_code}"`, true) : ""}${row.aspiration ? button("Reset Aspiration", `data-reset="${row.employee_code}"`, true) : ""}</td>
+                </tr>`).join("") || empty("No matching employees.", 9)}
+              </tbody>
+            </table>
+          </div>
+          <div class="p-4 border-t border-[#e7bdb9] text-xs text-[#5d3f3d]">Filter and sort apply with live search across the employee master.</div>
+        </div>`);
+
+      bindRowActions();
+      qs("[data-export]").onclick = () => exportEmployees(list);
+      qs("[data-toggle-filter]").onclick = (event) => {
+        event.stopPropagation();
+        filterOpen = !filterOpen;
+        sortOpen = false;
+        draw();
+      };
+      qs("[data-toggle-sort]").onclick = (event) => {
+        event.stopPropagation();
+        sortOpen = !sortOpen;
+        filterOpen = false;
+        draw();
+      };
+      qsa("[data-filter]").forEach((control) => {
+        control.onclick = (event) => {
+          event.stopPropagation();
+          filterStatus = control.dataset.filter;
+          filterOpen = false;
+          draw();
+        };
+      });
+      qsa("[data-sort]").forEach((control) => {
+        control.onclick = (event) => {
+          event.stopPropagation();
+          sortMode = control.dataset.sort;
+          sortOpen = false;
+          draw();
+        };
+      });
+      qs("[data-search]").oninput = (event) => {
+        searchRaw = event.target.value;
+        searchTerm = searchRaw.trim().toLowerCase();
+        filterOpen = false;
+        sortOpen = false;
+        draw();
+        const input = qs("[data-search]");
+        if (input) {
+          input.focus();
+          const len = input.value.length;
+          input.setSelectionRange(len, len);
+        }
+      };
     };
-    qs("[data-export]").onclick = () => exportEmployees(rows);
+
+    draw();
   }
 
   async function openFinalProfile(employeeCode) {
     try {
       const result = await api(`/api/final-profile?employee_code=${encodeURIComponent(employeeCode)}`);
+      const emp = result.employee || {};
+      const name = emp.name || "Employee";
+      const ratingRows = Object.entries(result.ratings || {}).map(([competency, rating]) =>
+        `<div class="py-3 flex justify-between gap-3 border-b border-[#e7bdb9] last:border-0"><span class="text-sm text-[#291716]">${esc(competency)}</span><strong class="text-sm text-[#005cab]">${esc(rating)}</strong></div>`
+      ).join("") || '<p class="py-8 text-center text-sm text-[#5d3f3d]">Final rating not available yet.</p>';
       const modal = document.createElement("div");
       modal.className = "fixed inset-0 z-[80] bg-slate-900/50 p-4 grid place-items-center";
-      modal.innerHTML = `<section class="bg-white rounded-xl p-6 max-w-xl w-full"><div class="flex justify-between"><div><h2 class="text-2xl font-bold">${esc(result.employee.name)}</h2><p class="text-sm text-slate-500">${esc(result.employee.employee_code)} · ${esc(result.status)}</p></div><button data-close class="material-symbols-outlined">close</button></div>
-        <div class="mt-5 divide-y">${Object.entries(result.ratings).map(([competency, rating]) => `<div class="py-3 flex justify-between gap-3"><span>${esc(competency)}</span><strong>${esc(rating)}</strong></div>`).join("") || '<p class="py-8 text-center text-slate-500">Final RD profile pending.</p>'}</div></section>`;
+      modal.innerHTML = `<section class="bg-white rounded-xl p-6 max-w-xl w-full border border-[#e7bdb9] shadow-2xl max-h-[90vh] overflow-y-auto" role="dialog" aria-modal="true">
+        <div class="flex justify-between gap-3">
+          <div>
+            <h2 class="text-xl font-extrabold text-[#291716]">Final rating of ${esc(name)}</h2>
+            <p class="text-sm text-[#5d3f3d] mt-1">${esc(emp.employee_code || "")}${emp.designation ? ` · ${esc(emp.designation)}` : ""}</p>
+          </div>
+          <button type="button" data-close class="material-symbols-outlined text-[#5d3f3d] hover:text-[#df162b]">close</button>
+        </div>
+        <div class="mt-5">${ratingRows}</div>
+      </section>`;
       document.body.appendChild(modal);
       qs("[data-close]", modal).onclick = () => modal.remove();
+      modal.addEventListener("click", (event) => {
+        if (event.target === modal) modal.remove();
+      });
     } catch (error) {
       toast(error.message, "error");
     }
