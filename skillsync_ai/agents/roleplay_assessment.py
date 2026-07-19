@@ -33,7 +33,6 @@ def assess_roleplay(
     filename: str,
     payload: bytes,
     definitions: dict[str, str],
-    state: Any,
     emp_code: str,
 ) -> dict[str, Any]:
     ocr = extract_screenshot_text(payload, filename)
@@ -59,7 +58,6 @@ def assess_roleplay(
             ensure_ascii=True,
         ),
         agent_name=AGENT_NAME,
-        state=state,
         emp_code=emp_code,
         max_completion_tokens=1200,
     )

@@ -55,8 +55,6 @@ class BackendAPI:
                 self._send(handler, 200, {"user": self.backend.public_user(user)})
             elif parsed.path == "/api/phases":
                 self._send(handler, 200, {"phases": self.backend.phases()})
-            elif parsed.path == "/api/employees":
-                self._send(handler, 200, {"employees": self.backend.scoped_employees(user)})
             elif parsed.path == "/api/employee-summaries":
                 self._send(handler, 200, {"employees": self.backend.employee_summaries(user)})
             elif parsed.path == "/api/final-profile":
@@ -208,9 +206,6 @@ class BackendAPI:
                     200,
                     self.backend.reset_learning(user, str(body.get("employee_code") or "")),
                 )
-            elif parsed.path == "/api/employee/courses/generate":
-                self._require_role(user, {"employee"})
-                self._send(handler, 200, self.backend.generate_recommendations(user["employee_code"]))
             elif parsed.path == "/api/employee/learning/checkout":
                 self._require_role(user, {"employee"})
                 course_ids = body.get("course_ids") if isinstance(body.get("course_ids"), list) else []

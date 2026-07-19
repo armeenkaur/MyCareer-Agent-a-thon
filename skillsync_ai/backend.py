@@ -341,7 +341,6 @@ class MyCareerBackend:
                 "zm_assessment_required",
                 409,
             )
-        runtime = RuntimeState()
         evidence = {}
         rd_assessment = self.assessment(employee_code, "rd")
         # Agent runs only on Start/draft cache miss. View (submitted) never re-curates.
@@ -349,7 +348,7 @@ class MyCareerBackend:
         for competency in self.competencies:
             cached = self._cached_evidence(employee_code, competency)
             if cached is None and allow_curate:
-                cached = curate_evidence(self.data, employee_code, competency, runtime)
+                cached = curate_evidence(self.data, employee_code, competency)
                 self._save_evidence(employee_code, competency, cached)
                 self._audit(employee_code, EVIDENCE_AGENT, competency, "Workbook evidence", cached, "ok")
             elif cached is None:
@@ -392,13 +391,11 @@ class MyCareerBackend:
         UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
         path = UPLOAD_DIR / f"{employee_code}_{slug(competency)}_{safe_name}"
         path.write_bytes(payload)
-        runtime = RuntimeState()
         result = assess_roleplay(
             competency,
             safe_name,
             payload,
             self.data.level_definitions.get(competency, {}),
-            runtime,
             employee_code,
         )
         with self.db.transaction() as connection:
@@ -797,7 +794,6 @@ class MyCareerBackend:
         self, employee_code: str, target: dict[str, Any]
     ) -> dict[str, Any]:
         employee = self.data.employees[employee_code]
-        runtime = RuntimeState()
         groups = {}
         for gap in target["gaps"]:
             candidates = _prefilter(self.data.courses, gap["competency"], gap["current"], employee)[:15]
@@ -807,7 +803,7 @@ class MyCareerBackend:
                 "target_levels": {target["target_key"]: gap["target"]},
                 "candidates": candidates,
             }
-        ranked, audit = _rank_all_with_agent(groups, employee, employee_code, runtime) if groups else ({}, "no gaps")
+        ranked, audit = _rank_all_with_agent(groups, employee, employee_code) if groups else ({}, "no gaps")
         generated = {}
         audits = []
         with self.db.transaction() as connection:

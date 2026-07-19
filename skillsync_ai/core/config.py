@@ -32,7 +32,6 @@ DATABASE_PATH = Path(os.environ.get("MYCAREER_DATABASE_PATH", ROOT / "data" / "m
 
 PROFICIENCY_ORDER = ["Beginner", "Intermediate", "Proficient", "Advanced"]
 PROFICIENCY_VALUE = {name: idx + 1 for idx, name in enumerate(PROFICIENCY_ORDER)}
-VALUE_PROFICIENCY = {value: name for name, value in PROFICIENCY_VALUE.items()}
 
 SOURCE_FILES = {
     "competency": ROOT / "data" / "MyCareer_Process Flow.xlsx",
@@ -47,10 +46,7 @@ SOURCE_FILES = {
 OPENAI_API_URL = os.environ.get("OPENAI_API_URL", "https://api.openai.com/v1/chat/completions")
 OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-5.4-mini")
 # OpenAI Vision is primary for screenshot transcription; Tesseract remains local fallback.
-OCR_BACKEND = "openai-vision+tesseract"
 TESSERACT_CMD = os.environ.get("TESSERACT_CMD", "")
-AGENT_DECISION_LOG = ROOT / "agent_decisions.jsonl"
-FEW_SHOT_LIMIT = 3
 LINKEDIN_LEARNING_CLIENT_ID = os.environ.get("LINKEDIN_LEARNING_CLIENT_ID", "").strip()
 LINKEDIN_LEARNING_CLIENT_SECRET = os.environ.get("LINKEDIN_LEARNING_CLIENT_SECRET", "").strip()
 LINKEDIN_TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken"
