@@ -118,7 +118,8 @@
     render('<div class="py-24 text-center text-slate-500">Loading current data…</div>');
   }
 
-  const mmtTheme = (role = session.user?.role) => role === "employee" || role === "zm" || role === "rd";
+  const mmtTheme = (role = session.user?.role) =>
+    role === "employee" || role === "zm" || role === "rd" || role === "admin";
   const employeeTheme = () => mmtTheme();
 
   function pageHeader(title, description = "", actions = "") {
@@ -147,23 +148,226 @@
   }
 
   function commonBrand(mmt, homeRoute) {
-    return `<a data-route="${homeRoute}" href="/app/${homeRoute}" class="flex items-center gap-3">
-      <span class="w-9 h-9 rounded-lg ${mmt ? "bg-[#df162b]" : "bg-blue-700"} text-white grid place-items-center font-black">MC</span>
-      <span><strong class="block ${mmt ? "text-[#df162b]" : "text-blue-800"} leading-none">MyCareer Compass</strong><small class="text-slate-500">Enterprise Edition</small></span>
+    return `<a data-route="${homeRoute}" href="/app/${homeRoute}" class="flex items-center gap-2 min-w-0">
+      <img src="/stitch/common/my-logo.png" alt="my" class="h-10 w-10 rounded-lg object-cover shrink-0 shadow-sm" width="40" height="40"/>
+      <strong class="block ${mmt ? "text-[#df162b]" : "text-blue-800"} leading-none text-xl md:text-2xl font-extrabold tracking-tight truncate">Career Compass</strong>
     </a>`;
+  }
+
+  function avatarStorageKey(user = session.user) {
+    return `mycareer_avatar_${user?.role || "unknown"}_${user?.login_id || "anon"}`;
+  }
+
+  function ackStorageKey(user = session.user) {
+    return `mycareer_ack_${user?.role || "unknown"}_${user?.login_id || "anon"}`;
+  }
+
+  function loadAvatar(user = session.user) {
+    try {
+      return localStorage.getItem(avatarStorageKey(user)) || "";
+    } catch (_) {
+      return "";
+    }
+  }
+
+  function saveAvatar(dataUrl, user = session.user) {
+    localStorage.setItem(avatarStorageKey(user), dataUrl);
+  }
+
+  function hasDisclaimerAck(user = session.user) {
+    return localStorage.getItem(ackStorageKey(user)) === "1";
+  }
+
+  function setDisclaimerAck(user = session.user) {
+    localStorage.setItem(ackStorageKey(user), "1");
+  }
+
+  function avatarButtonHtml(user, mmt) {
+    const photo = loadAvatar(user);
+    const ring = mmt ? "ring-[#e7bdb9] hover:ring-[#df162b]" : "ring-slate-200 hover:ring-blue-600";
+    const bg = mmt ? "bg-[#005cab]" : "bg-blue-700";
+    if (photo) {
+      return `<button type="button" data-open-account class="w-9 h-9 rounded-full overflow-hidden shrink-0 ring-2 ${ring} transition" title="Account settings" aria-label="Account settings">
+        <img src="${photo}" alt="" class="w-full h-full object-cover"/>
+      </button>`;
+    }
+    return `<button type="button" data-open-account class="w-9 h-9 rounded-full ${bg} text-white grid place-items-center font-bold text-sm shrink-0 ring-2 ${ring} transition" title="Account settings" aria-label="Account settings">${esc(userInitials(user))}</button>`;
   }
 
   function commonProfile(user, mmt) {
     const designation = profileDesignation(user);
-    const showAvatar = user.role === "employee" || user.role === "zm" || user.role === "rd";
     return `<div class="flex items-center gap-3 min-w-0">
       <div class="text-right min-w-0">
         <strong class="block text-sm leading-tight truncate">${esc(user.display_name)}</strong>
         ${designation ? `<span class="block text-xs text-slate-500 mt-0.5 leading-tight truncate normal-case tracking-normal">${esc(designation)}</span>` : ""}
       </div>
-      ${showAvatar ? `<div class="w-9 h-9 rounded-full ${mmt ? "bg-[#005cab]" : "bg-blue-700"} text-white grid place-items-center font-bold text-sm shrink-0" aria-hidden="true">${esc(userInitials(user))}</div>` : ""}
+      ${avatarButtonHtml(user, mmt)}
       <button data-logout type="button" class="text-sm font-bold shrink-0 ${mmt ? "text-[#df162b]" : "text-blue-700"}">Sign out</button>
     </div>`;
+  }
+
+  function closeOverlay(id) {
+    qs(`#${id}`)?.remove();
+  }
+
+  function openAccountModal() {
+    closeOverlay("mc-account-modal");
+    const user = session.user;
+    const mmt = mmtTheme(user.role);
+    const photo = loadAvatar(user);
+    const primary = mmt ? "bg-[#df162b] text-white" : "bg-blue-700 text-white";
+    const border = mmt ? "border-[#e7bdb9]" : "border-slate-200";
+    const node = document.createElement("div");
+    node.id = "mc-account-modal";
+    node.className = "fixed inset-0 z-[80] bg-black/40 grid place-items-center p-4";
+    node.innerHTML = `<div class="bg-white rounded-xl shadow-2xl w-full max-w-md border ${border} overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="mc-account-title">
+      <div class="px-5 py-4 border-b ${border} flex items-center justify-between">
+        <h2 id="mc-account-title" class="text-lg font-extrabold text-[#291716]">Account settings</h2>
+        <button type="button" data-close-account class="text-[#5d3f3d] hover:text-[#df162b]"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div class="p-5 space-y-5">
+        <section>
+          <h3 class="text-sm font-bold text-[#291716] mb-3">Profile photo</h3>
+          <div class="flex items-center gap-4">
+            <div data-account-preview class="w-16 h-16 rounded-full overflow-hidden ${mmt ? "bg-[#005cab]" : "bg-blue-700"} text-white grid place-items-center font-bold text-lg shrink-0">
+              ${photo ? `<img src="${photo}" alt="" class="w-full h-full object-cover"/>` : esc(userInitials(user))}
+            </div>
+            <div class="min-w-0">
+              <input type="file" data-avatar-file accept="image/jpeg,image/png,.jpg,.jpeg,.png" class="block w-full text-xs text-[#5d3f3d]"/>
+              <p class="text-[11px] text-[#5d3f3d] mt-1">JPG or PNG only. Stored on this device.</p>
+            </div>
+          </div>
+        </section>
+        <button type="button" data-open-password class="w-full ${primary} rounded-lg px-4 py-2.5 text-sm font-bold">Change password</button>
+      </div>
+    </div>`;
+    document.body.appendChild(node);
+    const dismiss = () => closeOverlay("mc-account-modal");
+    node.addEventListener("click", (event) => { if (event.target === node) dismiss(); });
+    qs("[data-close-account]", node).onclick = dismiss;
+    qs("[data-open-password]", node).onclick = () => openPasswordModal();
+    qs("[data-avatar-file]", node).onchange = (event) => {
+      const file = event.target.files?.[0];
+      if (!file) return;
+      if (!["image/jpeg", "image/png"].includes(file.type)) {
+        toast("Use a JPG or PNG image.", "error");
+        event.target.value = "";
+        return;
+      }
+      if (file.size > 1024 * 1024) {
+        toast("Image must be 1MB or smaller.", "error");
+        event.target.value = "";
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = () => {
+        const dataUrl = String(reader.result || "");
+        saveAvatar(dataUrl, user);
+        const preview = qs("[data-account-preview]", node);
+        preview.innerHTML = `<img src="${dataUrl}" alt="" class="w-full h-full object-cover"/>`;
+        const headerBtn = qs("[data-open-account]");
+        if (headerBtn) {
+          headerBtn.outerHTML = avatarButtonHtml(user, mmt);
+          qs("[data-open-account]").onclick = openAccountModal;
+        }
+        toast("Profile photo updated.");
+      };
+      reader.readAsDataURL(file);
+    };
+  }
+
+  function openPasswordModal() {
+    closeOverlay("mc-password-modal");
+    const mmt = mmtTheme(session.user?.role);
+    const primary = mmt ? "bg-[#df162b] text-white" : "bg-blue-700 text-white";
+    const border = mmt ? "border-[#e7bdb9]" : "border-slate-200";
+    const bg = mmt ? "bg-[#fff8f7]" : "bg-slate-50";
+    const node = document.createElement("div");
+    node.id = "mc-password-modal";
+    node.className = "fixed inset-0 z-[90] bg-black/40 grid place-items-center p-4";
+    node.innerHTML = `<div class="bg-white rounded-xl shadow-2xl w-full max-w-sm border ${border} overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="mc-password-title">
+      <div class="px-5 py-4 border-b ${border} ${bg} flex items-center justify-between">
+        <h2 id="mc-password-title" class="text-lg font-extrabold text-[#291716]">Change password</h2>
+        <button type="button" data-close-password class="text-[#5d3f3d] hover:text-[#df162b]"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <form data-password-form class="p-5 space-y-3">
+        <label class="block text-xs font-semibold text-[#5d3f3d]">Current password
+          <input name="current" type="password" required autocomplete="current-password" class="mt-1 w-full border ${border} rounded-lg px-3 py-2 text-sm bg-white"/>
+        </label>
+        <label class="block text-xs font-semibold text-[#5d3f3d]">New password
+          <input name="next" type="password" required autocomplete="new-password" class="mt-1 w-full border ${border} rounded-lg px-3 py-2 text-sm bg-white"/>
+        </label>
+        <label class="block text-xs font-semibold text-[#5d3f3d]">Confirm new password
+          <input name="confirm" type="password" required autocomplete="new-password" class="mt-1 w-full border ${border} rounded-lg px-3 py-2 text-sm bg-white"/>
+        </label>
+        <button type="submit" class="w-full ${primary} rounded-lg px-4 py-2.5 text-sm font-bold mt-2">Update password</button>
+      </form>
+    </div>`;
+    document.body.appendChild(node);
+    const dismiss = () => closeOverlay("mc-password-modal");
+    node.addEventListener("click", (event) => { if (event.target === node) dismiss(); });
+    qs("[data-close-password]", node).onclick = dismiss;
+    qs("[data-password-form]", node).onsubmit = async (event) => {
+      event.preventDefault();
+      const form = event.currentTarget;
+      const current = form.current.value;
+      const next = form.next.value;
+      const confirm = form.confirm.value;
+      if (next !== confirm) {
+        toast("New password and confirm do not match.", "error");
+        return;
+      }
+      try {
+        await api("/api/auth/password", {
+          method: "POST",
+          body: JSON.stringify({ current_password: current, new_password: next }),
+        });
+        form.reset();
+        toast("Password updated.");
+        dismiss();
+      } catch (error) {
+        toast(error.message, "error");
+      }
+    };
+  }
+
+  function openDisclaimerModal(onAgree) {
+    closeOverlay("mc-disclaimer-modal");
+    const node = document.createElement("div");
+    node.id = "mc-disclaimer-modal";
+    node.className = "fixed inset-0 z-[80] bg-black/40 grid place-items-center p-4";
+    node.innerHTML = `<div class="bg-white rounded-xl shadow-2xl w-full max-w-lg border border-[#e7bdb9] overflow-hidden max-h-[90vh] flex flex-col" role="dialog" aria-modal="true" aria-labelledby="mc-ack-title">
+      <div class="px-5 py-4 border-b border-[#e7bdb9] flex items-center justify-between shrink-0">
+        <h2 id="mc-ack-title" class="text-lg font-extrabold text-[#291716]">Acknowledgement</h2>
+        <button type="button" data-close-ack class="text-[#5d3f3d] hover:text-[#df162b]"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div class="p-5 overflow-y-auto text-sm text-[#291716] space-y-3 leading-relaxed">
+        <p class="font-semibold">Before you continue, please review and acknowledge the following:</p>
+        <p>This Career Journey Portal is designed to support your professional growth through personalized learning, skill development, and career planning. The learning journeys and recommendations provided are intended to help you build capabilities and prepare for future career opportunities.</p>
+        <p>Completion of assessments, learning journeys, or other development activities demonstrates your commitment to growth and may enhance your readiness for future roles. However, participation in or completion of these activities does not guarantee promotion, role change, salary revision, or any specific career outcome.</p>
+        <p>Career progression decisions are based on a combination of factors, including sustained performance, demonstrated skills and capabilities, business requirements, organizational priorities, role availability, and applicable talent processes.</p>
+        <p>By selecting "I Agree," you acknowledge that you have read and understood the purpose of this portal and the criteria governing career progression.</p>
+        <label class="flex items-start gap-2 pt-2 border-t border-[#e7bdb9] cursor-pointer">
+          <input type="checkbox" data-ack-inner class="mt-1 rounded border-[#e7bdb9] text-[#df162b] focus:ring-[#df162b]"/>
+          <span>I have read, understood, and agree to the above terms.</span>
+        </label>
+      </div>
+      <div class="px-5 py-4 border-t border-[#e7bdb9] shrink-0">
+        <button type="button" data-ack-agree disabled class="w-full bg-[#df162b] text-white rounded-lg px-4 py-2.5 text-sm font-bold disabled:opacity-40">I Agree</button>
+      </div>
+    </div>`;
+    document.body.appendChild(node);
+    const dismiss = () => closeOverlay("mc-disclaimer-modal");
+    node.addEventListener("click", (event) => { if (event.target === node) dismiss(); });
+    qs("[data-close-ack]", node).onclick = dismiss;
+    const inner = qs("[data-ack-inner]", node);
+    const agreeBtn = qs("[data-ack-agree]", node);
+    inner.onchange = () => { agreeBtn.disabled = !inner.checked; };
+    agreeBtn.onclick = () => {
+      if (!inner.checked) return;
+      dismiss();
+      onAgree?.();
+    };
   }
 
   function commonSideNav(user, mmt) {
@@ -197,7 +401,7 @@
     const links = commonSideNav(user, mmt);
     const homeRoute = items[0]?.[0] || "login";
     const border = mmt ? "border-[#e7bdb9]" : "border-slate-200";
-    const managerChrome = user.role === "zm" || user.role === "rd";
+    const managerChrome = user.role === "zm" || user.role === "rd" || user.role === "admin";
     document.body.className = mmt ? "bg-[#fff8f7] text-slate-900 min-h-screen" : "bg-slate-50 text-slate-900 min-h-screen";
     document.body.innerHTML = `<div class="min-h-screen flex flex-col">
       <header class="h-16 bg-white border-b ${border} px-4 md:px-7 flex items-center justify-between sticky top-0 z-40">
@@ -214,9 +418,23 @@
       </div>
     </div>`;
     qsa("[data-route]").forEach((link) => {
-      link.onclick = (event) => { event.preventDefault(); go(link.dataset.route); };
+      link.onclick = (event) => {
+        event.preventDefault();
+        const route = link.dataset.route;
+        if (
+          user.role === "employee"
+          && route
+          && route !== "employee/welcome"
+          && !hasDisclaimerAck(user)
+        ) {
+          toast("Acknowledge the disclaimer on Home before continuing.", "error");
+          return;
+        }
+        go(route);
+      };
     });
     qs("[data-logout]").onclick = logout;
+    qs("[data-open-account]").onclick = openAccountModal;
     loading();
   }
 
@@ -330,6 +548,12 @@
     </section>`);
   }
 
+  function welcomeCompassMark() {
+    return `<div class="absolute right-0 top-4 md:top-8 opacity-10 pointer-events-none hidden lg:block" aria-hidden="true">
+      <span class="material-symbols-outlined text-[280px] md:text-[320px] text-[#df162b] rotate-12 leading-none" style="font-variation-settings:'FILL' 0">explore</span>
+    </div>`;
+  }
+
   async function initRdWelcome() {
     const cards = [
       ["balance", "Why this validation matters", "Ensuring every leader is benchmarked against the same corporate standard to drive regional excellence."],
@@ -345,11 +569,12 @@
     render(`<div class="relative overflow-hidden">
       <div class="absolute top-0 right-0 w-1/2 h-full opacity-20 pointer-events-none" style="background-image:radial-gradient(circle,#e7bdb9 1px,transparent 1px);background-size:20px 20px"></div>
       <div class="absolute -bottom-20 -right-20 w-96 h-96 bg-[#ffdad7] blur-[100px] rounded-full opacity-30 pointer-events-none"></div>
+      ${welcomeCompassMark()}
       <div class="relative z-10 max-w-[1200px] mx-auto px-5 md:px-10 py-10 md:py-14 space-y-10 md:space-y-12">
-        <section class="max-w-4xl">
+        <section class="max-w-4xl relative">
           <div class="inline-flex items-center gap-2 px-3 py-1 bg-[#ffdad7] text-[#930015] rounded-full text-xs font-bold mb-4">
             <span class="material-symbols-outlined text-[16px]">location_on</span>
-            MyCareer Compass · RD Experience
+            MyCareer Compass
           </div>
           <h1 class="text-3xl md:text-5xl font-black text-[#291716] mb-5 leading-tight">
             Turn evidence into a fair and consistent <span class="text-[#df162b]">competency profile</span>
@@ -361,9 +586,6 @@
             <button type="button" data-start="rd/dashboard" class="px-6 py-3 bg-[#df162b] text-white rounded-lg font-bold hover:opacity-90 transition-all inline-flex items-center gap-2">
               Start Competency Validation
               <span class="material-symbols-outlined text-[20px]">arrow_forward</span>
-            </button>
-            <button type="button" data-standards class="px-6 py-3 bg-transparent border-2 border-[#005cab] text-[#005cab] rounded-lg font-bold hover:bg-[#d5e3ff] transition-all">
-              Review Proficiency Standards
             </button>
           </div>
         </section>
@@ -423,13 +645,13 @@
       </div>
     </div>`, { flush: true });
     qs("[data-start]")?.addEventListener("click", () => go(qs("[data-start]").dataset.start || "rd/dashboard"));
-    qs("[data-standards]")?.addEventListener("click", () => go("rd/dashboard"));
   }
 
   async function initZmWelcome() {
     render(`<div class="relative overflow-hidden min-h-[calc(100vh-4rem)]">
       <div class="absolute inset-0 opacity-40 pointer-events-none" style="background-image:url(&quot;data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M50 10L55 45L90 50L55 55L50 90L45 55L10 50L45 45Z' fill='%23b4001d' fill-opacity='0.03'/%3E%3C/svg%3E&quot;)"></div>
       <div class="absolute inset-0 opacity-30 pointer-events-none" style="background-image:radial-gradient(circle at 2px 2px,#e0e0e0 1px,transparent 0);background-size:24px 24px"></div>
+      ${welcomeCompassMark()}
       <div class="relative z-10 max-w-[1200px] mx-auto px-5 md:px-10 py-10 md:py-14">
         <div class="inline-flex items-center px-3 py-1 bg-[#ffdad7] text-[#930015] rounded-full mb-4 text-xs font-bold uppercase tracking-wider">MyCareer Compass</div>
         <h1 class="text-3xl md:text-5xl font-black text-[#291716] mb-4 max-w-3xl leading-tight">Empower your team to unlock their full potential through personalized growth and development.</h1>
@@ -438,9 +660,9 @@
         <section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5 mt-12 mb-10">
           ${[
             ["psychology", "Why MyCareer Compass?", "It standardizes the talent framework across MMT, ensuring that growth is measured against clear, consistent benchmarks for everyone."],
-            ["school", "Why should employees keep learning?", "In a dynamic travel market, continuous upskilling is the only way to remain competitive and deliver world-class experiences."],
-            ["handshake", "Why your support matters", "You are the bridge between strategy and execution. Your mentorship converts individual potential into collective organizational excellence."],
-            ["assignment_turned_in", "What we need from you", "Honest insights that reflect current proficiency levels while identifying clear areas for future development."],
+            ["school", "Why should employees keep learning?", "The workplace is evolving rapidly, and so are the skills needed to succeed. Continuous learning helps your team stay future-ready, grow in their career, and unlock new opportunities."],
+            ["handshake", "Why your support matters?", "You are the bridge between strategy and execution. Your mentorship converts individual potential into collective organizational excellence."],
+            ["assignment_turned_in", "What we need from you?", "Honest insights that reflect current proficiency levels while identifying clear areas for future development."],
           ].map(([icon, title, copy]) => `<article class="bg-white border border-[#e7bdb9] p-5 rounded-xl">
             <div class="w-10 h-10 rounded-lg bg-[#ffe1df] grid place-items-center text-[#df162b] mb-3"><span class="material-symbols-outlined">${icon}</span></div>
             <h3 class="font-bold text-[#291716] mb-2">${esc(title)}</h3>
@@ -543,43 +765,56 @@
       ["school", "Build capability through learning", "Access curated content and training programs designed to bridge your skill gaps and prepare you for the next level."],
       ["rocket_launch", "Turn learning into action", "Apply your new skills in real-world scenarios and unlock your full potential."],
     ];
+    const acked = hasDisclaimerAck();
 
     render(`<div>
       <section class="relative py-10 bg-[#fff0ef] overflow-hidden" style="background-image:radial-gradient(circle at 2px 2px,#df162b22 1px,transparent 0);background-size:24px 24px">
         <div class="max-w-[1200px] mx-auto px-5 md:px-10 relative z-10">
-          <div class="max-w-2xl">
+          <div class="max-w-2xl text-left">
             <span class="inline-block px-2 py-1 bg-cyan-50 text-cyan-800 text-xs font-bold rounded-full mb-4">MyCareer Compass · Your Development Journey</span>
             <h2 class="text-3xl md:text-5xl font-black text-[#291716] mb-4">Own your growth. <br/><span class="text-[#0075d7]">Explore what could be next.</span></h2>
             <p class="text-lg text-[#5d3f3d] leading-relaxed">Choose your career aspiration and embark on a personalized learning journey designed to support your growth and help you shape your career.</p>
           </div>
         </div>
+        ${welcomeCompassMark()}
       </section>
       <section class="py-4 bg-[#fff0ef]" style="background-image:radial-gradient(circle at 2px 2px,#df162b22 1px,transparent 0);background-size:24px 24px">
-        <div class="max-w-[1200px] mx-auto px-5 md:px-10">
-          <aside class="bg-[#ffdad6]/70 border border-[#e7bdb9]/40 rounded-lg px-4 py-3 w-full">
-            <div class="flex items-center gap-1 mb-1">
+        <div class="max-w-[1200px] mx-auto px-5 md:px-10 text-left">
+          <aside class="bg-[#ffdad6]/70 border border-[#e7bdb9]/40 rounded-lg px-4 py-3 w-full text-left">
+            <div class="flex items-center justify-start gap-1 mb-1">
               <span class="material-symbols-outlined text-[#93000a] text-[18px]">info</span>
               <h4 class="font-bold text-[#93000a] text-sm">Important to know...</h4>
             </div>
-            <p class="text-[12px] leading-relaxed text-[#291716]">Completing a learning journey does not guarantee promotion. While growth leads to opportunities, promotions are determined by business requirements, performance metrics, and sustained delivery of results at the next level.</p>
+            <p class="text-[12px] leading-relaxed text-[#291716] text-left">Dear Learner,
+Before you begin, we encourage you to take a few minutes to understand the philosophy behind this initiative. It has been designed to support your career aspirations and continuous upskilling.</p>
+            <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-[12px]">
+              <p>
+                <button type="button" data-open-disclaimer class="text-[#0075d7] font-semibold underline hover:opacity-80">click to read more</button>
+                ${acked ? `<span data-ack-badge class="ml-2 text-[#93000a] font-semibold">· Acknowledged</span>` : `<span data-ack-badge class="hidden ml-2 text-[#93000a] font-semibold">· Acknowledged</span>`}
+              </p>
+              <a href="https://imgak.mmtcdn.com/mmt-careers-ui/assets/static/documents/Career_Progression_Guide.pdf" target="_blank" rel="noopener noreferrer" class="text-[#0075d7] font-semibold underline hover:opacity-80 shrink-0">see more about this</a>
+            </div>
           </aside>
         </div>
       </section>
       <section class="py-10 bg-[#ffe9e7]">
         <div class="max-w-[1200px] mx-auto px-5 md:px-10">
           <div class="text-center mb-8">
-            <h2 class="text-2xl md:text-3xl font-bold mb-2">Your journey in four steps</h2>
+            <h2 class="text-2xl md:text-3xl font-bold mb-2">Your journey in 4 steps</h2>
             <p class="text-[#5d3f3d]">A structured approach to navigating your development and achieving your professional aspirations.</p>
           </div>
-          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-            ${steps.map((step) => `<div class="flex flex-col items-center lg:items-start text-center lg:text-left" data-step="${step.key}">
-              <div class="w-16 h-16 rounded-full flex items-center justify-center font-bold text-xl mb-4 border-4 border-white shadow-sm ${
+          <div class="relative" data-journey-steps>
+            <div class="pointer-events-none absolute top-8 left-[12.5%] right-[12.5%] h-[2px] hidden lg:block opacity-40" style="background:repeating-linear-gradient(90deg,#df162b 0,#df162b 8px,transparent 8px,transparent 16px)" aria-hidden="true"></div>
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 relative z-10">
+            ${steps.map((step) => `<div class="flex flex-col items-center text-center" data-step="${step.key}">
+              <div class="w-16 h-16 rounded-full flex items-center justify-center font-bold text-xl mb-4 border-4 border-white shadow-sm relative z-10 ${
                 step.done ? "bg-[#df162b] text-white" : "bg-[#fddbd8] text-[#5d3f3d]"
               }" data-step-badge>${step.done ? "✓" : step.n}</div>
               <h4 class="font-bold mb-1">${esc(step.title)}</h4>
               <p class="text-sm text-[#5d3f3d]" data-step-copy>${esc(step.copy)}</p>
-              <button class="mt-4 text-[#0075d7] font-bold text-sm ${step.locked ? "opacity-40 cursor-not-allowed" : ""}" data-step-action="${step.action}" type="button" ${step.locked ? "disabled" : ""}>${esc(step.actionLabel)}</button>
+              <button class="mt-4 text-[#0075d7] font-bold text-sm ${step.locked || !acked ? "opacity-40 cursor-not-allowed" : ""}" data-step-action="${step.action}" type="button" ${step.locked || !acked ? "disabled" : ""}>${esc(step.actionLabel)}${!acked && !step.locked ? " · Acknowledge first" : ""}</button>
             </div>`).join("")}
+            </div>
           </div>
         </div>
       </section>
@@ -610,9 +845,40 @@
       </section>
     </div>`, { flush: true });
 
+    const syncAckUi = () => {
+      const badge = qs("[data-ack-badge]");
+      if (badge) badge.classList.remove("hidden");
+      steps.forEach((step) => {
+        const action = qs(`[data-step="${step.key}"] [data-step-action]`);
+        if (!action) return;
+        action.disabled = step.locked;
+        action.classList.toggle("opacity-40", step.locked);
+        action.classList.toggle("cursor-not-allowed", step.locked);
+        action.textContent = step.actionLabel;
+        action.onclick = () => {
+          if (action.disabled) return;
+          go(step.action);
+        };
+      });
+    };
+
+    qs("[data-open-disclaimer]")?.addEventListener("click", (event) => {
+      event.preventDefault();
+      openDisclaimerModal(() => {
+        if (!hasDisclaimerAck()) {
+          setDisclaimerAck();
+          syncAckUi();
+          toast("Acknowledgement saved.");
+        }
+      });
+    });
+
     qsa("[data-step-action]").forEach((action) => {
       action.onclick = () => {
-        if (action.disabled) return;
+        if (action.disabled) {
+          if (!hasDisclaimerAck()) toast("Acknowledge the disclaimer before continuing.", "error");
+          return;
+        }
         go(action.dataset.stepAction);
       };
     });
@@ -806,6 +1072,53 @@
             </table>
           </div>
           <div class="p-4 border-t border-[#e7bdb9] text-xs text-[#5d3f3d]">Live statuses from ZM submissions and RD drafts.</div>
+        </div>
+        <div class="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-5 mt-6">
+          <section class="bg-[#fff0ef] border border-[#e7bdb9] border-l-4 border-l-[#df162b] rounded-xl p-5 md:p-6 flex flex-col">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="w-10 h-10 bg-[#ffe1df] text-[#df162b] rounded-lg grid place-items-center">
+                <span class="material-symbols-outlined">lightbulb</span>
+              </div>
+              <h3 class="text-lg font-bold text-[#291716]">RD Review Best Practices</h3>
+            </div>
+            <ul class="space-y-3 flex-1">
+              <li class="flex items-start gap-3">
+                <span class="material-symbols-outlined text-[#df162b] mt-0.5 text-lg">check_circle</span>
+                <p class="text-sm text-[#5d3f3d] leading-relaxed">Validate technical competency evidence before leadership traits for a structured approach.</p>
+              </li>
+              <li class="flex items-start gap-3">
+                <span class="material-symbols-outlined text-[#df162b] mt-0.5 text-lg">check_circle</span>
+                <p class="text-sm text-[#5d3f3d] leading-relaxed">Consult ZM comments if a score deviates significantly from the department average.</p>
+              </li>
+              <li class="flex items-start gap-3">
+                <span class="material-symbols-outlined text-[#df162b] mt-0.5 text-lg">check_circle</span>
+                <p class="text-sm text-[#5d3f3d] leading-relaxed">Target a 48-hour SLA to maintain organizational career growth velocity.</p>
+              </li>
+            </ul>
+            <div class="mt-4 pt-4 border-t border-[#e7bdb9]">
+              <p class="text-xs font-bold text-[#df162b] flex items-center gap-2">
+                <span class="material-symbols-outlined text-sm">checklist</span>
+                Apply on every validation review
+              </p>
+            </div>
+          </section>
+          <section class="bg-[#fff0ef] border border-[#e7bdb9] border-l-4 border-l-[#df162b] rounded-xl p-5 md:p-6 flex flex-col">
+            <div class="flex items-center gap-3 mb-4">
+              <div class="w-10 h-10 bg-[#ffe1df] text-[#df162b] rounded-lg grid place-items-center">
+                <span class="material-symbols-outlined">balance</span>
+              </div>
+              <h3 class="text-lg font-bold text-[#291716]">Calibration Requirement</h3>
+            </div>
+            <p class="text-sm text-[#5d3f3d] leading-relaxed flex-1">
+              All Regional Directors must attend the monthly calibration session. This ensures consistent scoring across divisions and aligns with MMT talent standards.
+            </p>
+            <div class="mt-4 pt-4 border-t border-[#e7bdb9]">
+              <p class="text-xs font-bold text-[#df162b] flex items-center gap-2">
+                <span class="material-symbols-outlined text-sm">event</span>
+                Next Session: confirm date with Talent Ops
+              </p>
+            </div>
+          </section>
         </div>`);
 
       qsa("[data-employee]").forEach((control) => {
@@ -1096,8 +1409,8 @@
           </section>`).join("")}
           <footer class="py-6 flex flex-col items-center justify-center space-y-3">
             <div class="flex items-center gap-2">
-              <div class="w-8 h-8 bg-[#df162b] rounded-lg flex items-center justify-center text-white font-bold text-xs">MC</div>
-              <span class="text-gray-800 font-bold tracking-tight">MyCareer Compass</span>
+              <img src="/stitch/common/my-logo.png" alt="my" class="w-8 h-8 rounded-lg object-cover"/>
+              <span class="text-gray-800 font-bold tracking-tight text-lg">Career Compass</span>
             </div>
             <p class="text-[10px] text-[#df162b]/40 uppercase tracking-widest font-bold">© 2026 MakeMyTrip Talent Development. All rights reserved.</p>
             ${locked ? `<div class="pt-2"><div class="bg-[#df162b]/5 px-6 py-2 rounded-full border border-[#df162b]/10"><p class="text-[#df162b] font-semibold text-sm">Submitted and locked</p></div></div>` : ""}
@@ -1179,7 +1492,7 @@
     const ratings = { ...(context.rd_assessment?.ratings || {}) };
     const notes = { ...(context.rd_assessment?.notes || {}) };
     const rubric = context.rubric || {};
-    render(`${pageHeader(`Validate ${context.employee.name}`, `${context.employee.employee_code} · ${context.employee.designation || context.employee.role_name || "—"} · ${context.employee.grade || ""}`, button("Back", "data-back", true))}
+    render(`${pageHeader(`${context.employee.name}'s Competency Profile`, `${context.employee.employee_code} · ${context.employee.designation || context.employee.role_name || "—"} · ${context.employee.grade || ""}`, button("Back", "data-back", true))}
       <p class="mb-6 p-4 bg-[#fff0ef] border border-[#e7bdb9] rounded-lg text-sm text-[#5d3f3d]">Evidence supports review; it never determines the RD rating. Only competency-relevant excerpts are shown.</p>
       <div class="space-y-5">${Object.entries(context.evidence).map(([competency, bundle]) => `<section class="bg-white border border-[#e7bdb9] rounded-xl p-5">
         <div class="grid lg:grid-cols-2 gap-6">
@@ -1282,17 +1595,15 @@
         </div>
         <h2 class="font-bold text-lg text-[#291716] mb-4">${esc(row.competency)}</h2>
         ${row.error ? `<p class="text-sm text-[#df162b] mb-3">${esc(row.error)}</p>` : ""}
-        <div class="mt-auto flex flex-col gap-2">${row.link_available ? `<a class="w-full text-center px-3 py-2.5 border-2 border-[#1464F4] text-[#1464F4] rounded-lg font-bold text-sm hover:bg-[#1464F4]/5" href="${esc(row.roleplay_url)}" target="_blank" rel="noopener">Open Assessment</a>` : ""}
+        <div class="mt-auto flex flex-col gap-2">${row.roleplay_url ? `<a class="w-full text-center px-3 py-2.5 border-2 border-[#1464F4] text-[#1464F4] rounded-lg font-bold text-sm hover:bg-[#1464F4]/5" href="${esc(row.roleplay_url)}" target="_blank" rel="noopener">Open Assessment</a>` : ""}
         <label class="w-full text-center px-3 py-2.5 bg-[#1464F4] text-white rounded-lg font-bold text-sm cursor-pointer hover:opacity-90">Upload Screenshot<input data-upload="${esc(row.competency)}" class="hidden" type="file" accept="image/png,image/jpeg,image/webp"></label></div>
       </section>`;
     }).join("");
-    const proTip = `<aside class="md:col-span-2 xl:col-span-2 bg-[#df162b] text-white rounded-xl p-6 flex items-center relative overflow-hidden min-h-[220px]">
-      <div class="relative z-10 w-full md:w-2/3">
+    const proTip = `<aside class="md:col-span-1 bg-[#df162b] text-white rounded-xl p-6 flex items-center min-h-[220px]">
+      <div class="w-full">
         <span class="bg-white/20 px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-widest mb-3 inline-block">Pro Tip</span>
-        <h3 class="text-xl font-extrabold mb-3">Master Advanced Data Viz</h3>
         <p class="text-sm leading-relaxed border border-white/40 rounded-lg p-3 bg-black/10">Approach the role-play as you would in a real work scenario. Your responses will shape your personalized development journey. The more authentically you engage with each scenario, the more relevant and impactful your learning recommendations will be.</p>
       </div>
-      <div class="absolute right-0 top-0 h-full w-1/3 opacity-30 pointer-events-none bg-cover bg-center" style="background-image:url('https://lh3.googleusercontent.com/aida-public/AB6AXuAMRe1ecIWDJfz5HO1YY-dIqMoN8_BlifA0za3XOiU_V5xQICPcvOTFCW4P5pYo44f9jV-bOkg8WVH-jfkv6_DZOm8oueTbAoUMh2WrPHGRy4lJDRqAFcBhCG5otfA1MLdp0VtXV3eLoh3vy3mn5Yq1dllDN7K_awOmCGnJKGjycszgxoPiNXHInmhTIReAbooJG_dcio7rnCr56GgS_rZ82aPgk9t3EONe9SlZxGLSXV7tBN6U9ioYGA')"></div>
     </aside>`;
     render(`${pageHeader("Competency Assessments", "Only successfully assessed screenshots count as completed.")}
       ${banner}
@@ -1329,17 +1640,176 @@
 
   async function initCareer() {
     const state = await api("/api/employee/career");
-    render(`${pageHeader("Career Lattice", "Available paths derive from your current role, grade, and completed assessments.")}
-      ${!state.unlocked ? '<div class="bg-white border border-slate-200 rounded-xl p-8 text-center"><h2 class="text-xl font-bold">Career lattice locked</h2><p class="text-slate-500 mt-2">Complete all seven assessments first.</p><div class="mt-5">' + button("Open Assessments", "data-roleplays") + "</div></div>" : `
-      <section class="bg-white border border-slate-200 rounded-xl p-6"><p class="text-sm text-slate-500">Current track</p><h2 class="text-2xl font-bold mt-1">${esc(state.current)}</h2>
-      <div class="grid md:grid-cols-3 gap-4 mt-7">${state.paths.map((path) => `<button data-path="${esc(path.id)}" ${!path.enabled || state.choice ? "disabled" : ""} class="border rounded-xl p-5 text-left ${path.enabled ? "border-blue-300" : "border-slate-200 opacity-50"}"><strong>${esc(path.label)}</strong><p class="text-sm text-slate-500 mt-2">${path.enabled ? "Available" : "Locked for current grade"}</p></button>`).join("")}</div>
-      ${state.choice ? `<p class="mt-6 p-4 bg-blue-50 rounded-lg font-bold">Locked aspiration: ${esc(state.paths.find((path) => path.id === state.choice.aspiration_role)?.label || state.choice.aspiration_role)}</p>` : ""}</section>`}`);
-    if (qs("[data-roleplays]")) qs("[data-roleplays]").onclick = () => go("employee/roleplays");
+    if (!state.unlocked) {
+      render(`${pageHeader("Career Lattice", "Available paths derive from your current role, grade, and completed assessments.")}
+        <div class="bg-white border border-[#e7bdb9] rounded-xl p-8 text-center">
+          <h2 class="text-xl font-bold text-[#291716]">Career lattice locked</h2>
+          <p class="text-[#5d3f3d] mt-2">Complete all seven assessments first.</p>
+          <div class="mt-5">${button("Open Assessments", "data-roleplays")}</div>
+        </div>`);
+      qs("[data-roleplays]").onclick = () => go("employee/roleplays");
+      return;
+    }
+
+    const journey = state.journey || [];
+    const insights = state.insights || {};
+    const choiceId = state.choice?.aspiration_role || "";
+    const count = journey.length || 1;
+    // Path anchors in viewBox % (aligned with SVG). Cards hang beside via side transform.
+    const anchorsByCount = {
+      4: [
+        { x: 50, y: 8, side: "left" },
+        { x: 62, y: 30, side: "right" },
+        { x: 28, y: 66, side: "left" },
+        { x: 50, y: 92, side: "right" },
+      ],
+      3: [
+        { x: 50, y: 10, side: "left" },
+        { x: 62, y: 50, side: "right" },
+        { x: 50, y: 90, side: "left" },
+      ],
+      2: [
+        { x: 50, y: 14, side: "left" },
+        { x: 50, y: 86, side: "right" },
+      ],
+    };
+    const anchors = anchorsByCount[count] || anchorsByCount[4];
+    // Active red path: from current through consecutive enabled nodes (index 0 always current).
+    let activeThrough = 0;
+    for (let i = 1; i < journey.length; i += 1) {
+      if (journey[i].enabled) activeThrough = i;
+      else break;
+    }
+    const pathD = "M 200 50 Q 300 200 200 350 T 100 550 T 200 750";
+    // Approximate active path segment lengths for 1..3 hops from top.
+    const activePaths = [
+      "",
+      "M 200 50 Q 300 200 200 350",
+      "M 200 50 Q 300 200 200 350 T 100 550",
+      "M 200 50 Q 300 200 200 350 T 100 550 T 200 750",
+    ];
+    const activeD = activePaths[Math.min(activeThrough, 3)] || "";
+
+    const markers = journey.map((node, index) => {
+      const isCurrent = node.state === "current";
+      const isLocked = !node.enabled && !isCurrent;
+      const isChosen = choiceId && node.id === choiceId;
+      const anchor = anchors[index] || { x: 50, y: 50, side: "right" };
+      const cardClass = isLocked
+        ? "milestone-card locked border-[#926e6c] bg-[#fddbd8] opacity-95"
+        : "milestone-card active border-[#df162b] shadow-lg bg-white";
+      const footerText = isCurrent ? "Current" : isLocked ? "Locked" : (isChosen ? "Locked aspiration" : "Next Step");
+      const footerIcon = isCurrent ? "location_on" : isLocked ? "lock" : "stars";
+      const tier = isCurrent ? "Start" : isLocked ? (node.id === "rd" ? "Apex" : "Future") : "Eligible";
+      const clickable = !isCurrent && node.selectable && !state.choice;
+      return `<div class="milestone-marker side-${anchor.side}" style="left:${anchor.x}%; top:${anchor.y}%;">
+        <button type="button" data-path="${esc(node.id)}" data-label="${esc(node.label)}" ${clickable ? "" : "disabled"}
+          class="${cardClass} ${clickable ? "cursor-pointer hover:scale-105 transition-transform" : "cursor-default"} ${isCurrent ? "scale-110" : ""}">
+          <span class="font-bold text-[11px] uppercase block mb-1 ${isLocked ? "text-[#5d3f3d]" : "text-[#df162b]"}">${esc(tier)}</span>
+          <span class="font-extrabold text-lg block ${isLocked ? "text-[#402b2a]" : "text-[#291716]"}">${esc(node.short_label || node.label)}</span>
+          <div class="flex items-center justify-center gap-1 text-[12px] mt-1 ${isLocked ? "text-[#5d3f3d]" : "text-[#df162b]"}">
+            <span class="material-symbols-outlined text-[14px]" style="font-variation-settings:'FILL' ${isCurrent ? 1 : 0}">${footerIcon}</span>
+            <span>${esc(footerText)}</span>
+          </div>
+        </button>
+      </div>`;
+    }).join("");
+
+    const tips = (insights.tips || []).map((tip) => `<li class="flex items-start gap-2">
+      <div class="w-6 h-6 rounded-full bg-[#ffe1df] grid place-items-center shrink-0 mt-0.5">
+        <span class="material-symbols-outlined text-[#df162b] text-[16px]">info</span>
+      </div>
+      <p class="text-sm text-[#291716]">${esc(tip)}</p>
+    </li>`).join("");
+
+    const pct = insights.eligibility_pct;
+    const eligibilityCard = pct == null
+      ? `<div class="bg-[#df162b] rounded-xl p-5 text-white shadow-lg relative overflow-hidden">
+          <p class="text-3xl font-extrabold">—</p>
+          <p class="text-xs uppercase tracking-wider opacity-80 mt-1">${esc(insights.eligibility_label || "Path readiness")}</p>
+          <p class="text-[11px] mt-4 opacity-70">Available after RD validation finalizes your competency profile.</p>
+          <div class="absolute -bottom-8 -right-8 w-32 h-32 bg-white/10 rounded-full"></div>
+        </div>`
+      : `<div class="bg-[#df162b] rounded-xl p-5 text-white shadow-lg relative overflow-hidden">
+          <p class="text-4xl font-extrabold">${pct}%</p>
+          <p class="text-xs uppercase tracking-wider opacity-80 mt-1">${esc(insights.eligibility_label)} match</p>
+          <div class="w-full bg-white/20 h-2.5 rounded-full mt-4 border border-white/10">
+            <div class="bg-white h-full rounded-full" style="width:${Math.min(100, pct)}%"></div>
+          </div>
+          <p class="text-[11px] mt-4 opacity-70 italic">Based on your RD-validated profile vs ${esc(insights.eligibility_label)} ideal.</p>
+          <div class="absolute -bottom-8 -right-8 w-32 h-32 bg-white/10 rounded-full"></div>
+        </div>`;
+
+    render(`<style>
+      .road-stage{position:relative;width:min(100%,380px);aspect-ratio:400/800;margin:0 auto}
+      .milestone-marker{position:absolute;z-index:20}
+      .milestone-marker.side-left{transform:translate(calc(-100% - 10px),-50%)}
+      .milestone-marker.side-right{transform:translate(10px,-50%)}
+      .milestone-card{padding:12px 18px;border-radius:12px;border-width:2px;min-width:132px;text-align:center;background:#fff}
+      .road-centerline{fill:none;stroke:rgba(255,255,255,.6);stroke-width:2;stroke-dasharray:12 18;stroke-linecap:round}
+    </style>
+    <section class="bg-white border border-[#e7bdb9] rounded-xl p-5 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 shadow-sm">
+      <div>
+        <h1 class="text-xl md:text-2xl font-extrabold text-[#291716]">Path Explorer Journey</h1>
+        <p class="text-sm text-[#5d3f3d] mt-1">Career map from Probable Career Paths — green paths are selectable, grey paths stay locked.</p>
+      </div>
+      <div class="text-sm font-bold text-[#df162b] bg-[#fff0ef] border border-[#e7bdb9] rounded-lg px-4 py-2">${esc(state.current_label || state.current)}${state.designation ? ` · ${esc(state.designation)}` : ""}</div>
+    </section>
+    <div class="grid grid-cols-12 gap-6 items-start">
+      <div class="col-span-12 lg:col-span-8 bg-white border border-[#e7bdb9] rounded-xl p-5 md:p-8 relative overflow-hidden flex flex-col min-h-[780px]">
+        <div class="absolute inset-0 opacity-[0.03] pointer-events-none" style="background-image:radial-gradient(#df162b 1px,transparent 1px);background-size:32px 32px"></div>
+        <div class="flex-grow flex items-center justify-center relative py-4">
+          <div class="road-stage">
+            <svg class="absolute inset-0 w-full h-full" viewBox="0 0 400 800" preserveAspectRatio="none" aria-hidden="true">
+              <defs>
+                <linearGradient id="roadGradient" x1="0%" x2="0%" y1="0%" y2="100%">
+                  <stop offset="0%" style="stop-color:#222;stop-opacity:1"/>
+                  <stop offset="100%" style="stop-color:#444;stop-opacity:1"/>
+                </linearGradient>
+              </defs>
+              <path d="${pathD}" fill="none" stroke="#333" stroke-linecap="round" stroke-linejoin="round" stroke-width="48"/>
+              <path d="${pathD}" fill="none" stroke="url(#roadGradient)" stroke-linecap="round" stroke-linejoin="round" stroke-width="40"/>
+              ${activeD ? `<path d="${activeD}" fill="none" opacity="0.35" stroke="#df162b" stroke-linecap="round" stroke-linejoin="round" stroke-width="42"/>` : ""}
+              <path class="road-centerline" d="${pathD}"/>
+            </svg>
+            ${markers}
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-5 pt-4 mt-auto border-t border-[#e7bdb9] relative z-30">
+          <div class="flex items-center gap-2"><div class="w-4 h-4 rounded-full bg-[#df162b] border-2 border-white shadow-sm"></div><span class="text-xs font-semibold text-[#291716]">Active / eligible</span></div>
+          <div class="flex items-center gap-2"><div class="w-4 h-4 rounded-full bg-[#e7bdb9] border-2 border-white shadow-sm"></div><span class="text-xs font-semibold text-[#5d3f3d]">Grey / locked future</span></div>
+          ${state.choice ? `<p class="ml-auto text-xs font-bold text-[#df162b]">Aspiration locked — Admin reset required to change</p>` : `<p class="ml-auto text-xs font-semibold text-[#5d3f3d]">Tap an eligible role to lock aspiration</p>`}
+        </div>
+      </div>
+      <div class="col-span-12 lg:col-span-4 space-y-5">
+        <div class="bg-white border border-[#e7bdb9] rounded-xl p-5 shadow-sm">
+          <div class="flex items-center gap-2 mb-3"><span class="material-symbols-outlined text-[#df162b]">insights</span><h3 class="font-bold text-[#291716]">Role Insight</h3></div>
+          <div class="space-y-3">
+            <div class="p-3 bg-[#fff0ef] border-l-4 border-[#df162b] rounded-r-lg">
+              <p class="text-[11px] font-bold uppercase text-[#df162b] mb-1">Growth Potential</p>
+              <p class="text-sm text-[#291716]">${esc(insights.growth || "")}</p>
+            </div>
+            <div class="p-3 bg-[#fff8f7] border-l-4 border-[#e7bdb9] rounded-r-lg">
+              <p class="text-[11px] font-bold uppercase text-[#5d3f3d] mb-1">Key Competency</p>
+              <p class="text-sm text-[#291716]">${esc(insights.key_competency || "")}</p>
+            </div>
+          </div>
+        </div>
+        <div class="bg-white border border-[#e7bdb9] rounded-xl p-5 shadow-sm">
+          <div class="flex items-center gap-2 mb-4"><span class="material-symbols-outlined text-[#df162b]">tips_and_updates</span><h3 class="font-bold text-[#291716]">Route Guide</h3></div>
+          <ul class="space-y-3">${tips || `<li class="text-sm text-[#5d3f3d]">No guidance yet.</li>`}</ul>
+        </div>
+        ${eligibilityCard}
+      </div>
+    </div>`);
+
     qsa("[data-path]").forEach((control) => {
+      if (control.disabled) return;
       control.onclick = async () => {
-        if (!confirm("Lock this aspiration? Only Admin can reset it.")) return;
+        if (!confirm(`Lock aspiration: ${control.dataset.label}? Only Admin can reset it.`)) return;
         try {
           await api("/api/employee/career", { method: "POST", body: JSON.stringify({ aspiration_role: control.dataset.path }) });
+          toast("Aspiration locked.");
           go("employee/courses");
         } catch (error) {
           toast(error.message, "error");
@@ -1485,7 +1955,7 @@
             <span class="material-symbols-outlined">warning</span>
             <div>
               <p class="font-bold">Action Required</p>
-              <p class="text-sm mt-1">You're going great! However, we have identified ${gapCount} critical gap${gapCount === 1 ? "" : "s"}. Please add at least <strong>1 LinkedIn course per gap</strong>. Other sources are optional.</p>
+              <p class="text-sm mt-1">You're going great! However, we have identified ${gapCount} foccus areas${gapCount === 1 ? "" : "s"}. Please add at least <strong>1 LinkedIn course per gap</strong>. Other sources are optional.</p>
             </div>
           </div>
           ${sections}
@@ -1757,30 +2227,101 @@
   async function initLeaderboard() {
     const rows = (await api("/api/leaderboard")).leaderboard;
     render(`${pageHeader("Learning Leaderboard")}
-      <div class="overflow-x-auto bg-white border rounded-xl"><table class="w-full min-w-[600px] text-sm"><thead class="bg-slate-50 text-left"><tr><th class="p-4">Rank</th><th class="p-4">Employee</th><th class="p-4">Gap cohort</th><th class="p-4">LinkedIn hours</th></tr></thead>
+      <div class="overflow-x-auto bg-white border rounded-xl"><table class="w-full min-w-[600px] text-sm"><thead class="bg-slate-50 text-left"><tr><th class="p-4">Rank</th><th class="p-4">Employee</th><th class="p-4">Number of gaps cohort</th><th class="p-4">LinkedIn hours</th></tr></thead>
       <tbody>${rows.map((row) => `<tr class="border-t"><td class="p-4 font-bold text-blue-700">#${row.rank}</td><td class="p-4"><strong>${esc(row.name)}</strong><div class="text-xs text-slate-500">${esc(row.employee_code)}</div></td><td class="p-4">${row.gap_cohort}</td><td class="p-4 font-bold">${Number(row.learning_hours).toFixed(1)}h</td></tr>`).join("") || empty("Leaderboard is empty until final profiles and synced LinkedIn activity exist.", 4)}</tbody></table></div>`);
   }
 
   async function initAdminOverview() {
-    const [result, audit, meta] = await Promise.all([
-      api("/api/admin/overview"),
-      api("/api/admin/audit?limit=8"),
-      api("/api/meta"),
-    ]);
-    const actions = `${button("Export Employees", "data-export", true)}${button("Sync LinkedIn", "data-sync")}`;
-    render(`${pageHeader("Admin Overview", "All metrics are calculated from persisted workflow records.", actions)}
-      <div class="grid grid-cols-2 md:grid-cols-4 xl:grid-cols-7 gap-3 mb-7">
-        ${metric("Total employees", result.metrics.total_employees)}
-        ${metric("ZM submitted", result.metrics.zm_completed)}
-        ${metric("RD submitted", result.metrics.rd_completed)}
-        ${metric("Assessments complete", result.metrics.roleplays_completed)}
-        ${metric("Locked aspirations", result.metrics.locked_aspirations)}
-        ${metric("Active journeys", result.metrics.active_journeys)}
-        ${metric("LinkedIn hours", `${Number(result.metrics.learning_hours).toFixed(1)}h`)}
+    const result = await api("/api/admin/overview");
+    const insights = result.insights || {};
+    const phaseLabel = { zm: "ZM Assessment", rd: "RD Validation", employee: "Employee Experience" };
+    const phaseBars = (result.phases || []).map((phase) => {
+      const pct = Math.min(100, Number(phase.progress.percentage || 0));
+      return `<div class="space-y-2">
+        <div class="flex justify-between items-center gap-3">
+          <span class="text-sm font-bold text-[#291716]">${esc(phaseLabel[phase.phase] || phase.phase)}</span>
+          <span class="text-xs font-semibold text-[#5d3f3d]">${pct}% · ${phase.progress.completed}/${phase.progress.total}</span>
+        </div>
+        <div class="w-full h-3 bg-[#ffe1df] rounded-full overflow-hidden">
+          <div class="h-full bg-[#005cab] rounded-full" style="width:${pct}%"></div>
+        </div>
+      </div>`;
+    }).join("");
+    const rated = Number(insights.rated_employees) || 0;
+    const rdDone = Number(result.metrics?.rd_completed) || 0;
+    const insightRows = insights.competencies || [];
+    const maxGaps = Math.max(1, ...insightRows.map((row) => Number(row.gap_count) || 0), 0);
+    const insightBars = insightRows.length && (rated > 0 || insightRows.some((row) => "gap_count" in row))
+      ? insightRows.map((item) => {
+          const count = Number(item.gap_count) || 0;
+          const barPct = Math.round((count / maxGaps) * 100);
+          const share = Number(item.percentage) || 0;
+          const people = count === 1 ? "1 person" : `${count} people`;
+          return `<div class="space-y-1.5">
+            <div class="flex justify-between items-center gap-3">
+              <span class="text-sm font-bold text-[#291716]">${esc(item.competency)}</span>
+              <span class="text-xs font-semibold text-[#df162b]">${people} · ${share}% </span>
+            </div>
+            <div class="w-full h-2 bg-[#ffe1df] rounded-full overflow-hidden">
+              <div class="h-full bg-[#df162b] rounded-full" style="width:${barPct}%"></div>
+            </div>
+          </div>`;
+        }).join("")
+      : rdDone > 0
+        ? `<p class="py-10 text-center text-sm text-[#5d3f3d]">${rdDone} RD-validated profile${rdDone === 1 ? "" : "s"} found, but gap insights did not load. Hard-refresh after restarting the server.</p>`
+        : `<p class="py-10 text-center text-sm text-[#5d3f3d]">No RD-validated profiles yet. Skill gaps appear after RD submissions.</p>`;
+    const metricCard = (label, value, tone = "blue") => {
+      const valueClass = tone === "red" ? "text-[#df162b]" : tone === "teal" ? "text-[#005f81]" : "text-[#005cab]";
+      return `<div class="bg-white border border-[#e0e0e0] rounded-lg p-4 flex flex-col justify-between min-h-[110px] hover:shadow-[0_4px_12px_rgba(0,0,0,0.05)] transition-shadow">
+        <span class="text-[11px] font-semibold uppercase tracking-wider text-[#5d3f3d]">${esc(label)}</span>
+        <span class="text-3xl font-extrabold ${valueClass} mt-3 leading-none">${esc(value)}</span>
+      </div>`;
+    };
+    const withGaps = Number(insights.employees_with_gaps) || 0;
+    const ratedLabel = rated || rdDone;
+
+    render(`<section class="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+      <div>
+        <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight text-[#291716]">Admin Overview</h1>
+        <p class="text-base text-[#5d3f3d] mt-2 max-w-2xl">All metrics are calculated from persisted workflow records in real-time, providing an aggregate view of talent mobility and LinkedIn integration health.</p>
       </div>
-      <div class="grid lg:grid-cols-2 gap-6"><section class="bg-white border rounded-xl p-6"><h2 class="text-xl font-bold">Phase progress</h2>${result.phases.map((phase) => progress(phase.phase === "zm" ? "ZM Assessment" : phase.phase === "rd" ? "RD Validation" : "Employee Experience", phase)).join("")}</section>
-      <section class="bg-white border rounded-xl p-6"><h2 class="text-xl font-bold">Recent agent activity</h2><div class="mt-3 divide-y">${audit.audit.map((row) => `<div class="py-3"><strong class="text-sm">${esc(row.agent)}</strong><p class="text-xs text-slate-500">${esc(row.employee_code)} · ${esc(row.competency || "General")} · ${esc(row.created_at)}</p></div>`).join("") || '<p class="py-8 text-center text-slate-500">No agent activity recorded yet.</p>'}</div></section></div>
-      <section class="bg-white border rounded-xl p-6 mt-6"><h2 class="text-xl font-bold">Competency framework</h2><div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">${meta.competencies.map((item) => `<div class="border rounded-lg p-3"><strong>${esc(item.competency)}</strong><p class="text-xs text-slate-500 mt-1">${esc(item.definition)}</p></div>`).join("")}</div></section>`);
+      <div class="flex flex-wrap gap-2 shrink-0">
+        <button type="button" data-export class="px-5 py-2.5 bg-white border border-[#005cab] text-[#005cab] rounded-lg font-bold text-sm hover:bg-[#fff0ef] active:scale-95 transition">Export Report</button>
+        <button type="button" data-sync class="px-5 py-2.5 bg-[#005cab] text-white rounded-lg font-bold text-sm hover:opacity-90 active:scale-95 transition inline-flex items-center gap-1.5">
+          <span class="material-symbols-outlined text-[20px]">sync</span>Sync LinkedIn
+        </button>
+      </div>
+    </section>
+    <section class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-7 gap-3 mb-8">
+      ${metricCard("Total Employees", result.metrics.total_employees, "red")}
+      ${metricCard("ZM Submitted", result.metrics.zm_completed)}
+      ${metricCard("RD Submitted", result.metrics.rd_completed)}
+      ${metricCard("Assessments Complete", result.metrics.roleplays_completed)}
+      ${metricCard("Locked Aspirations", result.metrics.locked_aspirations)}
+      ${metricCard("Active Journeys", result.metrics.active_journeys)}
+      ${metricCard("LinkedIn Hours", `${Number(result.metrics.learning_hours).toFixed(1)}h`, "teal")}
+    </section>
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+      <section class="lg:col-span-5 bg-white border border-[#e0e0e0] rounded-lg overflow-hidden flex flex-col">
+        <div class="p-5 border-b border-[#e7bdb9] bg-[#fff0ef]">
+          <h2 class="text-lg font-bold text-[#291716]">Phase progress</h2>
+          <p class="text-sm text-[#5d3f3d] mt-0.5">Real-time completion tracking across active modules.</p>
+        </div>
+        <div class="p-5 space-y-6 flex-1">
+          ${phaseBars || `<p class="text-sm text-[#5d3f3d]">No phase data.</p>`}
+        </div>
+      </section>
+      <section class="lg:col-span-7 bg-white border border-[#e0e0e0] rounded-lg overflow-hidden flex flex-col">
+        <div class="p-5 border-b border-[#e7bdb9] bg-[#fff0ef] flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h2 class="text-lg font-bold text-[#291716]">Talent Intelligence Insights</h2>
+            <p class="text-sm text-[#5d3f3d] mt-0.5">People with a gap vs current-role ideal${ratedLabel ? ` · ${withGaps}/${ratedLabel} RD-validated ` : ""}</p>
+          </div>
+          <button type="button" data-analytics class="text-[#005cab] font-bold text-xs hover:underline shrink-0">Detailed Analytics</button>
+        </div>
+        <div class="p-5 flex-1 space-y-4">${insightBars}</div>
+      </section>
+    </div>`);
     qs("[data-sync]").onclick = async () => {
       try {
         const response = await api("/api/admin/linkedin/sync", { method: "POST", body: "{}" });
@@ -1791,6 +2332,7 @@
       }
     };
     qs("[data-export]").onclick = () => exportEmployees(result.employees);
+    qs("[data-analytics]").onclick = () => go("admin/confidence");
   }
 
   function exportEmployees(rows) {
@@ -1964,6 +2506,16 @@
       return;
     }
     if (!(await authenticate())) return;
+    if (
+      session.user.role === "employee"
+      && page.startsWith("employee/")
+      && page !== "employee/welcome"
+      && !hasDisclaimerAck()
+    ) {
+      toast("Acknowledge the disclaimer on Home before continuing.", "error");
+      go("employee/welcome");
+      return;
+    }
     const handlers = {
       "zm/welcome": () => initWelcome("zm"),
       "zm/dashboard": () => initTeamDashboard("zm"),

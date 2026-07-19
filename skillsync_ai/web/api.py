@@ -120,6 +120,7 @@ class BackendAPI:
                         "phases": self.backend.phases(),
                         "employees": employees,
                         "leaderboard": self.backend.leaderboard(user),
+                        "insights": self.backend.talent_insights(),
                         "metrics": {
                             "total_employees": len(employees),
                             "zm_completed": sum(row["zm_status"] == "submitted" for row in employees),
@@ -156,6 +157,16 @@ class BackendAPI:
             if parsed.path == "/api/auth/logout":
                 self.backend.logout(self._token(handler))
                 self._send(handler, 200, {"status": "ok"})
+            elif parsed.path == "/api/auth/password":
+                self._send(
+                    handler,
+                    200,
+                    self.backend.change_password(
+                        user,
+                        str(body.get("current_password") or ""),
+                        str(body.get("new_password") or ""),
+                    ),
+                )
             elif parsed.path == "/api/admin/phases/open":
                 self._require_role(user, {"admin"})
                 phase = self.backend.open_phase(user, str(body.get("phase") or ""), bool(body.get("override")))
