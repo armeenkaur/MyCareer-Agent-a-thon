@@ -67,13 +67,15 @@ def _candidate_snippets(data: Any, emp_code: str) -> list[dict[str, str]]:
         for field in ("Standard Skill (EI)", "Skill Cluster (EI)", "Standard Skill (RM)", "Skill Cluster (RM)"):
             value = row.get(field)
             if value:
-                add("TNA", f"{field} {index}", value)
+                # Skill field names are internal TNA columns — keep snippet only.
+                add("TNA", "", value)
     for key, value in data.appraisal.get(emp_code, {}).items():
         if key not in {"EMP Code", "EMP Full Name"}:
             add("Appraisal", key, value)
     for key, value in data.interview.get(emp_code, {}).items():
         if key not in {"EMP Code", "EMP Name"}:
-            add("Interview", key, value)
+            # Round columns are source metadata — do not surface as labels.
+            add("Interview", "", value)
     for index, row in enumerate(data.amber.get(emp_code, []), 1):
         for field in ("Question", "Answer", "Follow-up Comments", "Driver(Element Name)", "Mood"):
             value = row.get(field)

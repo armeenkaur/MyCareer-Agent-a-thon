@@ -135,7 +135,12 @@
   }
 
   function profileDesignation(user) {
-    return String(user?.designation || "").trim();
+    const raw = String(user?.designation || "").trim();
+    if (!raw) return "";
+    // Backend already maps KAM track → "KAM"; keep alias for older sessions / raw Darwin titles.
+    if (/^kam$/i.test(raw)) return "KAM";
+    if (/key\s*account/i.test(raw) || /account\s*(&|and)\s*(client|key)/i.test(raw)) return "KAM";
+    return raw;
   }
 
   function commonBrand(mmt, homeRoute) {
@@ -597,10 +602,10 @@
             <div class="flex-1">
               <div class="flex items-center gap-2 mb-2">
                 <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">stars</span>
-                <span class="text-xs font-bold uppercase tracking-widest opacity-80">RD Authority</span>
+                <span class="text-xs font-bold uppercase tracking-widest opacity-80">RD Importance</span>
               </div>
-              <h2 class="text-xl md:text-2xl font-bold mb-2">Your rating becomes the final competency profile</h2>
-              <p class="opacity-90 max-w-2xl">This is the 'source of truth' for organizational planning. Accuracy ensures we place the right leaders in the right destinations.</p>
+              <h2 class="text-xl md:text-2xl font-bold mb-2">Your assessment shapes the final competency profile.</h2>
+              <p class="opacity-90 max-w-2xl">This profile serves as the trusted foundation for organizational planning, talent decisions and leadership placement.</p>
             </div>
             <div class="shrink-0">
               <div class="bg-white/20 backdrop-blur-md rounded-xl p-4 border border-white/30 text-center min-w-[140px]">
@@ -1444,18 +1449,33 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     return groups;
   }
 
+  function evidenceSourceTitle(source) {
+    return String(source || "").toUpperCase() === "TNA" ? "Learning Input From Employee" : String(source || "");
+  }
+
+  function evidenceDisplayLabel(source, label) {
+    const text = String(label || "").trim();
+    if (!text) return "";
+    const src = String(source || "").trim().toLowerCase();
+    if (src === "tna" && /standard\s*skill|skill\s*cluster/i.test(text)) return "";
+    if (src === "interview" && /^round\s*\d+$/i.test(text)) return "";
+    return text;
+  }
+
   function renderEvidencePanel(bundle) {
     const items = bundle?.evidence || [];
     if (!items.length) {
       return `<p class="text-sm text-[#5d3f3d] mt-3">${esc(bundle?.empty_message || "No relevant evidence found.")}</p>`;
     }
     return groupEvidenceBySource(items).map(({ source, items: rows }) => `<div class="mt-4">
-      <h4 class="text-xs font-bold uppercase tracking-wider text-[#df162b] mb-2">${esc(source)}</h4>
-      <div class="space-y-2">${rows.map((item) => `<article class="border border-[#e7bdb9] rounded-lg p-3 bg-[#fff8f7]">
-        ${item.label ? `<p class="text-[11px] font-semibold text-[#926e6c] mb-1">${esc(item.label)}</p>` : ""}
+      <h4 class="text-xs font-bold uppercase tracking-wider text-[#df162b] mb-2">${esc(evidenceSourceTitle(source))}</h4>
+      <div class="space-y-2">${rows.map((item) => {
+        const label = evidenceDisplayLabel(source, item.label);
+        return `<article class="border border-[#e7bdb9] rounded-lg p-3 bg-[#fff8f7]">
+        ${label ? `<p class="text-[11px] font-semibold text-[#926e6c] mb-1">${esc(label)}</p>` : ""}
         <p class="text-sm text-[#291716]">${esc(item.snippet)}</p>
-        ${item.relevance ? `<p class="text-[11px] text-[#5d3f3d] mt-2 italic">${esc(item.relevance)}</p>` : ""}
-      </article>`).join("")}</div>
+      </article>`;
+      }).join("")}</div>
     </div>`).join("");
   }
 
@@ -1497,7 +1517,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
             <textarea data-rd-note="${esc(competency)}" ${locked ? "disabled" : ""} class="w-full border border-[#e7bdb9] rounded-lg p-3 mt-4 text-sm" placeholder="Optional RD note">${esc(notes[competency] || "")}</textarea>
           </div>
           <div>
-            <h3 class="font-bold text-sm text-[#291716]">Supporting evidence</h3>
+            <h3 class="font-bold text-sm text-[#291716]">Supporting Evidence</h3>
             ${renderEvidencePanel(bundle)}
           </div>
         </div>
@@ -1720,7 +1740,12 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         <h1 class="text-xl md:text-2xl font-extrabold text-[#291716]">Path Explorer Journey</h1>
         <p class="text-sm text-[#5d3f3d] mt-1">Career map from Probable Career Paths — green paths are selectable, grey paths stay locked.</p>
       </div>
-      <div class="text-sm font-bold text-[#df162b] bg-[#fff0ef] border border-[#e7bdb9] rounded-lg px-4 py-2">${esc(state.current_label || state.current)}${state.designation ? ` · ${esc(state.designation)}` : ""}</div>
+      <div class="text-sm font-bold text-[#df162b] bg-[#fff0ef] border border-[#e7bdb9] rounded-lg px-4 py-2">
+          ${esc(state.current_label || state.current || "—")}
+          ${state.current === "KAM" || /kam/i.test(String(state.current_label || ""))
+            ? ` · ${esc(state.designation || "Key Account Manager")}`
+            : (state.designation ? ` · ${esc(state.designation)}` : "")}
+        </div>
     </section>
     <div class="grid grid-cols-12 gap-6 items-start">
       <div class="col-span-12 lg:col-span-8 bg-white border border-[#e7bdb9] rounded-xl p-5 md:p-8 relative overflow-hidden flex flex-col min-h-[780px]">
@@ -1785,19 +1810,52 @@ Before you begin, we encourage you to take a few minutes to understand the philo
   }
 
   let basket = new Map();
+  let curatedOtherSources = {};
+
+  function parseDurationSeconds(value) {
+    const text = String(value || "").trim();
+    if (!text) return 0;
+    if (/^\d+m$/i.test(text)) return Number(text.replace(/m/i, "")) * 60;
+    const parts = text.split(":").map((part) => Number(part));
+    if (parts.some((part) => Number.isNaN(part))) return 0;
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    return 0;
+  }
+
+  function hoursLeftLabel(course) {
+    const status = course.status || "not_started";
+    if (status === "completed") return "0.0h left";
+    let totalSec = parseDurationSeconds(course.duration);
+    if (!totalSec && course.duration_minutes) totalSec = Number(course.duration_minutes) * 60;
+    if (!totalSec) return "—";
+    const pct = Math.max(0, Math.min(100, Number(course.progress_pct || 0)));
+    const leftSec = Math.round(totalSec * (1 - pct / 100));
+    return `${(leftSec / 3600).toFixed(1)}h left`;
+  }
 
   function otherSourcesFor(competency) {
-    const slug = String(competency || "Skill");
-    return [
-      { kind: "youtube", label: "YouTube", icon: "smart_display", iconClass: "text-[#df162b]", title: `${slug} Strategies 2024` },
-      { kind: "case_study", label: "Case Study", icon: "description", iconClass: "text-[#1464F4]", title: `${slug} in Practice` },
-      { kind: "webinar", label: "Internal Webinar", icon: "podcasts", iconClass: "text-[#005f81]", title: `${slug} Excellence Clinic` },
-    ].map((item) => ({
-      ...item,
-      id: `other:${item.kind}:${competency}`,
-      competency,
-      source: "other",
-    }));
+    const picks = curatedOtherSources[competency] || [];
+    const meta = [
+      { kind: "youtube", label: "YouTube", icon: "smart_display", iconClass: "text-[#df162b]" },
+      { kind: "case_study", label: "Case Study", icon: "description", iconClass: "text-[#1464F4]" },
+      { kind: "tedx", label: "TEDx Talk", icon: "podcasts", iconClass: "text-[#005f81]" },
+    ];
+    return meta.map((item) => {
+      const pick = picks.find((row) => row.kind === item.kind)
+        || picks.find((row) => item.kind === "tedx" && ["webinar", "ted", "tedx_talk"].includes(row.kind));
+      const title = pick?.title || `${competency} ${item.label}`;
+      const url = pick?.url || "";
+      return {
+        ...item,
+        id: pick?.id || `other:${item.kind}:${competency}`,
+        competency,
+        source: "other",
+        title,
+        url,
+        duration_minutes: pick?.duration_minutes,
+      };
+    });
   }
 
   function otherSourcesBlock(competency) {
@@ -1810,21 +1868,71 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         ${otherSourcesFor(competency).map((item) => {
           const inBasket = basket.has(item.id);
-          return `<div class="bg-[#fff8f7] p-3 rounded-lg border border-[#e7bdb9] flex flex-col gap-2 ${inBasket ? "ring-1 ring-[#1464F4]" : ""}">
-            <div class="flex items-center gap-2"><span class="material-symbols-outlined ${item.iconClass} text-lg">${item.icon}</span><span class="text-[10px] font-bold uppercase text-[#5d3f3d]">${esc(item.label)}</span></div>
-            <p class="text-sm font-bold text-[#291716] flex-grow">${esc(item.title)}</p>
-            <button type="button" data-course="${esc(item.id)}" data-competency="${esc(competency)}" data-title="${esc(item.title)}" data-source="other" data-kind="${esc(item.kind)}"
-              class="w-full px-3 py-2 rounded-lg font-bold text-xs ${inBasket ? "bg-[#5d3f3d] text-white cursor-not-allowed" : "bg-[#1464F4] text-white hover:opacity-90"}"
-              ${inBasket ? "disabled" : ""}>${inBasket ? "Added" : "Add to Cart"}</button>
+          const thumb = otherSourceThumb({ ...item, source: "other" });
+          return `<div class="bg-[#fff8f7] rounded-lg border border-[#e7bdb9] overflow-hidden flex flex-col ${inBasket ? "ring-1 ring-[#1464F4]" : ""}">
+            <div class="h-24 w-full relative bg-[#fff0ef] overflow-hidden">
+              <img class="w-full h-full object-cover" alt="" src="${esc(thumb)}" loading="lazy" referrerpolicy="no-referrer"/>
+              <div class="absolute bottom-2 left-2 bg-[#5d3f3d]/90 text-white px-2 py-0.5 rounded text-[10px] font-bold uppercase">${esc(item.label)}</div>
+            </div>
+            <div class="p-3 flex flex-col gap-2 flex-grow">
+              <p class="text-sm font-bold text-[#291716] flex-grow">${esc(item.title)}</p>
+              <button type="button" data-course="${esc(item.id)}" data-competency="${esc(competency)}" data-title="${esc(item.title)}" data-source="other" data-kind="${esc(item.kind)}" data-url="${esc(item.url || "")}" data-duration-minutes="${esc(item.duration_minutes || "")}"
+                class="w-full px-3 py-2 rounded-lg font-bold text-xs ${inBasket ? "bg-[#5d3f3d] text-white cursor-not-allowed" : "bg-[#1464F4] text-white hover:opacity-90"}"
+                ${inBasket ? "disabled" : ""}>${inBasket ? "Added" : "Add to Cart"}</button>
+            </div>
           </div>`;
         }).join("")}
       </div>
     </div>`;
   }
 
+  function youtubeThumbFromUrl(url) {
+    const match = String(url || "").match(/(?:youtube\.com\/(?:watch\?(?:[^#]*&)?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{6,11})/i);
+    return match ? `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg` : "";
+  }
+
+  function stablePick(seedText, pool) {
+    let hash = 0;
+    const text = String(seedText || "course");
+    for (let i = 0; i < text.length; i += 1) hash = ((hash << 5) - hash) + text.charCodeAt(i);
+    const index = Math.abs(hash) % pool.length;
+    return pool[index];
+  }
+
+  function otherSourceThumb(course) {
+    if (course.thumbnail) return course.thumbnail;
+    const fromYt = youtubeThumbFromUrl(course.url);
+    if (fromYt) return fromYt;
+    const kind = String(course.kind || "").toLowerCase().replace(/\s+/g, "_");
+    const pools = {
+      case_study: [
+        "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=640&h=360&q=80",
+        "https://images.unsplash.com/photo-1553877522-43269d4ea984?auto=format&fit=crop&w=640&h=360&q=80",
+        "https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=640&h=360&q=80",
+        "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=640&h=360&q=80",
+      ],
+      tedx: [
+        "https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&w=640&h=360&q=80",
+        "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=640&h=360&q=80",
+        "https://images.unsplash.com/photo-1505373877841-8d25f7d46678?auto=format&fit=crop&w=640&h=360&q=80",
+        "https://images.unsplash.com/photo-1591115765373-5207764f72e7?auto=format&fit=crop&w=640&h=360&q=80",
+      ],
+      youtube: [
+        "https://images.unsplash.com/photo-1611162616475-46b635cb6868?auto=format&fit=crop&w=640&h=360&q=80",
+        "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=640&h=360&q=80",
+        "https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&w=640&h=360&q=80",
+        "https://images.unsplash.com/photo-1492619375914-88005aa9e8fb?auto=format&fit=crop&w=640&h=360&q=80",
+      ],
+    };
+    const pool = pools[kind] || pools.case_study;
+    return stablePick(`${course.id || ""}|${course.title || ""}|${kind}`, pool);
+  }
+
   function courseThumb(course) {
-    return course.thumbnail
-      ? `<img class="w-full h-full object-cover" alt="" src="${esc(course.thumbnail)}">`
+    const isOther = course.source === "other" || String(course.id || course.course_id || "").startsWith("other:");
+    const src = course.thumbnail || (isOther ? otherSourceThumb(course) : "") || youtubeThumbFromUrl(course.url);
+    return src
+      ? `<img class="w-full h-full object-cover" alt="" src="${esc(src)}" loading="lazy" referrerpolicy="no-referrer">`
       : `<div class="w-full h-full bg-gradient-to-br from-[#ffe1df] to-[#d5e3ff] flex items-center justify-center"><span class="material-symbols-outlined text-4xl text-[#df162b]">school</span></div>`;
   }
 
@@ -1880,6 +1988,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
 
     const gaps = result.target?.gaps || [];
     const entries = Object.entries(result.competencies || {});
+    curatedOtherSources = result.other_sources || {};
     const required = entries.map(([competency]) => competency);
     const gapCount = gaps.length || entries.length;
 
@@ -1894,11 +2003,12 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       return;
     }
 
+    const isExplore = result.target?.mode === "future_role";
     const sections = entries.map(([competency, courses]) => {
       return `<section class="mb-8">
         <div class="flex flex-wrap items-center gap-2 mb-4">
           <h2 class="text-xl font-bold text-[#291716]">${esc(competency)}</h2>
-          <span class="bg-[#df162b] text-white text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Gap Identified</span>
+          <span class="bg-[#df162b] text-white text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">${isExplore ? "Explore" : "Gap Identified"}</span>
         </div>
         <div class="grid md:grid-cols-2 gap-4">${(courses || []).map((course) => courseCard(course, competency)).join("")}</div>
         ${otherSourcesBlock(competency)}
@@ -1921,7 +2031,9 @@ Before you begin, we encourage you to take a few minutes to understand the philo
             <span class="material-symbols-outlined">warning</span>
             <div>
               <p class="font-bold">Action Required</p>
-              <p class="text-sm mt-1">You're going great! However, we have identified ${gapCount} foccus areas${gapCount === 1 ? "" : "s"}. Please add at least <strong>1 LinkedIn course per gap</strong>. Other sources are optional.</p>
+              <p class="text-sm mt-1">${result.target?.mode === "future_role"
+                ? "You're thriving in your current role. Now, explore the journey toward your aspiration role. Please add at least <strong>1 LinkedIn course per skill</strong>. Other sources are optional."
+                : `You're going great! However, we have identified ${gapCount} focus area${gapCount === 1 ? "" : "s"}. Please add at least <strong>1 LinkedIn course per gap</strong>. Other sources are optional.`}</p>
             </div>
           </div>
           ${sections}
@@ -1958,6 +2070,8 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           title: control.dataset.title,
           source: control.dataset.source || "linkedin",
           kind: control.dataset.kind || "",
+          url: control.dataset.url || "",
+          duration_minutes: control.dataset.durationMinutes || "",
         });
         control.textContent = "Added";
         control.disabled = true;
@@ -2019,6 +2133,8 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           competency: item.competency,
           title: item.title,
           kind: item.kind || "",
+          url: item.url || "",
+          duration_minutes: item.duration_minutes || "",
         }));
         await api("/api/employee/learning/checkout", {
           method: "POST",
@@ -2080,7 +2196,11 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         ? (kindLabel || course.provider || "Other source")
         : (course.source_type || "LinkedIn Learning");
       const isMmt = !isOther && /mmt|academy|internal/i.test(provider);
-      const duration = course.duration || (isOther ? "—" : "—");
+      const timeLeft = hoursLeftLabel(course);
+      const kindNorm = String(course.kind || "").toLowerCase();
+      const providerLabel = isOther
+        ? (kindNorm === "tedx" || kindNorm === "ted" || kindNorm === "webinar" ? "TEDx Talk" : (kindLabel || course.provider || "Other source"))
+        : provider;
       const badge = status === "completed"
         ? '<span class="px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-[10px] font-bold uppercase whitespace-nowrap">Completed</span>'
         : status === "in_progress"
@@ -2093,20 +2213,21 @@ Before you begin, we encourage you to take a few minutes to understand the philo
             ? `<div class="flex-1 min-w-0"><div class="w-full bg-[#ffe1df] h-1.5 rounded-full overflow-hidden mb-1"><div class="bg-[#1464F4] h-full rounded-full" style="width:${progressPct}%"></div></div><span class="text-[#5d3f3d] text-sm">${progressPct}% through</span></div>`
             : `<span class="text-[#5d3f3d] text-sm">In progress</span>`)
           : `<span class="text-[#5d3f3d] text-sm">Available</span>`;
+      const primaryLabel = status === "in_progress" ? "Continue" : "Start";
       const actions = status === "completed"
         ? (course.url
           ? `<a href="${esc(course.url)}" target="_blank" rel="noopener" class="px-4 py-1.5 border border-[#df162b] text-[#df162b] rounded-lg font-bold text-sm hover:bg-[#df162b]/5">Review</a>`
           : `<span class="text-sm text-[#5d3f3d]">Done</span>`)
         : `<div class="flex flex-wrap gap-2 justify-end">
-            <button type="button" data-progress-action="launch" data-course-id="${esc(courseId)}" data-url="${esc(course.url || "")}" class="px-4 py-1.5 bg-[#df162b] text-white rounded-lg font-bold text-sm hover:opacity-90">${status === "in_progress" ? "Continue" : "Launch"}</button>
-            ${status === "in_progress" ? `<button type="button" data-progress-action="complete" data-course-id="${esc(courseId)}" class="px-4 py-1.5 border border-[#1464F4] text-[#1464F4] rounded-lg font-bold text-sm">Mark Complete</button>` : ""}
+            <button type="button" data-progress-action="launch" data-course-id="${esc(courseId)}" data-url="${esc(course.url || "")}" class="px-4 py-1.5 bg-[#df162b] text-white rounded-lg font-bold text-sm hover:opacity-90">${primaryLabel}</button>
+            ${isOther && status === "in_progress" ? `<button type="button" data-progress-action="complete" data-course-id="${esc(courseId)}" class="px-4 py-1.5 border border-[#1464F4] text-[#1464F4] rounded-lg font-bold text-sm">Mark Complete</button>` : ""}
           </div>`;
       return `<article class="bg-white rounded-xl border border-[#e7bdb9] overflow-hidden hover:shadow-md transition-all">
         <div class="h-36 w-full bg-[#fff0ef] relative overflow-hidden">${courseThumb(course)}
           <div class="absolute top-2 right-2 bg-white/90 px-2 py-1 rounded-lg text-[10px] font-bold text-[#291716] flex items-center gap-1">
-            <span class="material-symbols-outlined text-sm">timer</span> ${esc(duration)}
+            <span class="material-symbols-outlined text-sm">timer</span> ${esc(timeLeft)}
           </div>
-          <div class="absolute bottom-2 left-2 ${isOther ? "bg-[#5d3f3d]" : isMmt ? "bg-[#df162b]" : "bg-[#0077b5]"} text-white px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">${esc(provider)}</div>
+          <div class="absolute bottom-2 left-2 ${isOther ? "bg-[#5d3f3d]" : isMmt ? "bg-[#df162b]" : "bg-[#0077b5]"} text-white px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">${esc(providerLabel)}</div>
         </div>
         <div class="p-4">
           <div class="flex justify-between items-start gap-3 mb-3">
@@ -2157,7 +2278,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
             <h3 class="text-xl font-bold text-[#291716] mb-2">Learning Completion Status: ${completed}/${total} Courses</h3>
             <p class="text-sm text-[#5d3f3d] mb-4">${pct === 100
               ? "All locked courses are complete. Keep applying what you learned on the job."
-              : `Launch courses to track progress. Focus next on <span class="font-bold text-[#291716]">${esc(focusGap)}</span>.`}</p>
+              : `Start courses to track progress.`}</p>
             <div class="w-full bg-[#ffe1df] h-3 rounded-full overflow-hidden">
               <div class="bg-[#df162b] h-full rounded-full" style="width:${pct}%"></div>
             </div>
@@ -2193,7 +2314,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
   async function initLeaderboard() {
     const rows = (await api("/api/leaderboard")).leaderboard;
     render(`${pageHeader("Learning Leaderboard")}
-      <div class="overflow-x-auto bg-white border rounded-xl"><table class="w-full min-w-[600px] text-sm"><thead class="bg-slate-50 text-left"><tr><th class="p-4">Rank</th><th class="p-4">Employee</th><th class="p-4">Number of gaps cohort</th><th class="p-4">LinkedIn hours</th></tr></thead>
+      <div class="overflow-x-auto bg-white border rounded-xl"><table class="w-full min-w-[600px] text-sm"><thead class="bg-slate-50 text-left"><tr><th class="p-4">Rank</th><th class="p-4">Employee</th><th class="p-4">Focus Areas</th><th class="p-4">LinkedIn hours</th></tr></thead>
       <tbody>${rows.map((row) => `<tr class="border-t"><td class="p-4 font-bold text-blue-700">#${row.rank}</td><td class="p-4"><strong>${esc(row.name)}</strong><div class="text-xs text-slate-500">${esc(row.employee_code)}</div></td><td class="p-4">${row.gap_cohort}</td><td class="p-4 font-bold">${Number(row.learning_hours).toFixed(1)}h</td></tr>`).join("") || empty("Leaderboard is empty until final profiles and synced LinkedIn activity exist.", 4)}</tbody></table></div>`);
   }
 
@@ -2560,12 +2681,28 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       const result = await api(`/api/final-profile?employee_code=${encodeURIComponent(employeeCode)}`);
       const emp = result.employee || {};
       const name = emp.name || "Employee";
-      const ratingRows = Object.entries(result.ratings || {}).map(([competency, rating]) =>
-        `<div class="py-3 flex justify-between gap-3 border-b border-[#e7bdb9] last:border-0"><span class="text-sm text-[#291716]">${esc(competency)}</span><strong class="text-sm text-[#005cab]">${esc(rating)}</strong></div>`
-      ).join("") || '<p class="py-8 text-center text-sm text-[#5d3f3d]">Final rating not available yet.</p>';
+      const isAdmin = session.user?.role === "admin";
+      const ideals = result.ideal_ratings || {};
+      const competencies = Object.keys(result.ratings || {}).length
+        ? Object.keys(result.ratings)
+        : Object.keys(ideals);
+      const ratingRows = competencies.length
+        ? (isAdmin
+          ? `<div class="grid grid-cols-[1.4fr_1fr_1fr] gap-2 text-[11px] font-bold uppercase tracking-wider text-[#5d3f3d] pb-2 border-b border-[#e7bdb9]">
+              <span>Competency</span><span>Final rating</span><span>Ideal rating</span>
+            </div>
+            ${competencies.map((competency) => `<div class="py-3 grid grid-cols-[1.4fr_1fr_1fr] gap-2 items-center border-b border-[#e7bdb9] last:border-0">
+              <span class="text-sm text-[#291716]">${esc(competency)}</span>
+              <strong class="text-sm text-[#005cab]">${esc(result.ratings?.[competency] || "—")}</strong>
+              <strong class="text-sm text-[#5d3f3d]">${esc(ideals[competency] || "—")}</strong>
+            </div>`).join("")}`
+          : Object.entries(result.ratings || {}).map(([competency, rating]) =>
+            `<div class="py-3 flex justify-between gap-3 border-b border-[#e7bdb9] last:border-0"><span class="text-sm text-[#291716]">${esc(competency)}</span><strong class="text-sm text-[#005cab]">${esc(rating)}</strong></div>`
+          ).join(""))
+        : '<p class="py-8 text-center text-sm text-[#5d3f3d]">Final rating not available yet.</p>';
       const modal = document.createElement("div");
       modal.className = "fixed inset-0 z-[80] bg-slate-900/50 p-4 grid place-items-center";
-      modal.innerHTML = `<section class="bg-white rounded-xl p-6 max-w-xl w-full border border-[#e7bdb9] shadow-2xl max-h-[90vh] overflow-y-auto" role="dialog" aria-modal="true">
+      modal.innerHTML = `<section class="bg-white rounded-xl p-6 ${isAdmin ? "max-w-2xl" : "max-w-xl"} w-full border border-[#e7bdb9] shadow-2xl max-h-[90vh] overflow-y-auto" role="dialog" aria-modal="true">
         <div class="flex justify-between gap-3">
           <div>
             <h2 class="text-xl font-extrabold text-[#291716]">Final rating of ${esc(name)}</h2>

@@ -19,12 +19,32 @@ def slug(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", value.lower()).strip("_")
 
 
-def role_level_key(designation: str, level: str) -> str:
+def is_kam_title(*parts: str) -> bool:
+    """True when Darwin designation/role is on the Key Account Manager track."""
+    title = " ".join(str(part or "") for part in parts).lower()
+    return (
+        "key account" in title
+        or "account & client" in title
+        or "account and client" in title
+        or "account and key" in title
+        or "account & key" in title
+    )
+
+
+def display_designation(designation: str = "", role_name: str = "", *, short: bool = True) -> str:
+    """Portal label: KAM for Key Account Manager track; otherwise Darwin designation."""
+    raw = clean(designation) or clean(role_name)
+    if is_kam_title(designation, role_name):
+        return "KAM" if short else "Key Account Manager"
+    return raw
+
+
+def role_level_key(designation: str, level: str, role_name: str = "") -> str:
     role = "BDM"
-    title = designation.lower()
-    if "key account" in title:
+    title = f"{designation} {role_name}".lower()
+    if is_kam_title(designation, role_name):
         role = "KAM"
-    elif "zonal" in title or title.startswith("zm"):
+    elif "zonal" in title or clean(designation).lower().startswith("zm"):
         role = "ZM"
 
     if role == "ZM":

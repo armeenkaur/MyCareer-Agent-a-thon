@@ -191,6 +191,15 @@ class Database:
                     PRIMARY KEY(employee_code, resource_id)
                 );
 
+                CREATE TABLE IF NOT EXISTS other_source_recommendations (
+                    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
+                    target_key TEXT NOT NULL,
+                    competency TEXT NOT NULL,
+                    picks_json TEXT NOT NULL,
+                    generated_at TEXT NOT NULL,
+                    PRIMARY KEY(employee_code, target_key, competency)
+                );
+
                 CREATE TABLE IF NOT EXISTS linkedin_activity (
                     employee_code TEXT PRIMARY KEY REFERENCES employees(employee_code),
                     learning_hours REAL NOT NULL DEFAULT 0,
