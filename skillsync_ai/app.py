@@ -6,7 +6,6 @@ import shutil
 
 from .core.config import (
     OPENAI_MODEL,
-    OCR_BACKEND,
     ROOT,
     TESSERACT_CMD,
 )
@@ -24,7 +23,7 @@ def main() -> None:
     key = os.environ.get("OPENAI_API_KEY", "").strip()
     log.info("Starting MyCareer Compass")
     log.info("OPENAI_API_KEY configured=%s model=%s", bool(key), OPENAI_MODEL)
-    log.info("OCR_BACKEND=%s", OCR_BACKEND)
+    log.info("OCR_BACKEND=openai-vision+tesseract")
     log.info("File logs → %s", ROOT / "logs" / "skillsync.log")
 
     tess = TESSERACT_CMD or shutil.which("tesseract")

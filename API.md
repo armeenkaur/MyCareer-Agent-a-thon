@@ -46,7 +46,6 @@ Phase order: `zm` → `rd` → `employee`. Opening a next phase requires 100% co
 
 ## ZM and RD
 
-- `GET /api/employees` — returns only role-scoped employees.
 - `GET /api/employee-summaries` — scoped employees plus ZM/RD, role-play, final-profile, and aspiration status.
 - `GET /api/final-profile?employee_code=MMT001` — final RD profile, subject to hierarchy scope.
 - `GET /api/assessment?employee_code=MMT001`
@@ -99,7 +98,6 @@ Career aspiration locks after submission. Admin reset is required for a change.
 
 ## Courses and learning
 
-- `POST /api/employee/courses/generate`
 - `GET /api/employee/courses`
 - `POST /api/employee/learning/checkout` — `{"course_ids":["123","456"]}`
 - `GET /api/employee/learning`

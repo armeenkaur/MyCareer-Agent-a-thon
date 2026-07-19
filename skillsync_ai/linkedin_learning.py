@@ -8,7 +8,6 @@ from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from .agents.llm import throttle_api_call
-from .agents.logging import log_entry
 from .core.config import (
     LINKEDIN_LEARNING_CLIENT_ID,
     LINKEDIN_LEARNING_CLIENT_SECRET,
@@ -19,12 +18,12 @@ from .core.config import (
 
 def sync_learning_activity(data: Any, state: Any) -> dict[str, Any]:
     if not LINKEDIN_LEARNING_CLIENT_ID or not LINKEDIN_LEARNING_CLIENT_SECRET:
-        return _finish(state, "error", "LinkedIn client ID or secret missing.", 0, 0)
+        return _finish("error", "LinkedIn client ID or secret missing.", 0, 0)
     try:
         token = _access_token()
         reports = _learner_reports(token)
     except Exception as exc:  # noqa: BLE001
-        return _finish(state, "error", str(exc), 0, 0)
+        return _finish("error", str(exc), 0, 0)
 
     by_code = {code.lower(): code for code in data.employees}
     by_name = {str(emp.get("name") or "").strip().lower(): code for code, emp in data.employees.items()}
@@ -47,7 +46,7 @@ def sync_learning_activity(data: Any, state: Any) -> dict[str, Any]:
         state.linkedin_hours[emp_code] = round(seconds / 3600, 2)
         state.linkedin_completions[emp_code] = completions
         matched += 1
-    return _finish(state, "ok", f"Matched {matched} of {len(reports)} LinkedIn learners.", len(reports), matched)
+    return _finish("ok", f"Matched {matched} of {len(reports)} LinkedIn learners.", len(reports), matched)
 
 
 def _access_token() -> str:
@@ -97,9 +96,11 @@ def _learner_reports(token: str) -> list[dict[str, Any]]:
     return list(payload.get("elements") or [])
 
 
-def _finish(state: Any, status: str, message: str, learners: int, matched: int) -> dict[str, Any]:
-    result = {"status": status, "message": message, "learners": learners, "matched": matched, "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
-    state.linkedin_sync = result
-    state.agent_logs.append(log_entry("SYSTEM", "LinkedIn Learning Sync", f"{status}: {message}"))
-    state.api_calls.append({"time": datetime.now().strftime("%H:%M:%S"), "employee": "SYSTEM", "agent": "LinkedIn Learning Sync", "provider": "linkedin", "status": status, "detail": message})
-    return result
+def _finish(status: str, message: str, learners: int, matched: int) -> dict[str, Any]:
+    return {
+        "status": status,
+        "message": message,
+        "learners": learners,
+        "matched": matched,
+        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+    }

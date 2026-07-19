@@ -26,7 +26,6 @@ class RoleplayAssessmentTest(unittest.TestCase):
             "result.png",
             b"image",
             {"Beginner": "definition"},
-            object(),
             "MMT001",
         )
 
@@ -53,7 +52,6 @@ class RoleplayAssessmentTest(unittest.TestCase):
             "result.png",
             b"image",
             {"Proficient": "definition"},
-            object(),
             "MMT001",
         )
 

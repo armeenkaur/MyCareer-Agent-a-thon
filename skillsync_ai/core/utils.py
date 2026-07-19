@@ -4,8 +4,6 @@ from typing import Any
 import html
 import re
 
-from .config import PROFICIENCY_ORDER, VALUE_PROFICIENCY
-
 
 def clean(value: Any) -> str:
     if value is None:
@@ -19,11 +17,6 @@ def escape(value: Any) -> str:
 
 def slug(value: str) -> str:
     return re.sub(r"[^a-z0-9]+", "_", value.lower()).strip("_")
-
-
-def rounded_profile_label(score: float) -> str:
-    value = max(1, min(len(PROFICIENCY_ORDER), int(round(score))))
-    return VALUE_PROFICIENCY[value]
 
 
 def role_level_key(designation: str, level: str) -> str:

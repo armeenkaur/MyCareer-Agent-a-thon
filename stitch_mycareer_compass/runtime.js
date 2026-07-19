@@ -98,14 +98,6 @@
     </section>`;
   }
 
-  function progress(label, phase) {
-    const percentage = Number(phase.progress.percentage || 0);
-    return `<section class="py-3">
-      <div class="flex justify-between gap-3 text-sm"><strong>${esc(label)}</strong><span>${percentage}% · ${phase.progress.completed}/${phase.progress.total}</span></div>
-      <div class="h-2 bg-slate-100 rounded mt-2 overflow-hidden"><div class="h-full bg-blue-600" style="width:${Math.min(100, percentage)}%"></div></div>
-    </section>`;
-  }
-
   function render(content, options = {}) {
     const main = qs("#mc-main");
     if (!main) return;
@@ -120,10 +112,9 @@
 
   const mmtTheme = (role = session.user?.role) =>
     role === "employee" || role === "zm" || role === "rd" || role === "admin";
-  const employeeTheme = () => mmtTheme();
 
   function pageHeader(title, description = "", actions = "") {
-    const titleClass = employeeTheme() ? "text-[#df162b]" : "text-blue-800";
+    const titleClass = mmtTheme() ? "text-[#df162b]" : "text-blue-800";
     return `<div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-7">
       <div><h1 class="text-2xl md:text-3xl font-extrabold ${titleClass}">${esc(title)}</h1>${description ? `<p class="text-slate-600 mt-1">${esc(description)}</p>` : ""}</div>
       ${actions ? `<div class="flex flex-wrap gap-2">${actions}</div>` : ""}
@@ -131,7 +122,7 @@
   }
 
   function button(label, attributes = "", secondary = false) {
-    const primary = employeeTheme()
+    const primary = mmtTheme()
       ? (secondary ? "border border-[#1464F4] text-[#1464F4] bg-white" : "bg-[#df162b] text-white")
       : (secondary ? "border border-blue-700 text-blue-700 bg-white" : "bg-blue-700 text-white");
     return `<button ${attributes} class="px-4 py-2.5 rounded-lg font-bold text-sm ${primary} disabled:opacity-40">${esc(label)}</button>`;
@@ -884,18 +875,6 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     });
   }
 
-  function employeeTable(rows, role) {
-    return `<div class="overflow-x-auto bg-white border border-slate-200 rounded-xl"><table class="w-full min-w-[760px] text-sm">
-      <thead class="bg-slate-50 text-left"><tr><th class="p-4">Employee</th><th class="p-4">Grade</th><th class="p-4">ZM</th><th class="p-4">RD</th><th class="p-4">Assessments</th><th class="p-4">Action</th></tr></thead>
-      <tbody>${rows.map((row) => `<tr class="border-t border-slate-100">
-        <td class="p-4"><strong>${esc(row.name)}</strong><div class="text-xs text-slate-600 mt-0.5">${esc(row.designation || row.role_name || "—")}</div><div class="text-xs text-slate-500">${esc(row.employee_code)}</div></td>
-        <td class="p-4">${esc(row.grade || "—")}</td>
-        <td class="p-4">${statusChip(row.zm_status)}</td><td class="p-4">${statusChip(row.rd_status)}</td>
-        <td class="p-4">${row.roleplays_completed}/${row.roleplays_total}</td>
-        <td class="p-4">${button(role === "zm" ? (row.zm_status === "submitted" ? "View" : "Assess") : (row.rd_status === "submitted" ? "View" : "Validate"), `data-employee="${esc(row.employee_code)}"`, true)}</td>
-      </tr>`).join("") || empty("No employees in your reporting scope.", 6)}</tbody></table></div>`;
-  }
-
   async function initTeamDashboard(role) {
     if (role === "zm") {
       await renderZmDashboard();
@@ -903,22 +882,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     }
     if (role === "rd") {
       await renderRdDashboard();
-      return;
     }
-    const rows = await employeeSummaries();
-    const key = `${role}_status`;
-    const completed = rows.filter((row) => row[key] === "submitted").length;
-    const drafts = rows.filter((row) => row[key] === "draft").length;
-    render(`${pageHeader(`${role.toUpperCase()} Dashboard`, "Live workflow state for your reporting scope.")}
-      <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-7">
-        ${metric("Assigned employees", rows.length)}
-        ${metric("Submitted", completed)}
-        ${metric("Drafts", drafts)}
-        ${metric("Not started", rows.length - completed - drafts)}
-      </div>${employeeTable(rows, role)}`);
-    qsa("[data-employee]").forEach((control) => {
-      control.onclick = () => go("rd/validation", `?employee=${encodeURIComponent(control.dataset.employee)}`);
-    });
   }
 
   async function renderRdDashboard() {

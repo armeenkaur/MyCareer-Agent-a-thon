@@ -32,10 +32,10 @@ Select at most four. If nothing is directly relevant, return {"selected":[]}.
 Amber may be selected only when its text directly supports the requested competency."""
 
 
-def curate_evidence(data: Any, emp_code: str, competency: str, state: Any) -> dict[str, Any]:
+def curate_evidence(data: Any, emp_code: str, competency: str) -> dict[str, Any]:
     candidates = _candidate_snippets(data, emp_code)
     prefiltered = _prefilter(candidates, competency)
-    selected = _select_with_agent(prefiltered, competency, emp_code, state)
+    selected = _select_with_agent(prefiltered, competency, emp_code)
     if selected is None:
         selected = _fallback(prefiltered, competency)
         source = "deterministic fallback"
@@ -139,7 +139,7 @@ def _prefilter(candidates: list[dict[str, str]], competency: str) -> list[dict[s
 
 
 def _select_with_agent(
-    candidates: list[dict[str, str]], competency: str, emp_code: str, state: Any
+    candidates: list[dict[str, str]], competency: str, emp_code: str
 ) -> list[dict[str, str]] | None:
     if not candidates:
         return []
@@ -147,7 +147,6 @@ def _select_with_agent(
         SYSTEM,
         json.dumps({"employee_code": emp_code, "competency": competency, "candidates": candidates}, ensure_ascii=True),
         agent_name=AGENT_NAME,
-        state=state,
         emp_code=emp_code,
         max_completion_tokens=1800,
     )

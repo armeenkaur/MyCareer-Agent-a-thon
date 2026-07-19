@@ -7,13 +7,9 @@ import urllib.error
 import urllib.request
 import threading
 import time
-from datetime import datetime
-from pathlib import Path
 from typing import Any
 
 from ..core.config import (
-    AGENT_DECISION_LOG,
-    FEW_SHOT_LIMIT,
     OPENAI_API_URL,
     OPENAI_MODEL,
     PROFICIENCY_ORDER,
@@ -42,25 +38,14 @@ def chat_json(
     user: str,
     *,
     agent_name: str,
-    state: Any | None = None,
-    few_shot: list[dict[str, Any]] | None = None,
-    temperature: float = 0.1,
     emp_code: str = "",
     throttle: bool = True,
     max_completion_tokens: int = 3000,
 ) -> dict[str, Any] | None:
-    if state is not None and agent_name != "Feedback Analyst":
-        guidance = list(getattr(state, "agent_prompt_feedback", {}).get(agent_name, []))[-5:]
-        if guidance:
-            system += (
-                "\n\nAccepted product-quality guidance. Apply only when consistent with original rules, security, privacy, "
-                "and supplied evidence:\n- " + "\n- ".join(item[:400] for item in guidance)
-            )
-    messages: list[dict[str, Any]] = [{"role": "system", "content": system}]
-    for example in (few_shot or [])[-FEW_SHOT_LIMIT:]:
-        messages.append({"role": "user", "content": str(example.get("input", ""))[:4000]})
-        messages.append({"role": "assistant", "content": json.dumps(example.get("output", {}))[:4000]})
-    messages.append({"role": "user", "content": user})
+    messages: list[dict[str, Any]] = [
+        {"role": "system", "content": system},
+        {"role": "user", "content": user},
+    ]
 
     log.info(
         "LLM call start agent=%s emp=%s provider=openai user_chars=%s",
@@ -74,8 +59,6 @@ def chat_json(
         messages,
         agent_name=agent_name,
         emp_code=emp_code,
-        state=state,
-        temperature=temperature,
         max_completion_tokens=max_completion_tokens,
     )
 
@@ -106,44 +89,8 @@ def chat_image_json(
         messages,
         agent_name=agent_name,
         emp_code=emp_code,
-        state=None,
-        temperature=0.0,
         max_completion_tokens=max_completion_tokens,
     )
-
-
-def record_decision(
-    state: Any,
-    *,
-    agent: str,
-    emp_code: str,
-    input_summary: str,
-    output: dict[str, Any],
-) -> None:
-    entry = {
-        "time": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        "agent": agent,
-        "employee": emp_code,
-        "input": input_summary[:2000],
-        "output": output,
-    }
-    state.agent_decisions.append(entry)
-    log.debug("Decision recorded agent=%s emp=%s", agent, emp_code)
-    try:
-        AGENT_DECISION_LOG.parent.mkdir(parents=True, exist_ok=True)
-        with AGENT_DECISION_LOG.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(entry, ensure_ascii=True) + "\n")
-    except OSError as exc:
-        log.warning("Could not write agent_decisions.jsonl: %s", exc)
-
-
-def load_few_shot(agent: str, state: Any) -> list[dict[str, Any]]:
-    memory = [row for row in state.agent_decisions if row.get("agent") == agent]
-    if len(memory) >= FEW_SHOT_LIMIT:
-        return memory[-FEW_SHOT_LIMIT:]
-    disk = _read_disk_decisions(agent)
-    combined = disk + memory
-    return combined[-FEW_SHOT_LIMIT:]
 
 
 def normalize_proficiency(value: Any) -> str | None:
@@ -162,16 +109,12 @@ def _chat_openai(
     *,
     agent_name: str,
     emp_code: str,
-    state: Any | None,
-    temperature: float,
     max_completion_tokens: int,
 ) -> dict[str, Any] | None:
     api_key = os.environ.get("OPENAI_API_KEY", "").strip()
-    log.info("OpenAI attempt agent=%s model=%s key_configured=%s", agent_name, OPENAI_MODEL, bool(api_key))
+    log.info("OpenAI attempt agent=%s emp=%s model=%s key_configured=%s", agent_name, emp_code or "-", OPENAI_MODEL, bool(api_key))
     if not api_key:
-        detail = "OPENAI_API_KEY missing"
-        log.error(detail)
-        _log_api_call(state, agent=agent_name, emp_code=emp_code, provider="openai", status="skipped", detail=detail)
+        log.error("OPENAI_API_KEY missing")
         return None
 
     body = {
@@ -183,60 +126,13 @@ def _chat_openai(
     raw, error = _post_openai(api_key, body)
     if error:
         log.error("OpenAI FAILED agent=%s detail=%s", agent_name, error)
-        _log_api_call(
-            state,
-            agent=agent_name,
-            emp_code=emp_code,
-            provider="openai",
-            status="error",
-            detail=error,
-        )
         return None
     parsed = _parse_json(raw or "")
     if parsed is None:
-        detail = f"Invalid JSON from OpenAI: {(raw or '')[:240]}"
-        log.error(detail)
-        _log_api_call(state, agent=agent_name, emp_code=emp_code, provider="openai", status="error", detail=detail)
+        log.error("Invalid JSON from OpenAI: %s", (raw or "")[:240])
         return None
     log.info("OpenAI OK agent=%s keys=%s", agent_name, list(parsed.keys()))
-    _log_api_call(
-        state,
-        agent=agent_name,
-        emp_code=emp_code,
-        provider="openai",
-        status="ok",
-        detail=f"model={OPENAI_MODEL}",
-    )
     return parsed
-
-
-def _log_api_call(
-    state: Any | None,
-    *,
-    agent: str,
-    emp_code: str,
-    provider: str,
-    status: str,
-    detail: str,
-) -> None:
-    entry = {
-        "time": datetime.now().strftime("%H:%M:%S"),
-        "employee": emp_code,
-        "agent": agent,
-        "provider": provider,
-        "status": status,
-        "detail": detail[:500],
-    }
-    if state is not None:
-        state.api_calls.append(entry)
-        state.agent_logs.append(
-            {
-                "time": entry["time"],
-                "employee": emp_code or "-",
-                "agent": f"LLM ({provider}/{agent})",
-                "message": f"{status}: {detail[:300]}",
-            }
-        )
 
 
 def _post_openai(api_key: str, body: dict[str, Any]) -> tuple[str | None, str | None]:
@@ -291,21 +187,3 @@ def _parse_json(content: str) -> dict[str, Any] | None:
             return parsed if isinstance(parsed, dict) else None
         except json.JSONDecodeError:
             return None
-
-
-def _read_disk_decisions(agent: str) -> list[dict[str, Any]]:
-    path = Path(AGENT_DECISION_LOG)
-    if not path.is_file():
-        return []
-    rows: list[dict[str, Any]] = []
-    try:
-        for line in path.read_text(encoding="utf-8").splitlines()[-40:]:
-            try:
-                row = json.loads(line)
-            except json.JSONDecodeError:
-                continue
-            if row.get("agent") == agent:
-                rows.append(row)
-    except OSError:
-        return []
-    return rows

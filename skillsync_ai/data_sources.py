@@ -24,21 +24,6 @@ class WorkbookData:
         self.amber = self._load_amber()
         self.courses = self._load_courses()
 
-    @property
-    def functional_skills(self) -> list[str]:
-        return [row["skill"] for row in self.competencies if row["tag"] == "Functional"]
-
-    @property
-    def behavioral_skills(self) -> list[str]:
-        return [row["skill"] for row in self.competencies if row["tag"] == "Behavioral"]
-
-    def employee_options(self) -> list[dict[str, Any]]:
-        return sorted(self.employees.values(), key=lambda item: item["code"])
-
-    def managers(self) -> list[str]:
-        names = {emp.get("manager") for emp in self.employees.values() if emp.get("manager")}
-        return sorted(names)
-
     def manager_accounts(self) -> list[dict[str, str]]:
         accounts: dict[str, dict[str, str]] = {}
         for employee in self.employees.values():
@@ -54,17 +39,6 @@ class WorkbookData:
             if code:
                 accounts[code] = {"code": code, "name": employee.get("rd", "")}
         return sorted(accounts.values(), key=lambda row: row["code"])
-
-    def team_for_manager(self, manager: str | None) -> list[dict[str, Any]]:
-        if not manager:
-            return self.employee_options()
-        return [emp for emp in self.employee_options() if emp.get("manager") == manager]
-
-    def team_for_manager_code(self, manager_code: str) -> list[dict[str, Any]]:
-        return [emp for emp in self.employee_options() if emp.get("manager_code") == manager_code]
-
-    def team_for_rd_code(self, rd_code: str) -> list[dict[str, Any]]:
-        return [emp for emp in self.employee_options() if emp.get("rd_code") == rd_code]
 
     def ideal_for_employee(self, emp_code: str) -> dict[str, str]:
         employee = self.employees.get(emp_code, {})

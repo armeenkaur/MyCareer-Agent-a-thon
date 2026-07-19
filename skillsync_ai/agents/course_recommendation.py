@@ -57,7 +57,7 @@ def _prefilter(
 
 
 def _rank_all_with_agent(
-    groups: dict[str, dict[str, Any]], employee: dict[str, Any], emp_code: str, state: Any
+    groups: dict[str, dict[str, Any]], employee: dict[str, Any], emp_code: str
 ) -> tuple[dict[str, list[dict[str, Any]]], str]:
     compact_groups = {}
     for competency, group in groups.items():
@@ -82,7 +82,6 @@ direct competency relevance, applicability to partner and portfolio work, then f
         system,
         json.dumps({"employee": employee, "competencies": compact_groups}, ensure_ascii=True),
         agent_name=AGENT_NAME,
-        state=state,
         emp_code=emp_code,
         max_completion_tokens=5000,
     )
@@ -124,10 +123,3 @@ def _fallback_choices(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
         )
         output.append(item)
     return output
-
-
-def duration_hours(value: str) -> float:
-    parts = [int(part) for part in str(value or "0").split(":") if part.isdigit()]
-    if len(parts) == 3:
-        return round(parts[0] + parts[1] / 60 + parts[2] / 3600, 2)
-    return 0.0
