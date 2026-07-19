@@ -310,6 +310,25 @@ class Database:
             return None
         return self._row(row)
 
+    def change_password(self, login_id: str, role: str, current_password: str, new_password: str) -> None:
+        if role not in ROLES:
+            raise ValueError("Unknown role.")
+        if not str(new_password or "").strip():
+            raise ValueError("New password is required.")
+        with self.connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM users WHERE login_id=? AND role=? AND active=1",
+                (login_id.strip(), role),
+            ).fetchone()
+        if not row or not _password_matches(current_password, row["password_salt"], row["password_hash"]):
+            raise ValueError("Current password is incorrect.")
+        salt, password_hash = _password_hash(new_password)
+        with self.transaction() as connection:
+            connection.execute(
+                "UPDATE users SET password_salt=?, password_hash=?, updated_at=? WHERE id=?",
+                (salt, password_hash, utc_now(), row["id"]),
+            )
+
     def create_session(self, user_id: int, hours: int = 12) -> str:
         token = secrets.token_urlsafe(32)
         token_hash = hashlib.sha256(token.encode("utf-8")).hexdigest()

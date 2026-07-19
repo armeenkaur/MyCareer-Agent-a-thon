@@ -151,6 +151,15 @@ class WorkbookData:
                     url = str(link).strip()
                     if url.startswith("https://") and "…" not in url and "..." not in url:
                         links[str(skill).strip()] = url
+        # Fill missing competencies by repeating known links so every skill has Open Assessment.
+        known = [links[row["skill"]] for row in self.competencies if links.get(row["skill"])]
+        if known:
+            fill_index = 0
+            for row in self.competencies:
+                skill = row["skill"]
+                if skill not in links:
+                    links[skill] = known[fill_index % len(known)]
+                    fill_index += 1
         return links
 
     def _load_employees(self) -> dict[str, dict[str, Any]]:
