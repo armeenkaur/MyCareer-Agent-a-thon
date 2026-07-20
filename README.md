@@ -5,7 +5,7 @@ Persistent backend for ZM assessment, RD validation, employee role plays, Career
 ## Run
 
 ```bash
-/Users/int1961/.cache/codex-runtimes/codex-primary-runtime/dependencies/python/bin/python3 -m skillsync_ai.app
+python -m skillsync_ai.app
 ```
 
 Open:
@@ -15,6 +15,17 @@ Open:
 - API health: http://127.0.0.1:5050/api/health
 - API metadata: http://127.0.0.1:5050/api/meta
 
+Binds `HOST` (default `0.0.0.0`) and `PORT` (default `5050`). Render sets `PORT` automatically.
+
+### Render
+
+1. New Web Service → this repo  
+2. Build: `pip install -r requirements.txt`  
+3. Start: `python -m skillsync_ai.app`  
+4. Env: `OPENAI_API_KEY`, optional `OPENAI_MODEL`  
+5. Open `https://<service>.onrender.com/app/login` (not bare `/` only)
+
+Or use `render.yaml` in repo root.
 Database: `data/mycareer.db` (created and seeded automatically; gitignored).
 
 ## Authentication seed
