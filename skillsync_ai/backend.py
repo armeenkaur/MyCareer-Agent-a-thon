@@ -57,18 +57,68 @@ class MyCareerBackend:
         self.competencies = [row["skill"] for row in data.competencies]
 
     # Authentication and phase gates
-    def login(self, login_id: str, role: str, password: str) -> dict[str, Any]:
-        user = self.db.authenticate(login_id, role, password)
-        if not user:
-            raise BackendError("Invalid employee ID, role, or password.", "invalid_credentials", 401)
-        if role != "admin" and not self.phase_is_open(role):
+    def login(self, login_id: str, password: str, role: str | None = None) -> dict[str, Any]:
+        login_id = str(login_id or "").strip()
+        password = str(password or "")
+        if role:
+            user = self.db.authenticate(login_id, str(role), password)
+            if not user:
+                raise BackendError("Invalid employee ID or password.", "invalid_credentials", 401)
+        else:
+            matches = self.db.authenticate_login(login_id, password)
+            if not matches:
+                raise BackendError("Invalid employee ID or password.", "invalid_credentials", 401)
+            # Prefer an open-phase role; else highest-priority match (ZM before RD).
+            user = next(
+                (
+                    row
+                    for row in matches
+                    if row["role"] == "admin" or self.phase_is_open(row["role"])
+                ),
+                matches[0],
+            )
+
+        chosen_role = user["role"]
+        if chosen_role != "admin" and not self.phase_is_open(chosen_role):
             raise BackendError(
                 "This phase is not open yet. You will be notified when access becomes available.",
                 "phase_closed",
                 403,
             )
         token = self.db.create_session(int(user["id"]))
-        return {"token": token, "user": self.public_user(user), "phase": self.phase(role) if role != "admin" else None}
+        return {
+            "token": token,
+            "user": self.public_user(user),
+            "phase": self.phase(chosen_role) if chosen_role != "admin" else None,
+        }
+
+    def switch_role(self, user: dict[str, Any], token: str, target_role: str) -> dict[str, Any]:
+        target_role = str(target_role or "").strip().lower()
+        available = self.db.roles_for_login(user["login_id"])
+        if target_role not in available:
+            raise BackendError("That portal is not available for this account.", "forbidden", 403)
+        if target_role == user["role"]:
+            return {
+                "token": token,
+                "user": self.public_user(user),
+                "phase": self.phase(target_role) if target_role != "admin" else None,
+            }
+        if target_role != "admin" and not self.phase_is_open(target_role):
+            raise BackendError(
+                "This phase is not open yet. You will be notified when access becomes available.",
+                "phase_closed",
+                403,
+            )
+        target = self.db.user_by_login_role(user["login_id"], target_role)
+        if not target:
+            raise BackendError("That portal is not available for this account.", "forbidden", 403)
+        self.db.delete_session(token)
+        new_token = self.db.create_session(int(target["id"]))
+        return {
+            "token": new_token,
+            "user": self.public_user(target),
+            "phase": self.phase(target_role) if target_role != "admin" else None,
+        }
 
     def logout(self, token: str) -> None:
         self.db.delete_session(token)
@@ -93,6 +143,7 @@ class MyCareerBackend:
 
     def public_user(self, user: dict[str, Any]) -> dict[str, Any]:
         payload = {key: user.get(key) for key in ("login_id", "role", "display_name", "employee_code")}
+        payload["available_roles"] = self.db.roles_for_login(str(user.get("login_id") or ""))
         role = user.get("role")
         # Immediate supervisor / skip-level titles (not Darwin employee rows).
         if role == "zm":

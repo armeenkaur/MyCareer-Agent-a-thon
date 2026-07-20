@@ -12,6 +12,7 @@ from typing import Any, Iterator
 
 
 ROLES = {"admin", "zm", "rd", "employee"}
+ROLE_PRIORITY = ("admin", "zm", "rd", "employee")
 PHASES = ("zm", "rd", "employee")
 
 
@@ -307,7 +308,14 @@ class Database:
                 (display_name, employee_code, now, existing["id"]),
             )
             return
-        salt, password_hash = _password_hash(generated_password(display_name))
+        sibling = connection.execute(
+            "SELECT password_salt,password_hash FROM users WHERE login_id=? AND active=1 LIMIT 1",
+            (login_id,),
+        ).fetchone()
+        if sibling:
+            salt, password_hash = sibling["password_salt"], sibling["password_hash"]
+        else:
+            salt, password_hash = _password_hash(generated_password(display_name))
         connection.execute(
             """
             INSERT INTO users(login_id,role,display_name,employee_code,password_salt,password_hash,created_at,updated_at)
@@ -328,6 +336,41 @@ class Database:
             return None
         return self._row(row)
 
+    def authenticate_login(self, login_id: str, password: str) -> list[dict[str, Any]]:
+        """Return every active role row for login_id that accepts password."""
+        with self.connect() as connection:
+            rows = connection.execute(
+                "SELECT * FROM users WHERE login_id=? AND active=1",
+                (login_id.strip(),),
+            ).fetchall()
+        matched = [
+            self._row(row)
+            for row in rows
+            if _password_matches(password, row["password_salt"], row["password_hash"])
+        ]
+        order = {role: index for index, role in enumerate(ROLE_PRIORITY)}
+        return sorted(matched, key=lambda row: order.get(row["role"], 99))
+
+    def roles_for_login(self, login_id: str) -> list[str]:
+        with self.connect() as connection:
+            rows = connection.execute(
+                "SELECT role FROM users WHERE login_id=? AND active=1",
+                (login_id.strip(),),
+            ).fetchall()
+        order = {role: index for index, role in enumerate(ROLE_PRIORITY)}
+        roles = [row["role"] for row in rows]
+        return sorted(roles, key=lambda role: order.get(role, 99))
+
+    def user_by_login_role(self, login_id: str, role: str) -> dict[str, Any] | None:
+        if role not in ROLES:
+            return None
+        with self.connect() as connection:
+            row = connection.execute(
+                "SELECT * FROM users WHERE login_id=? AND role=? AND active=1",
+                (login_id.strip(), role),
+            ).fetchone()
+        return self._row(row) if row else None
+
     def change_password(self, login_id: str, role: str, current_password: str, new_password: str) -> None:
         if role not in ROLES:
             raise ValueError("Unknown role.")
@@ -341,10 +384,12 @@ class Database:
         if not row or not _password_matches(current_password, row["password_salt"], row["password_hash"]):
             raise ValueError("Current password is incorrect.")
         salt, password_hash = _password_hash(new_password)
+        now = utc_now()
         with self.transaction() as connection:
+            # One person → one password: sync every role row for this login_id.
             connection.execute(
-                "UPDATE users SET password_salt=?, password_hash=?, updated_at=? WHERE id=?",
-                (salt, password_hash, utc_now(), row["id"]),
+                "UPDATE users SET password_salt=?, password_hash=?, updated_at=? WHERE login_id=? AND active=1",
+                (salt, password_hash, now, login_id.strip()),
             )
 
     def create_session(self, user_id: int, hours: int = 12) -> str:

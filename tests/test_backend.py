@@ -63,12 +63,46 @@ class BackendWorkflowTest(unittest.TestCase):
     def test_phase_gate_blocks_login_until_admin_opens_phase(self) -> None:
         employee = self.data.employees["MMT1001"]
         with self.assertRaises(BackendError) as error:
-            self.backend.login(employee["manager_code"], "zm", generated_password(employee["manager"]))
+            self.backend.login(employee["manager_code"], generated_password(employee["manager"]), role="zm")
         self.assertEqual(error.exception.code, "phase_closed")
 
         self.backend.open_phase(self.admin, "zm")
-        result = self.backend.login(employee["manager_code"], "zm", generated_password(employee["manager"]))
+        result = self.backend.login(employee["manager_code"], generated_password(employee["manager"]), role="zm")
         self.assertEqual(result["user"]["role"], "zm")
+
+    def test_roleless_login_defaults_dual_zm_rd_to_zm(self) -> None:
+        self.backend.open_phase(self.admin, "zm")
+        result = self.backend.login("MMT11043", "Dinesh")
+        self.assertEqual(result["user"]["role"], "zm")
+        self.assertEqual(result["user"]["available_roles"], ["zm", "rd"])
+
+    def test_switch_role_and_password_sync_across_dual_accounts(self) -> None:
+        self.backend.open_phase(self.admin, "zm")
+        self.backend.open_phase(self.admin, "rd", override=True)
+        # Opening RD closes ZM phase; re-open ZM for dual switch test.
+        with self.db.transaction() as connection:
+            connection.execute(
+                "UPDATE phases SET status='open', closed_at=NULL WHERE phase='zm'"
+            )
+        zm_login = self.backend.login("MMT11043", "Dinesh")
+        self.assertEqual(zm_login["user"]["role"], "zm")
+        switched = self.backend.switch_role(zm_login["user"], zm_login["token"], "rd")
+        self.assertEqual(switched["user"]["role"], "rd")
+
+        rd_user = self.db.authenticate("MMT11043", "rd", "Dinesh")
+        assert rd_user is not None
+        self.backend.change_password(rd_user, "Dinesh", "SyncedPass1")
+        self.assertIsNotNone(self.db.authenticate("MMT11043", "zm", "SyncedPass1"))
+        self.assertIsNotNone(self.db.authenticate("MMT11043", "rd", "SyncedPass1"))
+        self.assertIsNone(self.db.authenticate("MMT11043", "zm", "Dinesh"))
+
+    def test_switch_role_shows_phase_closed_when_target_not_open(self) -> None:
+        self.backend.open_phase(self.admin, "zm")
+        zm_login = self.backend.login("MMT11043", "Dinesh")
+        with self.assertRaises(BackendError) as error:
+            self.backend.switch_role(zm_login["user"], zm_login["token"], "rd")
+        self.assertEqual(error.exception.code, "phase_closed")
+        self.assertEqual(self.db.session_user(zm_login["token"])["role"], "zm")
 
     def test_phase_override_does_not_report_incomplete_previous_phase_as_complete(self) -> None:
         self.backend.open_phase(self.admin, "rd", override=True)
