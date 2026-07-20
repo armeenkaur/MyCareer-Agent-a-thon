@@ -217,6 +217,12 @@ class Database:
                     PRIMARY KEY(employee_code, badge_id)
                 );
 
+                CREATE TABLE IF NOT EXISTS learning_activity_days (
+                    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
+                    activity_date TEXT NOT NULL,
+                    PRIMARY KEY(employee_code, activity_date)
+                );
+
                 CREATE TABLE IF NOT EXISTS course_progress (
                     employee_code TEXT NOT NULL REFERENCES employees(employee_code),
                     course_id TEXT NOT NULL,
