@@ -207,6 +207,15 @@ class Database:
                     synced_at TEXT NOT NULL
                 );
 
+                CREATE TABLE IF NOT EXISTS employee_badges (
+                    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
+                    badge_id TEXT NOT NULL,
+                    title TEXT NOT NULL DEFAULT '',
+                    earned_at TEXT NOT NULL,
+                    meta_json TEXT NOT NULL DEFAULT '{}',
+                    PRIMARY KEY(employee_code, badge_id)
+                );
+
                 CREATE TABLE IF NOT EXISTS course_progress (
                     employee_code TEXT NOT NULL REFERENCES employees(employee_code),
                     course_id TEXT NOT NULL,

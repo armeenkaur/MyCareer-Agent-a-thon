@@ -240,7 +240,7 @@ class BackendWorkflowTest(unittest.TestCase):
         # Candidate rows can be empty when final profile already meets the target; no general course can enter either way.
         self.assertTrue(all("general" not in row["candidate_ids_json"] for row in rows))
 
-    def test_leaderboard_ranks_only_linkedin_hours_and_shares_ties(self) -> None:
+    def test_leaderboard_ranks_hours_then_completions_and_shares_full_ties(self) -> None:
         with self.db.transaction() as connection:
             for code in ("MMT1002", "MMT1004"):
                 cursor = connection.execute(
@@ -256,15 +256,27 @@ class BackendWorkflowTest(unittest.TestCase):
                         "INSERT INTO assessment_ratings(assessment_id,competency,proficiency) VALUES(?,?,'Beginner')",
                         (cursor.lastrowid, competency),
                     )
-            for code, hours in (("MMT1002", 3.5), ("MMT1004", 3.5)):
-                connection.execute(
-                    "INSERT INTO linkedin_activity(employee_code,learning_hours,completions,synced_at) VALUES(?,?,0,?)",
-                    (code, hours, utc_now()),
-                )
-        rows = [row for row in self.backend.leaderboard(self.admin) if row["employee_code"] in {"MMT1002", "MMT1004"}]
+            connection.execute(
+                "INSERT INTO linkedin_activity(employee_code,learning_hours,completions,synced_at) VALUES(?,?,?,?)",
+                ("MMT1002", 3.5, 2, utc_now()),
+            )
+            connection.execute(
+                "INSERT INTO linkedin_activity(employee_code,learning_hours,completions,synced_at) VALUES(?,?,?,?)",
+                ("MMT1004", 3.5, 1, utc_now()),
+            )
+        payload = self.backend.leaderboard(self.admin)
+        rows = [row for row in payload["leaderboard"] if row["employee_code"] in {"MMT1002", "MMT1004"}]
         self.assertEqual(len(rows), 2)
+        by_code = {row["employee_code"]: row for row in rows}
+        self.assertEqual(by_code["MMT1002"]["rank"], 1)
+        self.assertEqual(by_code["MMT1004"]["rank"], 2)
+        self.assertEqual(by_code["MMT1002"]["focus_areas"], by_code["MMT1004"]["focus_areas"])
+        # Full tie on hours + completions → shared rank
+        with self.db.transaction() as connection:
+            connection.execute("UPDATE linkedin_activity SET completions=2 WHERE employee_code='MMT1004'")
+        payload = self.backend.leaderboard(self.admin)
+        rows = [row for row in payload["leaderboard"] if row["employee_code"] in {"MMT1002", "MMT1004"}]
         self.assertEqual({row["rank"] for row in rows}, {1})
-        self.assertEqual({row["learning_hours"] for row in rows}, {3.5})
 
     def test_course_frontend_contract_contains_required_catalog_fields(self) -> None:
         row = self.backend._course_contract(

@@ -39,7 +39,7 @@ class HandoffContractTest(unittest.TestCase):
         self.assertIn("10,847", page)
 
     def test_stitch_routes_have_html_and_shared_runtime(self) -> None:
-        self.assertEqual(len(STITCH_PAGES), 21)
+        self.assertEqual(len(STITCH_PAGES), 22)
         for folder in STITCH_PAGES.values():
             self.assertTrue((STITCH_DIR / folder / "code.html").is_file(), folder)
         self.assertTrue((STITCH_DIR / "runtime.js").is_file())

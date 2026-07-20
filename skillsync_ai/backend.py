@@ -28,6 +28,17 @@ from .state import RuntimeState
 SCREENSHOT_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
 log = get_logger("skillsync.backend")
 
+BADGE_CATALOG = [
+    {"id": "hours_stacked", "title": "Hours Stacked", "rule": "Every 2 LinkedIn learning hours", "icon": "bolt"},
+    {"id": "first_mile", "title": "First Mile", "rule": "Complete 1 LinkedIn course", "icon": "flag"},
+    {"id": "pathway_pack", "title": "Pathway Pack", "rule": "Complete 3 LinkedIn courses", "icon": "stacks"},
+    {"id": "lattice_climber", "title": "Lattice Climber", "rule": "Complete 5 LinkedIn courses", "icon": "moving"},
+    {"id": "ten_hour_club", "title": "Ten-Hour Club", "rule": "Reach 10 LinkedIn hours", "icon": "schedule"},
+    {"id": "full_circuit", "title": "Full Circuit", "rule": "Finish all locked LinkedIn courses", "icon": "all_inclusive"},
+    {"id": "gap_closer", "title": "Gap Closer", "rule": "Close all focus-area gaps", "icon": "verified"},
+    {"id": "cohort_crown", "title": "Cohort Crown", "rule": "#1 in your severity band", "icon": "military_tech"},
+]
+
 
 class BackendError(Exception):
     def __init__(self, message: str, code: str = "bad_request", status: int = 400) -> None:
@@ -1275,45 +1286,233 @@ class MyCareerBackend:
         band = "High" if score >= 75 else "Medium" if score >= 55 else "Low"
         return {"status": "complete", "score": score, "band": band, "competencies": rows}
 
-    def leaderboard(self, user: dict[str, Any]) -> list[dict[str, Any]]:
+    def leaderboard(self, user: dict[str, Any]) -> dict[str, Any]:
+        """Severity-band cohort leaderboard + badges + manager/RD stats."""
         scoped = self.scoped_employees(user)
         employee_cohort: int | None = None
+        viewer_code = ""
         if user["role"] == "employee":
-            own_code = str(user["employee_code"])
-            if self.final_profile(own_code):
-                employee_cohort = int(self.learning_target(own_code)["total_gap_levels"])
+            viewer_code = str(user.get("employee_code") or "")
+            if self.final_profile(viewer_code):
+                employee_cohort = int(self.learning_target(viewer_code)["total_gap_levels"])
                 with self.db.connect() as connection:
                     scoped = [dict(row) for row in connection.execute("SELECT * FROM employees ORDER BY employee_code")]
-        rows = []
+
+        rows: list[dict[str, Any]] = []
         with self.db.connect() as connection:
             for employee in scoped:
-                if not self.final_profile(employee["employee_code"]):
+                code = employee["employee_code"]
+                if not self.final_profile(code):
                     continue
-                target = self.learning_target(employee["employee_code"])
-                if employee_cohort is not None and target["total_gap_levels"] != employee_cohort:
+                target = self.learning_target(code)
+                severity = int(target["total_gap_levels"])
+                if employee_cohort is not None and severity != employee_cohort:
                     continue
+                focus_areas = len(target.get("gaps") or [])
                 activity = connection.execute(
-                    "SELECT learning_hours FROM linkedin_activity WHERE employee_code=?",
-                    (employee["employee_code"],),
+                    "SELECT learning_hours,completions FROM linkedin_activity WHERE employee_code=?",
+                    (code,),
                 ).fetchone()
+                hours = float(activity["learning_hours"]) if activity else 0.0
+                completions = int(activity["completions"]) if activity else 0
+                linkedin_locked = int(
+                    connection.execute(
+                        "SELECT COUNT(*) FROM learning_selections WHERE employee_code=?", (code,)
+                    ).fetchone()[0]
+                )
+                linkedin_done = int(
+                    connection.execute(
+                        """
+                        SELECT COUNT(*) FROM course_progress cp
+                        JOIN learning_selections ls
+                          ON ls.employee_code=cp.employee_code AND ls.course_id=cp.course_id
+                        WHERE cp.employee_code=? AND cp.status='completed'
+                        """,
+                        (code,),
+                    ).fetchone()[0]
+                )
+                full_circuit = bool(linkedin_locked and linkedin_done >= linkedin_locked)
                 rows.append(
                     {
-                        "employee_code": employee["employee_code"],
+                        "employee_code": code,
                         "name": employee["name"],
-                        "gap_cohort": target["total_gap_levels"],
-                        "learning_hours": float(activity["learning_hours"]) if activity else 0.0,
+                        "severity_band": severity,
+                        "focus_areas": focus_areas,
+                        "gap_cohort": severity,  # back-compat
+                        "learning_hours": hours,
+                        "completions": completions,
+                        "journey_locked": bool(linkedin_locked),
+                        "full_circuit": full_circuit,
                     }
                 )
-        for cohort in {row["gap_cohort"] for row in rows}:
-            group = sorted((row for row in rows if row["gap_cohort"] == cohort), key=lambda row: row["learning_hours"], reverse=True)
-            previous_hours = None
+
+        # Rank within each severity band: hours desc, then completions desc; share rank on full tie.
+        for cohort in {row["severity_band"] for row in rows}:
+            group = sorted(
+                (row for row in rows if row["severity_band"] == cohort),
+                key=lambda row: (-row["learning_hours"], -row["completions"], row["name"]),
+            )
+            previous_key = None
             rank = 0
             for index, row in enumerate(group, 1):
-                if previous_hours is None or row["learning_hours"] != previous_hours:
+                key = (row["learning_hours"], row["completions"])
+                if previous_key is None or key != previous_key:
                     rank = index
-                    previous_hours = row["learning_hours"]
+                    previous_key = key
                 row["rank"] = rank
-        return sorted(rows, key=lambda row: (row["gap_cohort"], row["rank"], row["name"]))
+
+        for row in rows:
+            row["badges"] = self._sync_badges_for_row(row)
+
+        rows = sorted(rows, key=lambda row: (row["severity_band"], row["rank"], row["name"]))
+        viewer_badges = []
+        viewer_row = next((row for row in rows if row["employee_code"] == viewer_code), None)
+        if viewer_row:
+            viewer_badges = viewer_row["badges"]
+        elif viewer_code:
+            viewer_badges = self.badges_for(viewer_code)
+
+        viewer_gaps: list[dict[str, Any]] = []
+        if viewer_code and self.final_profile(viewer_code):
+            for gap in self.learning_target(viewer_code).get("gaps") or []:
+                levels = int(gap.get("gap_levels") or 0)
+                intensity = "High" if levels >= 3 else "Med" if levels == 2 else "Low"
+                viewer_gaps.append(
+                    {
+                        "competency": gap["competency"],
+                        "gap_levels": levels,
+                        "intensity": intensity,
+                        "current": gap.get("current"),
+                        "target": gap.get("target"),
+                    }
+                )
+
+        stats = None
+        if user["role"] in {"zm", "rd", "admin"}:
+            stats = self._leaderboard_stats(rows)
+
+        return {
+            "leaderboard": rows,
+            "viewer": {
+                "role": user["role"],
+                "employee_code": viewer_code or None,
+                "severity_band": employee_cohort,
+                "focus_areas": viewer_row["focus_areas"] if viewer_row else None,
+                "rank": viewer_row["rank"] if viewer_row else None,
+                "learning_hours": viewer_row["learning_hours"] if viewer_row else None,
+                "completions": viewer_row["completions"] if viewer_row else None,
+                "gaps": viewer_gaps,
+            },
+            "badges": viewer_badges,
+            "badge_catalog": BADGE_CATALOG,
+            "stats": stats,
+        }
+
+    def badges_for(self, employee_code: str) -> list[dict[str, Any]]:
+        with self.db.connect() as connection:
+            rows = connection.execute(
+                "SELECT badge_id,title,earned_at,meta_json FROM employee_badges WHERE employee_code=? ORDER BY earned_at",
+                (employee_code,),
+            ).fetchall()
+        return [
+            {
+                "id": row["badge_id"],
+                "title": row["title"],
+                "earned_at": row["earned_at"],
+                "meta": self.db.decode_json(row["meta_json"], {}),
+            }
+            for row in rows
+        ]
+
+    def _sync_badges_for_row(self, row: dict[str, Any]) -> list[dict[str, Any]]:
+        code = row["employee_code"]
+        hours = float(row["learning_hours"])
+        completions = int(row["completions"])
+        earned: list[tuple[str, str, dict[str, Any]]] = []
+        stacked = int(hours // 2)
+        if stacked >= 1:
+            earned.append(
+                (
+                    "hours_stacked",
+                    "Hours Stacked",
+                    {"tier": stacked, "hours": hours, "copy": f"+{stacked * 2:.0f}h on LinkedIn — Hours Stacked unlocked"},
+                )
+            )
+        if completions >= 1:
+            earned.append(("first_mile", "First Mile", {"completions": completions}))
+        if completions >= 3:
+            earned.append(("pathway_pack", "Pathway Pack", {"completions": completions}))
+        if completions >= 5:
+            earned.append(("lattice_climber", "Lattice Climber", {"completions": completions}))
+        if hours >= 10:
+            earned.append(("ten_hour_club", "Ten-Hour Club", {"hours": hours}))
+        if row.get("full_circuit"):
+            earned.append(("full_circuit", "Full Circuit", {}))
+        if int(row.get("focus_areas") or 0) == 0 and int(row.get("severity_band") or 0) == 0:
+            earned.append(("gap_closer", "Gap Closer", {"focus_areas": 0}))
+        if int(row.get("rank") or 0) == 1:
+            earned.append(("cohort_crown", "Cohort Crown", {"severity_band": row.get("severity_band")}))
+
+        now = utc_now()
+        with self.db.transaction() as connection:
+            for badge_id, title, meta in earned:
+                connection.execute(
+                    """
+                    INSERT INTO employee_badges(employee_code,badge_id,title,earned_at,meta_json)
+                    VALUES(?,?,?,?,?)
+                    ON CONFLICT(employee_code,badge_id) DO UPDATE SET
+                        title=excluded.title,
+                        meta_json=excluded.meta_json
+                    """,
+                    (code, badge_id, title, now, json.dumps(meta, default=str)),
+                )
+        return self.badges_for(code)
+
+    @staticmethod
+    def _leaderboard_stats(rows: list[dict[str, Any]]) -> dict[str, Any]:
+        team_size = len(rows)
+        total_hours = round(sum(row["learning_hours"] for row in rows), 1)
+        avg_hours = round(total_hours / team_size, 1) if team_size else 0.0
+        locked = sum(1 for row in rows if row.get("journey_locked"))
+        focus_dist: dict[int, int] = {}
+        for row in rows:
+            key = int(row["focus_areas"])
+            focus_dist[key] = focus_dist.get(key, 0) + 1
+        hours_buckets = {"0–2h": 0, "2–5h": 0, "5–10h": 0, "10h+": 0}
+        for row in rows:
+            h = float(row["learning_hours"])
+            if h < 2:
+                hours_buckets["0–2h"] += 1
+            elif h < 5:
+                hours_buckets["2–5h"] += 1
+            elif h < 10:
+                hours_buckets["5–10h"] += 1
+            else:
+                hours_buckets["10h+"] += 1
+        badge_dist: dict[str, int] = {}
+        for row in rows:
+            for badge in row.get("badges") or []:
+                key = badge.get("title") or badge.get("id") or "Badge"
+                badge_dist[key] = badge_dist.get(key, 0) + 1
+        return {
+            "team_size": team_size,
+            "total_hours": total_hours,
+            "avg_hours": avg_hours,
+            "journey_locked": locked,
+            "journey_locked_pct": int(round((locked / team_size) * 100)) if team_size else 0,
+            "focus_area_distribution": [
+                {"focus_areas": key, "count": focus_dist[key]} for key in sorted(focus_dist)
+            ],
+            "hours_buckets": [{"label": label, "count": count} for label, count in hours_buckets.items()],
+            "badge_distribution": [
+                {"name": name, "count": count}
+                for name, count in sorted(badge_dist.items(), key=lambda item: (-item[1], item[0]))
+            ],
+            "severity_bands": [
+                {"band": band, "count": sum(1 for row in rows if row["severity_band"] == band)}
+                for band in sorted({row["severity_band"] for row in rows})
+            ],
+        }
 
     def agent_audit(self, limit: int = 100) -> list[dict[str, Any]]:
         limit = max(1, min(int(limit), 500))
