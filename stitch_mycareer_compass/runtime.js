@@ -1697,45 +1697,96 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     const insights = state.insights || {};
     const choiceId = state.choice?.aspiration_role || "";
     const byId = Object.fromEntries(journey.map((node) => [node.id, node]));
+    const isKamCurrent = state.current === "KAM";
     const currentNode = byId.current || journey[0];
-    const hasKam = Boolean(byId.kam);
+
+    // Always show full lattice: BD → KAM/ZM/BDFE/Category, KAM → ZM → RD.
+    const bdNode = isKamCurrent
+      ? {
+          id: "bd",
+          label: "Business Development",
+          short_label: "BD",
+          enabled: false,
+          state: "prior",
+          selectable: false,
+        }
+      : currentNode;
+    const kamNode = isKamCurrent
+      ? currentNode
+      : (byId.kam || {
+          id: "kam",
+          label: "Key Account Manager",
+          short_label: "KAM",
+          enabled: false,
+          state: "locked_future",
+          selectable: false,
+        });
+    const bdfeNode = byId.bdfe || {
+      id: "bdfe",
+      label: "Business Development Fieldforce Effectiveness",
+      short_label: "BDFE",
+      enabled: false,
+      state: "locked_future",
+      selectable: false,
+    };
+    const categoryNode = byId.category || {
+      id: "category",
+      label: "Category",
+      short_label: "Category",
+      enabled: false,
+      state: "locked_future",
+      selectable: false,
+    };
 
     const trackCode = (node) => {
       if (!node) return "—";
       if (node.id === "current") {
         const raw = String(node.short_label || node.label || state.current || "");
-        return raw.replace(/\s*RL[\d][\w\-–]*/gi, "").replace(/\s+/g, " ").trim() || (state.current === "KAM" ? "KAM" : "BD");
+        return raw.replace(/\s*RL[\d][\w\-–]*/gi, "").replace(/\s+/g, " ").trim() || (isKamCurrent ? "KAM" : "BD");
       }
+      if (node.id === "bdfe") return "BDFE";
+      if (node.id === "category") return "Category";
+      if (node.id === "bd") return "BD";
       return String(node.short_label || node.id || "").toUpperCase();
     };
 
     const fullTitle = (node) => {
       if (!node) return "";
       if (node.id === "current") {
-        if (state.current === "KAM") return "Key Account Manager";
+        if (isKamCurrent) return "Key Account Manager";
         return "Business Development";
       }
+      if (node.id === "bd") return "Business Development";
+      if (node.id === "bdfe") return "Business Development Fieldforce Effectiveness";
+      if (node.id === "category") return "Category";
       return node.label || "";
     };
 
     const nodeStatus = (node) => {
       if (!node) return "missing";
       if (node.state === "current") return "current";
+      if (node.state === "prior") return "prior";
       if (choiceId && node.id === choiceId) return "selected";
       if (node.enabled) return "eligible";
       return "locked";
     };
 
+    const resolveNode = (id) => {
+      if (id === "bd") return bdNode;
+      if (id === "kam") return kamNode;
+      if (id === "current") return currentNode;
+      return byId[id];
+    };
+
     const pathStroke = (fromId, toId) => {
-      const from = byId[fromId];
-      const to = byId[toId];
+      const from = resolveNode(fromId);
+      const to = resolveNode(toId);
       if (!to) return { base: "#cfcfcf", glow: "transparent", lit: false };
       const st = nodeStatus(to);
       if (st === "selected") return { base: "#16a34a", glow: "#16a34a", lit: true };
       if (st === "eligible" || (from && nodeStatus(from) === "current" && to.enabled)) {
         return { base: "#1464F4", glow: "#1464F4", lit: true };
       }
-      // path into locked role stays muted
       return { base: "#c5c5c5", glow: "transparent", lit: false };
     };
 
@@ -1747,29 +1798,28 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         ${lit ? `<path d="${d}" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-dasharray="6 10" opacity="0.7"/>` : ""}`;
     };
 
-    // Horizontal lattice coords (viewBox 1000×520): current left → KAM/ZM mid → RD right.
-    // Always draw KAM→RD when KAM exists (backend eligibility drives glow).
-    let pathsHtml = "";
-    if (hasKam) {
-      const bdKam = pathStroke("current", "kam");
-      const bdZm = pathStroke("current", "zm");
-      const kamRd = pathStroke("kam", "rd");
-      const zmRd = pathStroke("zm", "rd");
-      // Card centers @ x=550; ~220px wide → edges ≈ 440 / 660. Stretch SVG to stage.
-      pathsHtml = [
-        pipe("M 240 260 C 310 260 340 150 410 150", bdKam),
-        pipe("M 240 260 C 310 260 340 370 410 370", bdZm),
-        pipe("M 590 150 C 680 150 740 220 780 260", kamRd),
-        pipe("M 590 370 C 680 370 740 300 780 260", zmRd),
-      ].join("");
-    } else {
-      const bdZm = pathStroke("current", "zm");
-      const zmRd = pathStroke("zm", "rd");
-      pathsHtml = [
-        pipe("M 240 260 C 320 260 350 370 410 370", bdZm),
-        pipe("M 590 370 C 680 370 740 280 780 260", zmRd),
-      ].join("");
-    }
+    // viewBox 1200×640 — KAM nests in BD fork (above blue spine, at end of green).
+    // Grey paths approach BDFE/Category from the left so tips point into the cards.
+    const bdKam = pathStroke("bd", "kam");
+    const bdZm = pathStroke("bd", "zm");
+    const kamZm = pathStroke("kam", "zm");
+    const zmRd = pathStroke("zm", "rd");
+    const bdBdfe = pathStroke("bd", "bdfe");
+    const bdCat = pathStroke("bd", "category");
+    // Centers: BD(144,282) KAM(456,154) ZM(720,282) RD(1056,282) BDFE(288,422) Cat(288,550)
+    const pathsHtml = [
+      // BD → KAM: into KAM left (card sits in fork between this and blue spine)
+      pipe("M 222 255 C 300 230 340 170 378 160", bdKam),
+      // BD → ZM: spine under KAM
+      pipe("M 222 282 C 420 282 560 282 642 282", bdZm),
+      // KAM → ZM: from KAM right into ZM upper-left
+      pipe("M 534 160 C 600 160 620 240 642 258", kamZm),
+      // ZM → RD
+      pipe("M 798 282 C 880 282 940 282 978 282", zmRd),
+      // BD → BDFE / Category: same curve as BD→KAM, flipped across y=282 (Category = deeper scale)
+      pipe("M 222 309 C 300 334 340 394 378 404", bdBdfe),
+      pipe("M 222 320 C 300 370 340 490 378 510", bdCat),
+    ].join("");
 
     const cardHtml = (node, slot) => {
       if (!node) return "";
@@ -1778,12 +1828,13 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       const title = fullTitle(node);
       const clickable = st === "eligible" && node.selectable && !state.choice;
       const slots = {
-        current: "left:18%; top:50%; transform:translate(-50%,-50%)",
-        kam: "left:50%; top:26%; transform:translate(-50%,-50%)",
-        zm: "left:50%; top:74%; transform:translate(-50%,-50%)",
-        rd: "left:82%; top:50%; transform:translate(-50%,-50%)",
+        bd: "left:12%; top:44%; transform:translate(-50%,-50%)",
+        kam: "left:38%; top:24%; transform:translate(-50%,-50%)",
+        zm: "left:60%; top:44%; transform:translate(-50%,-50%)",
+        rd: "left:88%; top:44%; transform:translate(-50%,-50%)",
+        bdfe: "left:38%; top:63%; transform:translate(-50%,-50%)",
+        category: "left:38%; top:80%; transform:translate(-50%,-50%)",
       };
-      if (!hasKam && node.id === "zm") slots.zm = "left:50%; top:50%; transform:translate(-50%,-50%)";
 
       let shell = "lattice-card bg-white/80 backdrop-blur-md border-2 shadow-sm";
       let glow = "";
@@ -1802,6 +1853,9 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         shell += " border-[#1464F4]";
         glow = "box-shadow:0 0 0 4px rgba(20,100,244,.10), 0 0 28px rgba(20,100,244,.22);";
         statusBlock = `<p class="text-xs font-bold text-[#1464F4] mt-2 uppercase tracking-wide">Eligible</p>`;
+      } else if (st === "prior") {
+        shell += " border-[#c9c9c9] opacity-80";
+        statusBlock = `<p class="text-[11px] font-bold text-[#5d3f3d] mt-1.5 uppercase tracking-wide">Prior role</p>`;
       } else {
         shell += " border-[#c9c9c9] opacity-90";
         statusBlock = `<p class="text-[11px] font-bold text-[#5d3f3d] mt-1.5 uppercase tracking-wide">Locked</p>`;
@@ -1823,20 +1877,24 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           ? `<span class="absolute top-1.5 right-1.5 text-[9px] font-bold uppercase text-[#5d3f3d] bg-[#f2f2f2] px-1 py-0.5 rounded">Locked</span>`
           : "";
 
-      return `<div class="absolute z-20" style="${slots[slot] || slots.current}">
-        <button type="button" data-path="${esc(node.id)}" data-label="${esc(node.label || title)}"
+      const pathId = node.id === "current"
+        ? (isKamCurrent ? "kam" : "bd")
+        : node.id;
+
+      return `<div class="absolute z-20" style="${slots[slot] || slots.bd}">
+        <button type="button" data-path="${esc(pathId)}" data-label="${esc(node.label || title)}"
           ${clickable ? "" : "disabled"}
-          class="${shell} relative w-[148px] sm:w-[160px] rounded-xl p-3 text-left transition-transform ${clickable ? "cursor-pointer hover:scale-[1.03]" : "cursor-default"}"
+          class="${shell} relative w-[132px] sm:w-[148px] rounded-xl p-3 text-left transition-transform ${clickable ? "cursor-pointer hover:scale-[1.03]" : "cursor-default"}"
           style="${glow}">
           ${pin}${corner}${lockOverlay}
-          <p class="text-2xl font-extrabold tracking-tight leading-none ${st === "locked" ? "text-[#9ca3af]" : "text-[#291716]"}">${esc(code)}</p>
+          <p class="text-xl sm:text-2xl font-extrabold tracking-tight leading-none ${st === "locked" || st === "prior" ? "text-[#9ca3af]" : "text-[#291716]"}">${esc(code)}</p>
           <p class="text-[11px] text-[#5d3f3d] mt-1 leading-snug">${esc(title)}</p>
           ${statusBlock}
         </button>
       </div>`;
     };
 
-    const tips = (insights.tips || []).map((tip) => `<li class="flex items-start gap-2">
+    const tips = (insights.tips || []).map((tip) => `<li class="flex items-start gap-2 break-inside-avoid">
       <div class="w-6 h-6 rounded-full bg-[#d5e3ff] grid place-items-center shrink-0 mt-0.5">
         <span class="material-symbols-outlined text-[#1464F4] text-[16px]">info</span>
       </div>
@@ -1844,16 +1902,18 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     </li>`).join("");
 
     const cards = [
-      cardHtml(currentNode, "current"),
-      hasKam ? cardHtml(byId.kam, "kam") : "",
+      cardHtml(bdNode, "bd"),
+      cardHtml(kamNode, "kam"),
       cardHtml(byId.zm, "zm"),
       cardHtml(byId.rd, "rd"),
+      cardHtml(bdfeNode, "bdfe"),
+      cardHtml(categoryNode, "category"),
     ].join("");
 
     render(`<style>
       .lattice-stage{
-        position:relative;width:100%;min-height:400px;border-radius:1rem;overflow:hidden;
-        padding:1.5rem 2.25rem;box-sizing:border-box;
+        position:relative;width:100%;min-height:0;aspect-ratio:1200/640;border-radius:1rem;overflow:hidden;
+        padding:1.25rem 1.5rem 2rem;box-sizing:border-box;
         background:
           linear-gradient(180deg,#fafafa 0%,#f2f2f2 100%);
       }
@@ -1873,15 +1933,15 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       </div>
       <div class="text-sm font-bold text-[#df162b] bg-[#fff0ef] border border-[#e7bdb9] rounded-lg px-4 py-2">
         ${esc(trackCode(currentNode))}
-        ${state.current === "KAM" || /kam/i.test(String(state.current_label || ""))
+        ${isKamCurrent || /kam/i.test(String(state.current_label || ""))
           ? ` · ${esc(state.designation || "Key Account Manager")}`
           : (state.designation ? ` · ${esc(state.designation)}` : "")}
       </div>
     </section>
-    <div class="grid grid-cols-12 gap-6 items-start">
-      <div class="col-span-12 xl:col-span-9">
+    <div class="space-y-6">
+      <div>
         <div class="lattice-stage border border-[#e0e0e0] shadow-sm">
-          <svg class="absolute inset-0 w-full h-full" viewBox="0 0 1000 520" preserveAspectRatio="none" aria-hidden="true">
+          <svg class="absolute inset-0 w-full h-full" viewBox="0 0 1200 640" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
             ${pathsHtml}
           </svg>
           ${cards}
@@ -1896,11 +1956,9 @@ Before you begin, we encourage you to take a few minutes to understand the philo
             : `<p class="ml-auto text-xs font-semibold text-[#5d3f3d]">Tap an eligible role to lock aspiration</p>`}
         </div>
       </div>
-      <div class="col-span-12 xl:col-span-3 space-y-5">
-        <div class="bg-white border border-[#e7bdb9] rounded-xl p-5 shadow-sm">
-          <div class="flex items-center gap-2 mb-4"><span class="material-symbols-outlined text-[#1464F4]">tips_and_updates</span><h3 class="font-bold text-[#291716]">Route Guide</h3></div>
-          <ul class="space-y-3">${tips || `<li class="text-sm text-[#5d3f3d]">No guidance yet.</li>`}</ul>
-        </div>
+      <div class="bg-white border border-[#e7bdb9] rounded-xl p-5 shadow-sm">
+        <div class="flex items-center gap-2 mb-4"><span class="material-symbols-outlined text-[#1464F4]">tips_and_updates</span><h3 class="font-bold text-[#291716]">Route Guide</h3></div>
+        <ul class="space-y-3 md:columns-2 md:gap-8">${tips || `<li class="text-sm text-[#5d3f3d]">No guidance yet.</li>`}</ul>
       </div>
     </div>`);
 

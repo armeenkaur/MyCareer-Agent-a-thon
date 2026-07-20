@@ -700,9 +700,28 @@ class MyCareerBackend:
         )
 
     def _career_paths(self, employee: dict[str, Any]) -> list[dict[str, Any]]:
-        """Probable Career Paths Table 2 — Yes = coloured/enabled, Grey/Locked = locked."""
+        """Probable Career Paths Table 2 — Yes = coloured/enabled, Grey/Locked = locked.
+
+        BDFE and Category always appear on the lattice and are always locked (not selectable).
+        """
         role = self._current_role(employee)
         grade = str(employee.get("grade") or "").strip()
+        locked_sides = [
+            {
+                "id": "bdfe",
+                "label": "Business Development Fieldforce Effectiveness",
+                "target_key": "",
+                "enabled": False,
+                "state": "locked_future",
+            },
+            {
+                "id": "category",
+                "label": "Category",
+                "target_key": "",
+                "enabled": False,
+                "state": "locked_future",
+            },
+        ]
         if role == "BDM":
             kam_key = "KAM (RL4)" if grade == "RL4" else "KAM (RL2-3)"
             zm_enabled = grade in {"RL3", "RL4"}
@@ -728,6 +747,7 @@ class MyCareerBackend:
                     "enabled": False,
                     "state": "locked_future",
                 },
+                *locked_sides,
             ]
         zm_enabled = grade in {"RL3", "RL4"}
         return [
@@ -745,6 +765,7 @@ class MyCareerBackend:
                 "enabled": False,
                 "state": "locked_future",
             },
+            *locked_sides,
         ]
 
     def choose_career(self, user: dict[str, Any], aspiration_role: str) -> dict[str, Any]:
