@@ -14,7 +14,7 @@ Authorization: Bearer <token>
 
 ```json
 {
-  "login_id": "MMT001",
+  "login_id": "MMT1001",
   "role": "employee",
   "password": "Raman"
 }
@@ -37,8 +37,8 @@ Roles: `admin`, `zm`, `rd`, `employee`. Login IDs come from Employee Darwin. Pas
 - `GET /api/admin/overview`
 - `POST /api/admin/phases/open` — `{"phase":"rd","override":false}`
 - `POST /api/admin/phases/close` — `{"phase":"rd"}`
-- `GET /api/admin/confidence?employee_code=MMT001`
-- `POST /api/admin/career/reset` — `{"employee_code":"MMT001"}`
+- `GET /api/admin/confidence?employee_code=MMT1001`
+- `POST /api/admin/career/reset` — `{"employee_code":"MMT1001"}`
 - `POST /api/admin/linkedin/sync`
 - `GET /api/admin/audit?limit=100` — persisted activity from exactly three active agents.
 
@@ -47,13 +47,13 @@ Phase order: `zm` → `rd` → `employee`. Opening a next phase requires 100% co
 ## ZM and RD
 
 - `GET /api/employee-summaries` — scoped employees plus ZM/RD, role-play, final-profile, and aspiration status.
-- `GET /api/final-profile?employee_code=MMT001` — final RD profile, subject to hierarchy scope.
-- `GET /api/assessment?employee_code=MMT001`
+- `GET /api/final-profile?employee_code=MMT1001` — final RD profile, subject to hierarchy scope.
+- `GET /api/assessment?employee_code=MMT1001`
 - `POST /api/assessment`
 
 ```json
 {
-  "employee_code": "MMT001",
+  "employee_code": "MMT1001",
   "ratings": {
     "Communication": "Intermediate",
     "Stakeholder Management": "Proficient",
@@ -72,7 +72,7 @@ Submitted assessments are locked. RD submissions become final competency profile
 
 RD-only validation context:
 
-- `GET /api/rd/validation?employee_code=MMT001`
+- `GET /api/rd/validation?employee_code=MMT1001`
 
 This returns ZM ratings, final/draft RD ratings, rubric, and competency-specific TNA/Appraisal/Interview/Amber evidence. Missing evidence returns “No relevant evidence found.” Variable Pay is never loaded.
 

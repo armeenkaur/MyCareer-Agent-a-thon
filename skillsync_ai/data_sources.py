@@ -42,7 +42,11 @@ class WorkbookData:
 
     def ideal_for_employee(self, emp_code: str) -> dict[str, str]:
         employee = self.employees.get(emp_code, {})
-        key = role_level_key(employee.get("designation", ""), employee.get("level", ""))
+        key = role_level_key(
+            employee.get("designation", ""),
+            employee.get("level", ""),
+            employee.get("role_name") or employee.get("role") or "",
+        )
         return self.ideal_for_role_key(key)
 
     def ideal_for_role_key(self, key: str) -> dict[str, str]:

@@ -12,12 +12,14 @@ from .agents.course_recommendation import (
     _fallback_choices,
     _prefilter,
     _rank_all_with_agent,
+    curate_other_sources,
+    resolve_other_source,
 )
 from .agents.evidence_curator import AGENT_NAME as EVIDENCE_AGENT, CURATOR_VERSION, curate_evidence
 from .agents.roleplay_assessment import AGENT_NAME as ROLEPLAY_AGENT, assess_roleplay
 from .core.config import PROFICIENCY_ORDER, PROFICIENCY_VALUE, UPLOAD_DIR
 from .core.logging_setup import get_logger
-from .core.utils import role_level_key, slug
+from .core.utils import display_designation, is_kam_title, role_level_key, slug
 from .database import Database, PHASES, utc_now
 from .linkedin_learning import sync_learning_activity
 from .state import RuntimeState
@@ -25,6 +27,17 @@ from .state import RuntimeState
 
 SCREENSHOT_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
 log = get_logger("skillsync.backend")
+
+BADGE_CATALOG = [
+    {"id": "hours_stacked", "title": "Hours Stacked", "rule": "Every 2 LinkedIn learning hours", "icon": "bolt"},
+    {"id": "first_mile", "title": "First Mile", "rule": "Complete 1 LinkedIn course", "icon": "flag"},
+    {"id": "pathway_pack", "title": "Pathway Pack", "rule": "Complete 3 LinkedIn courses", "icon": "stacks"},
+    {"id": "lattice_climber", "title": "Lattice Climber", "rule": "Complete 5 LinkedIn courses", "icon": "moving"},
+    {"id": "ten_hour_club", "title": "Ten-Hour Club", "rule": "Reach 10 LinkedIn hours", "icon": "schedule"},
+    {"id": "full_circuit", "title": "Full Circuit", "rule": "Finish all locked LinkedIn courses", "icon": "all_inclusive"},
+    {"id": "gap_closer", "title": "Gap Closer", "rule": "Close all focus-area gaps", "icon": "verified"},
+    {"id": "cohort_crown", "title": "Cohort Crown", "rule": "#1 in your severity band", "icon": "military_tech"},
+]
 
 
 class BackendError(Exception):
@@ -95,9 +108,9 @@ class MyCareerBackend:
             except BackendError:
                 employee = {}
             designation = str(employee.get("designation") or "").strip()
-            role_name = str(employee.get("role_name") or "").strip()
+            role_name = str(employee.get("role_name") or employee.get("role") or "").strip()
             if designation or role_name:
-                payload["designation"] = designation or role_name
+                payload["designation"] = display_designation(designation, role_name, short=True)
         return payload
 
     def phase(self, phase: str) -> dict[str, Any]:
@@ -252,6 +265,7 @@ class MyCareerBackend:
             "employee": self.employee(employee_code),
             "status": "final" if profile else "pending",
             "ratings": profile or {},
+            "ideal_ratings": self.data.ideal_for_employee(employee_code),
         }
 
     def assessment(self, employee_code: str, role: str) -> dict[str, Any] | None:
@@ -507,7 +521,11 @@ class MyCareerBackend:
             "current": role,
             "current_label": self._current_role_label(role, grade),
             "grade": grade,
-            "designation": employee.get("designation") or employee.get("role_name") or "",
+            "designation": display_designation(
+                employee.get("designation") or "",
+                employee.get("role_name") or employee.get("role") or "",
+                short=False,
+            ),
             "paths": paths,
             "journey": journey,
             "insights": insights,
@@ -622,8 +640,15 @@ class MyCareerBackend:
 
     @staticmethod
     def _current_role(employee: dict[str, Any]) -> str:
-        title = f"{employee.get('role_name', '')} {employee.get('designation', '')}".lower()
-        return "KAM" if "key account" in title or "account & client" in title else "BDM"
+        return (
+            "KAM"
+            if is_kam_title(
+                employee.get("role_name", ""),
+                employee.get("role", ""),
+                employee.get("designation", ""),
+            )
+            else "BDM"
+        )
 
     def _career_paths(self, employee: dict[str, Any]) -> list[dict[str, Any]]:
         """Probable Career Paths Table 2 — Yes = coloured/enabled, Grey/Locked = locked."""
@@ -702,6 +727,7 @@ class MyCareerBackend:
             connection.execute("DELETE FROM learning_selections WHERE employee_code=?", (employee_code,))
             connection.execute("DELETE FROM external_learning WHERE employee_code=?", (employee_code,))
             connection.execute("DELETE FROM course_progress WHERE employee_code=?", (employee_code,))
+            connection.execute("DELETE FROM other_source_recommendations WHERE employee_code=?", (employee_code,))
 
     def reset_learning(self, admin: dict[str, Any], employee_code: str) -> dict[str, Any]:
         """Unlock Shop Your Courses for an employee without clearing aspiration."""
@@ -737,7 +763,13 @@ class MyCareerBackend:
         return gaps
 
     def learning_target(self, employee_code: str) -> dict[str, Any]:
-        current_key = role_level_key(self.data.employees[employee_code]["designation"], self.data.employees[employee_code]["level"])
+        current_key = role_level_key(
+            self.data.employees[employee_code]["designation"],
+            self.data.employees[employee_code]["level"],
+            self.data.employees[employee_code].get("role_name")
+            or self.data.employees[employee_code].get("role")
+            or "",
+        )
         current_gaps = self.deterministic_gaps(employee_code, current_key)
         total = sum(row["gap_levels"] for row in current_gaps)
         if total >= 2:
@@ -765,7 +797,11 @@ class MyCareerBackend:
     def recommendation_targets(self, employee_code: str) -> list[dict[str, Any]]:
         employee = self.employee(employee_code)
         source = self.data.employees[employee_code]
-        current_key = role_level_key(source["designation"], source["level"])
+        current_key = role_level_key(
+            source["designation"],
+            source["level"],
+            source.get("role_name") or source.get("role") or "",
+        )
         candidates = [("current_role", current_key, self._current_role(employee))]
         candidates.extend(
             ("future_role", path["target_key"], path["label"])
@@ -839,7 +875,21 @@ class MyCareerBackend:
                 )
         for competency, input_summary, output in audits:
             self._audit(employee_code, COURSE_AGENT, competency, input_summary, output, "ok")
-        return {"target": target, "competencies": generated}
+        other_sources = curate_other_sources(list(groups.keys()), employee_code) if groups else {}
+        with self.db.transaction() as connection:
+            connection.execute(
+                "DELETE FROM other_source_recommendations WHERE employee_code=? AND target_key=?",
+                (employee_code, target["target_key"]),
+            )
+            for competency, picks in other_sources.items():
+                connection.execute(
+                    """
+                    INSERT INTO other_source_recommendations(employee_code,target_key,competency,picks_json,generated_at)
+                    VALUES(?,?,?,?,?)
+                    """,
+                    (employee_code, target["target_key"], competency, json.dumps(picks, default=str), utc_now()),
+                )
+        return {"target": target, "competencies": generated, "other_sources": other_sources}
 
     def recommendations(self, employee_code: str) -> dict[str, Any]:
         target = self.learning_target(employee_code)
@@ -850,11 +900,34 @@ class MyCareerBackend:
                 "SELECT * FROM course_recommendations WHERE employee_code=? AND target_key=? ORDER BY competency",
                 (employee_code, target["target_key"]),
             ).fetchall()
+            other_rows = connection.execute(
+                "SELECT competency,picks_json FROM other_source_recommendations WHERE employee_code=? AND target_key=?",
+                (employee_code, target["target_key"]),
+            ).fetchall()
+        competencies = {
+            row["competency"]: self.db.decode_json(row["courses_json"], []) for row in rows
+        }
+        other_sources = {
+            row["competency"]: self.db.decode_json(row["picks_json"], []) for row in other_rows
+        }
+        # Always refresh from verified catalog — older LLM picks often 404.
+        if competencies:
+            other_sources = curate_other_sources(list(competencies.keys()), employee_code)
+            with self.db.transaction() as connection:
+                for competency, picks in other_sources.items():
+                    connection.execute(
+                        """
+                        INSERT INTO other_source_recommendations(employee_code,target_key,competency,picks_json,generated_at)
+                        VALUES(?,?,?,?,?)
+                        ON CONFLICT(employee_code,target_key,competency) DO UPDATE SET
+                            picks_json=excluded.picks_json, generated_at=excluded.generated_at
+                        """,
+                        (employee_code, target["target_key"], competency, json.dumps(picks, default=str), utc_now()),
+                    )
         return {
             "target": target,
-            "competencies": {
-                row["competency"]: self.db.decode_json(row["courses_json"], []) for row in rows
-            },
+            "competencies": competencies,
+            "other_sources": other_sources,
             "ready": bool(rows) or not target["gaps"],
         }
 
@@ -895,6 +968,8 @@ class MyCareerBackend:
             competency = str(item.get("competency") or "").strip()
             title = str(item.get("title") or "").strip()
             kind = str(item.get("kind") or "other").strip()
+            url = str(item.get("url") or "").strip()
+            duration_minutes = item.get("duration_minutes")
             if not resource_id.startswith("other:") or not competency or not title:
                 continue
             extras.append(
@@ -902,7 +977,15 @@ class MyCareerBackend:
                     "resource_id": resource_id,
                     "competency": competency,
                     "resource_json": json.dumps(
-                        {"id": resource_id, "title": title, "kind": kind, "source": "other", "provider": kind.replace("_", " ").title()}
+                        {
+                            "id": resource_id,
+                            "title": title,
+                            "kind": kind,
+                            "url": url,
+                            "duration_minutes": duration_minutes,
+                            "source": "other",
+                            "provider": "TEDx Talk" if kind in {"tedx", "ted"} else kind.replace("_", " ").title(),
+                        }
                     ),
                 }
             )
@@ -955,6 +1038,8 @@ class MyCareerBackend:
             competency = str(item.get("competency") or "").strip()
             title = str(item.get("title") or "").strip()
             kind = str(item.get("kind") or "other").strip()
+            url = str(item.get("url") or "").strip()
+            duration_minutes = item.get("duration_minutes")
             if not resource_id.startswith("other:") or not competency or not title:
                 continue
             if competency not in allowed:
@@ -968,8 +1053,10 @@ class MyCareerBackend:
                             "id": resource_id,
                             "title": title,
                             "kind": kind,
+                            "url": url,
+                            "duration_minutes": duration_minutes,
                             "source": "other",
-                            "provider": kind.replace("_", " ").title(),
+                            "provider": "TEDx Talk" if kind in {"tedx", "ted"} else kind.replace("_", " ").title(),
                         }
                     ),
                 }
@@ -1007,6 +1094,12 @@ class MyCareerBackend:
             raise BackendError("course_id is required.", "validation_error", 400)
         if action not in {"launch", "complete"}:
             raise BackendError("action must be launch or complete.", "validation_error", 400)
+        if action == "complete" and not course_id.startswith("other:"):
+            raise BackendError(
+                "LinkedIn course completion is tracked from LinkedIn Learning — mark complete only for other sources.",
+                "linkedin_complete_not_allowed",
+                409,
+            )
         journey = self.learning_journey(employee_code)
         if not journey.get("locked"):
             raise BackendError("Lock your learning journey before tracking progress.", "journey_not_locked", 409)
@@ -1091,20 +1184,37 @@ class MyCareerBackend:
             courses.append(self._with_course_progress(course, progress_by_id.get(row["course_id"])))
         for row in external:
             payload = self.db.decode_json(row["resource_json"], {})
+            minutes = payload.get("duration_minutes")
+            duration = f"{int(minutes)}m" if minutes not in (None, "") else ""
+            url = str(payload.get("url") or "").strip()
+            curated = resolve_other_source(str(row["competency"] or ""), str(payload.get("kind") or ""))
+            if curated:
+                # Prefer verified catalog over stale/hallucinated locked URLs.
+                url = str(curated.get("url") or url)
+                minutes = curated.get("duration_minutes", minutes)
+                duration = f"{int(minutes)}m" if minutes not in (None, "") else duration
+                if curated.get("title") and (not payload.get("title") or "http" in str(payload.get("title") or "").lower()):
+                    payload = {**payload, "title": curated["title"]}
             course = {
                 "id": row["resource_id"],
                 "course_id": row["resource_id"],
                 "competency": row["competency"],
-                "title": payload.get("title") or row["resource_id"],
+                "title": payload.get("title") or (curated or {}).get("title") or row["resource_id"],
                 "provider": payload.get("provider") or "Other source",
-                "duration": "",
-                "url": payload.get("url") or "",
+                "duration": duration,
+                "duration_minutes": minutes,
+                "url": url,
                 "source": "other",
                 "kind": payload.get("kind") or "other",
             }
             courses.append(self._with_course_progress(course, progress_by_id.get(row["resource_id"])))
-        completed = sum(1 for course in courses if course.get("status") == "completed")
-        in_progress = sum(1 for course in courses if course.get("status") == "in_progress")
+        linkedin_courses = [
+            course for course in courses
+            if not (course.get("source") == "other" or str(course.get("id") or "").startswith("other:"))
+        ]
+        completed = sum(1 for course in linkedin_courses if course.get("status") == "completed")
+        in_progress = sum(1 for course in linkedin_courses if course.get("status") == "in_progress")
+        total = len(linkedin_courses)
         return {
             "target": recommendations["target"],
             "courses": courses,
@@ -1112,8 +1222,8 @@ class MyCareerBackend:
             "progress": {
                 "completed": completed,
                 "in_progress": in_progress,
-                "total": len(courses),
-                "percentage": round((completed / len(courses)) * 100) if courses else 0,
+                "total": total,
+                "percentage": round((completed / total) * 100) if total else 0,
             },
             "linkedin": dict(activity) if activity else {"learning_hours": 0.0, "completions": 0, "synced_at": None},
         }
@@ -1176,45 +1286,233 @@ class MyCareerBackend:
         band = "High" if score >= 75 else "Medium" if score >= 55 else "Low"
         return {"status": "complete", "score": score, "band": band, "competencies": rows}
 
-    def leaderboard(self, user: dict[str, Any]) -> list[dict[str, Any]]:
+    def leaderboard(self, user: dict[str, Any]) -> dict[str, Any]:
+        """Severity-band cohort leaderboard + badges + manager/RD stats."""
         scoped = self.scoped_employees(user)
         employee_cohort: int | None = None
+        viewer_code = ""
         if user["role"] == "employee":
-            own_code = str(user["employee_code"])
-            if self.final_profile(own_code):
-                employee_cohort = int(self.learning_target(own_code)["total_gap_levels"])
+            viewer_code = str(user.get("employee_code") or "")
+            if self.final_profile(viewer_code):
+                employee_cohort = int(self.learning_target(viewer_code)["total_gap_levels"])
                 with self.db.connect() as connection:
                     scoped = [dict(row) for row in connection.execute("SELECT * FROM employees ORDER BY employee_code")]
-        rows = []
+
+        rows: list[dict[str, Any]] = []
         with self.db.connect() as connection:
             for employee in scoped:
-                if not self.final_profile(employee["employee_code"]):
+                code = employee["employee_code"]
+                if not self.final_profile(code):
                     continue
-                target = self.learning_target(employee["employee_code"])
-                if employee_cohort is not None and target["total_gap_levels"] != employee_cohort:
+                target = self.learning_target(code)
+                severity = int(target["total_gap_levels"])
+                if employee_cohort is not None and severity != employee_cohort:
                     continue
+                focus_areas = len(target.get("gaps") or [])
                 activity = connection.execute(
-                    "SELECT learning_hours FROM linkedin_activity WHERE employee_code=?",
-                    (employee["employee_code"],),
+                    "SELECT learning_hours,completions FROM linkedin_activity WHERE employee_code=?",
+                    (code,),
                 ).fetchone()
+                hours = float(activity["learning_hours"]) if activity else 0.0
+                completions = int(activity["completions"]) if activity else 0
+                linkedin_locked = int(
+                    connection.execute(
+                        "SELECT COUNT(*) FROM learning_selections WHERE employee_code=?", (code,)
+                    ).fetchone()[0]
+                )
+                linkedin_done = int(
+                    connection.execute(
+                        """
+                        SELECT COUNT(*) FROM course_progress cp
+                        JOIN learning_selections ls
+                          ON ls.employee_code=cp.employee_code AND ls.course_id=cp.course_id
+                        WHERE cp.employee_code=? AND cp.status='completed'
+                        """,
+                        (code,),
+                    ).fetchone()[0]
+                )
+                full_circuit = bool(linkedin_locked and linkedin_done >= linkedin_locked)
                 rows.append(
                     {
-                        "employee_code": employee["employee_code"],
+                        "employee_code": code,
                         "name": employee["name"],
-                        "gap_cohort": target["total_gap_levels"],
-                        "learning_hours": float(activity["learning_hours"]) if activity else 0.0,
+                        "severity_band": severity,
+                        "focus_areas": focus_areas,
+                        "gap_cohort": severity,  # back-compat
+                        "learning_hours": hours,
+                        "completions": completions,
+                        "journey_locked": bool(linkedin_locked),
+                        "full_circuit": full_circuit,
                     }
                 )
-        for cohort in {row["gap_cohort"] for row in rows}:
-            group = sorted((row for row in rows if row["gap_cohort"] == cohort), key=lambda row: row["learning_hours"], reverse=True)
-            previous_hours = None
+
+        # Rank within each severity band: hours desc, then completions desc; share rank on full tie.
+        for cohort in {row["severity_band"] for row in rows}:
+            group = sorted(
+                (row for row in rows if row["severity_band"] == cohort),
+                key=lambda row: (-row["learning_hours"], -row["completions"], row["name"]),
+            )
+            previous_key = None
             rank = 0
             for index, row in enumerate(group, 1):
-                if previous_hours is None or row["learning_hours"] != previous_hours:
+                key = (row["learning_hours"], row["completions"])
+                if previous_key is None or key != previous_key:
                     rank = index
-                    previous_hours = row["learning_hours"]
+                    previous_key = key
                 row["rank"] = rank
-        return sorted(rows, key=lambda row: (row["gap_cohort"], row["rank"], row["name"]))
+
+        for row in rows:
+            row["badges"] = self._sync_badges_for_row(row)
+
+        rows = sorted(rows, key=lambda row: (row["severity_band"], row["rank"], row["name"]))
+        viewer_badges = []
+        viewer_row = next((row for row in rows if row["employee_code"] == viewer_code), None)
+        if viewer_row:
+            viewer_badges = viewer_row["badges"]
+        elif viewer_code:
+            viewer_badges = self.badges_for(viewer_code)
+
+        viewer_gaps: list[dict[str, Any]] = []
+        if viewer_code and self.final_profile(viewer_code):
+            for gap in self.learning_target(viewer_code).get("gaps") or []:
+                levels = int(gap.get("gap_levels") or 0)
+                intensity = "High" if levels >= 3 else "Med" if levels == 2 else "Low"
+                viewer_gaps.append(
+                    {
+                        "competency": gap["competency"],
+                        "gap_levels": levels,
+                        "intensity": intensity,
+                        "current": gap.get("current"),
+                        "target": gap.get("target"),
+                    }
+                )
+
+        stats = None
+        if user["role"] in {"zm", "rd", "admin"}:
+            stats = self._leaderboard_stats(rows)
+
+        return {
+            "leaderboard": rows,
+            "viewer": {
+                "role": user["role"],
+                "employee_code": viewer_code or None,
+                "severity_band": employee_cohort,
+                "focus_areas": viewer_row["focus_areas"] if viewer_row else None,
+                "rank": viewer_row["rank"] if viewer_row else None,
+                "learning_hours": viewer_row["learning_hours"] if viewer_row else None,
+                "completions": viewer_row["completions"] if viewer_row else None,
+                "gaps": viewer_gaps,
+            },
+            "badges": viewer_badges,
+            "badge_catalog": BADGE_CATALOG,
+            "stats": stats,
+        }
+
+    def badges_for(self, employee_code: str) -> list[dict[str, Any]]:
+        with self.db.connect() as connection:
+            rows = connection.execute(
+                "SELECT badge_id,title,earned_at,meta_json FROM employee_badges WHERE employee_code=? ORDER BY earned_at",
+                (employee_code,),
+            ).fetchall()
+        return [
+            {
+                "id": row["badge_id"],
+                "title": row["title"],
+                "earned_at": row["earned_at"],
+                "meta": self.db.decode_json(row["meta_json"], {}),
+            }
+            for row in rows
+        ]
+
+    def _sync_badges_for_row(self, row: dict[str, Any]) -> list[dict[str, Any]]:
+        code = row["employee_code"]
+        hours = float(row["learning_hours"])
+        completions = int(row["completions"])
+        earned: list[tuple[str, str, dict[str, Any]]] = []
+        stacked = int(hours // 2)
+        if stacked >= 1:
+            earned.append(
+                (
+                    "hours_stacked",
+                    "Hours Stacked",
+                    {"tier": stacked, "hours": hours, "copy": f"+{stacked * 2:.0f}h on LinkedIn — Hours Stacked unlocked"},
+                )
+            )
+        if completions >= 1:
+            earned.append(("first_mile", "First Mile", {"completions": completions}))
+        if completions >= 3:
+            earned.append(("pathway_pack", "Pathway Pack", {"completions": completions}))
+        if completions >= 5:
+            earned.append(("lattice_climber", "Lattice Climber", {"completions": completions}))
+        if hours >= 10:
+            earned.append(("ten_hour_club", "Ten-Hour Club", {"hours": hours}))
+        if row.get("full_circuit"):
+            earned.append(("full_circuit", "Full Circuit", {}))
+        if int(row.get("focus_areas") or 0) == 0 and int(row.get("severity_band") or 0) == 0:
+            earned.append(("gap_closer", "Gap Closer", {"focus_areas": 0}))
+        if int(row.get("rank") or 0) == 1:
+            earned.append(("cohort_crown", "Cohort Crown", {"severity_band": row.get("severity_band")}))
+
+        now = utc_now()
+        with self.db.transaction() as connection:
+            for badge_id, title, meta in earned:
+                connection.execute(
+                    """
+                    INSERT INTO employee_badges(employee_code,badge_id,title,earned_at,meta_json)
+                    VALUES(?,?,?,?,?)
+                    ON CONFLICT(employee_code,badge_id) DO UPDATE SET
+                        title=excluded.title,
+                        meta_json=excluded.meta_json
+                    """,
+                    (code, badge_id, title, now, json.dumps(meta, default=str)),
+                )
+        return self.badges_for(code)
+
+    @staticmethod
+    def _leaderboard_stats(rows: list[dict[str, Any]]) -> dict[str, Any]:
+        team_size = len(rows)
+        total_hours = round(sum(row["learning_hours"] for row in rows), 1)
+        avg_hours = round(total_hours / team_size, 1) if team_size else 0.0
+        locked = sum(1 for row in rows if row.get("journey_locked"))
+        focus_dist: dict[int, int] = {}
+        for row in rows:
+            key = int(row["focus_areas"])
+            focus_dist[key] = focus_dist.get(key, 0) + 1
+        hours_buckets = {"0–2h": 0, "2–5h": 0, "5–10h": 0, "10h+": 0}
+        for row in rows:
+            h = float(row["learning_hours"])
+            if h < 2:
+                hours_buckets["0–2h"] += 1
+            elif h < 5:
+                hours_buckets["2–5h"] += 1
+            elif h < 10:
+                hours_buckets["5–10h"] += 1
+            else:
+                hours_buckets["10h+"] += 1
+        badge_dist: dict[str, int] = {}
+        for row in rows:
+            for badge in row.get("badges") or []:
+                key = badge.get("title") or badge.get("id") or "Badge"
+                badge_dist[key] = badge_dist.get(key, 0) + 1
+        return {
+            "team_size": team_size,
+            "total_hours": total_hours,
+            "avg_hours": avg_hours,
+            "journey_locked": locked,
+            "journey_locked_pct": int(round((locked / team_size) * 100)) if team_size else 0,
+            "focus_area_distribution": [
+                {"focus_areas": key, "count": focus_dist[key]} for key in sorted(focus_dist)
+            ],
+            "hours_buckets": [{"label": label, "count": count} for label, count in hours_buckets.items()],
+            "badge_distribution": [
+                {"name": name, "count": count}
+                for name, count in sorted(badge_dist.items(), key=lambda item: (-item[1], item[0]))
+            ],
+            "severity_bands": [
+                {"band": band, "count": sum(1 for row in rows if row["severity_band"] == band)}
+                for band in sorted({row["severity_band"] for row in rows})
+            ],
+        }
 
     def agent_audit(self, limit: int = 100) -> list[dict[str, Any]]:
         limit = max(1, min(int(limit), 500))
@@ -1248,7 +1546,11 @@ class MyCareerBackend:
                 continue
             rated_employees += 1
             source = self.data.employees[employee_code]
-            current_key = role_level_key(source["designation"], source["level"])
+            current_key = role_level_key(
+                source["designation"],
+                source["level"],
+                source.get("role_name") or source.get("role") or "",
+            )
             gaps = self.deterministic_gaps(employee_code, current_key)
             if gaps:
                 employees_with_gaps += 1

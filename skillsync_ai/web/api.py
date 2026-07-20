@@ -86,7 +86,7 @@ class BackendAPI:
             elif parsed.path == "/api/employee/learning":
                 self._send(handler, 200, self.backend.learning_journey(self._employee_code(user, query)))
             elif parsed.path == "/api/leaderboard":
-                self._send(handler, 200, {"leaderboard": self.backend.leaderboard(user)})
+                self._send(handler, 200, self.backend.leaderboard(user))
             elif parsed.path == "/api/admin/confidence":
                 self._require_role(user, {"admin"})
                 self._send(handler, 200, self.backend.confidence(self._required_query(query, "employee_code")))
@@ -117,7 +117,7 @@ class BackendAPI:
                     {
                         "phases": self.backend.phases(),
                         "employees": employees,
-                        "leaderboard": self.backend.leaderboard(user),
+                        "leaderboard": self.backend.leaderboard(user).get("leaderboard", []),
                         "insights": self.backend.talent_insights(),
                         "metrics": {
                             "total_employees": len(employees),

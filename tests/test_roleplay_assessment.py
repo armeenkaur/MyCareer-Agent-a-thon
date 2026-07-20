@@ -26,7 +26,7 @@ class RoleplayAssessmentTest(unittest.TestCase):
             "result.png",
             b"image",
             {"Beginner": "definition"},
-            "MMT001",
+            "MMT1001",
         )
 
         self.assertEqual(result["status"], "reupload_required")
@@ -52,7 +52,7 @@ class RoleplayAssessmentTest(unittest.TestCase):
             "result.png",
             b"image",
             {"Proficient": "definition"},
-            "MMT001",
+            "MMT1001",
         )
 
         self.assertEqual(result["status"], "completed")

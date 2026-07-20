@@ -191,11 +191,29 @@ class Database:
                     PRIMARY KEY(employee_code, resource_id)
                 );
 
+                CREATE TABLE IF NOT EXISTS other_source_recommendations (
+                    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
+                    target_key TEXT NOT NULL,
+                    competency TEXT NOT NULL,
+                    picks_json TEXT NOT NULL,
+                    generated_at TEXT NOT NULL,
+                    PRIMARY KEY(employee_code, target_key, competency)
+                );
+
                 CREATE TABLE IF NOT EXISTS linkedin_activity (
                     employee_code TEXT PRIMARY KEY REFERENCES employees(employee_code),
                     learning_hours REAL NOT NULL DEFAULT 0,
                     completions INTEGER NOT NULL DEFAULT 0,
                     synced_at TEXT NOT NULL
+                );
+
+                CREATE TABLE IF NOT EXISTS employee_badges (
+                    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
+                    badge_id TEXT NOT NULL,
+                    title TEXT NOT NULL DEFAULT '',
+                    earned_at TEXT NOT NULL,
+                    meta_json TEXT NOT NULL DEFAULT '{}',
+                    PRIMARY KEY(employee_code, badge_id)
                 );
 
                 CREATE TABLE IF NOT EXISTS course_progress (

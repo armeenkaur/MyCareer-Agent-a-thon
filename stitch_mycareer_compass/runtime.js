@@ -21,6 +21,7 @@
       ["admin/overview", "Overview", "dashboard"],
       ["admin/phases", "Phase Control", "account_tree"],
       ["admin/employees", "Employees", "group"],
+      ["admin/leaderboard", "Leaderboard", "leaderboard"],
       ["admin/confidence", "Confidence Scores", "verified"],
       ["admin/audit", "Agent Audit", "manage_search"],
     ],
@@ -135,7 +136,12 @@
   }
 
   function profileDesignation(user) {
-    return String(user?.designation || "").trim();
+    const raw = String(user?.designation || "").trim();
+    if (!raw) return "";
+    // Backend already maps KAM track → "KAM"; keep alias for older sessions / raw Darwin titles.
+    if (/^kam$/i.test(raw)) return "KAM";
+    if (/key\s*account/i.test(raw) || /account\s*(&|and)\s*(client|key)/i.test(raw)) return "KAM";
+    return raw;
   }
 
   function commonBrand(mmt, homeRoute) {
@@ -591,23 +597,15 @@
             </div>
           </article>`).join("")}
         </section>
-        <section class="relative rounded-2xl overflow-hidden bg-[#df162b] p-6 md:p-8">
+        <section class="relative rounded-xl overflow-hidden bg-[#df162b] px-4 py-3 md:px-5 md:py-4 max-w-3xl">
           <div class="absolute inset-0 opacity-10 pointer-events-none" style="background:radial-gradient(circle at center,white,transparent 70%)"></div>
-          <div class="relative z-10 flex flex-col md:flex-row items-center justify-between gap-8 text-white">
-            <div class="flex-1">
-              <div class="flex items-center gap-2 mb-2">
-                <span class="material-symbols-outlined" style="font-variation-settings:'FILL' 1">stars</span>
-                <span class="text-xs font-bold uppercase tracking-widest opacity-80">RD Authority</span>
-              </div>
-              <h2 class="text-xl md:text-2xl font-bold mb-2">Your rating becomes the final competency profile</h2>
-              <p class="opacity-90 max-w-2xl">This is the 'source of truth' for organizational planning. Accuracy ensures we place the right leaders in the right destinations.</p>
+          <div class="relative z-10 text-white">
+            <div class="flex items-center gap-1.5 mb-1">
+              <span class="material-symbols-outlined text-[18px]" style="font-variation-settings:'FILL' 1">stars</span>
+              <span class="text-[10px] font-bold uppercase tracking-widest opacity-80">Scoring Criteria</span>
             </div>
-            <div class="shrink-0">
-              <div class="bg-white/20 backdrop-blur-md rounded-xl p-4 border border-white/30 text-center min-w-[140px]">
-                <p class="text-xs font-bold uppercase mb-1 tracking-tight">Validation Confidence</p>
-                <p class="text-4xl font-extrabold">100%</p>
-              </div>
-            </div>
+            <h2 class="text-base md:text-lg font-bold mb-1">Your assessment shapes the final competency profile.</h2>
+            <p class="text-sm opacity-90">This profile serves as the trusted foundation for organizational planning, talent decisions and leadership placement.</p>
           </div>
         </section>
         <section class="flex flex-col lg:flex-row items-center justify-between gap-10">
@@ -1444,18 +1442,33 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     return groups;
   }
 
+  function evidenceSourceTitle(source) {
+    return String(source || "").toUpperCase() === "TNA" ? "Learning Input From Employee" : String(source || "");
+  }
+
+  function evidenceDisplayLabel(source, label) {
+    const text = String(label || "").trim();
+    if (!text) return "";
+    const src = String(source || "").trim().toLowerCase();
+    if (src === "tna" && /standard\s*skill|skill\s*cluster/i.test(text)) return "";
+    if (src === "interview" && /^round\s*\d+$/i.test(text)) return "";
+    return text;
+  }
+
   function renderEvidencePanel(bundle) {
     const items = bundle?.evidence || [];
     if (!items.length) {
       return `<p class="text-sm text-[#5d3f3d] mt-3">${esc(bundle?.empty_message || "No relevant evidence found.")}</p>`;
     }
     return groupEvidenceBySource(items).map(({ source, items: rows }) => `<div class="mt-4">
-      <h4 class="text-xs font-bold uppercase tracking-wider text-[#df162b] mb-2">${esc(source)}</h4>
-      <div class="space-y-2">${rows.map((item) => `<article class="border border-[#e7bdb9] rounded-lg p-3 bg-[#fff8f7]">
-        ${item.label ? `<p class="text-[11px] font-semibold text-[#926e6c] mb-1">${esc(item.label)}</p>` : ""}
+      <h4 class="text-xs font-bold uppercase tracking-wider text-[#df162b] mb-2">${esc(evidenceSourceTitle(source))}</h4>
+      <div class="space-y-2">${rows.map((item) => {
+        const label = evidenceDisplayLabel(source, item.label);
+        return `<article class="border border-[#e7bdb9] rounded-lg p-3 bg-[#fff8f7]">
+        ${label ? `<p class="text-[11px] font-semibold text-[#926e6c] mb-1">${esc(label)}</p>` : ""}
         <p class="text-sm text-[#291716]">${esc(item.snippet)}</p>
-        ${item.relevance ? `<p class="text-[11px] text-[#5d3f3d] mt-2 italic">${esc(item.relevance)}</p>` : ""}
-      </article>`).join("")}</div>
+      </article>`;
+      }).join("")}</div>
     </div>`).join("");
   }
 
@@ -1497,7 +1510,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
             <textarea data-rd-note="${esc(competency)}" ${locked ? "disabled" : ""} class="w-full border border-[#e7bdb9] rounded-lg p-3 mt-4 text-sm" placeholder="Optional RD note">${esc(notes[competency] || "")}</textarea>
           </div>
           <div>
-            <h3 class="font-bold text-sm text-[#291716]">Supporting evidence</h3>
+            <h3 class="font-bold text-sm text-[#291716]">Supporting Evidence</h3>
             ${renderEvidencePanel(bundle)}
           </div>
         </div>
@@ -1636,124 +1649,213 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     const journey = state.journey || [];
     const insights = state.insights || {};
     const choiceId = state.choice?.aspiration_role || "";
-    const count = journey.length || 1;
-    // Path anchors in viewBox % (aligned with SVG). Cards hang beside via side transform.
-    const anchorsByCount = {
-      4: [
-        { x: 50, y: 8, side: "left" },
-        { x: 62, y: 30, side: "right" },
-        { x: 28, y: 66, side: "left" },
-        { x: 50, y: 92, side: "right" },
-      ],
-      3: [
-        { x: 50, y: 10, side: "left" },
-        { x: 62, y: 50, side: "right" },
-        { x: 50, y: 90, side: "left" },
-      ],
-      2: [
-        { x: 50, y: 14, side: "left" },
-        { x: 50, y: 86, side: "right" },
-      ],
-    };
-    const anchors = anchorsByCount[count] || anchorsByCount[4];
-    // Active red path: from current through consecutive enabled nodes (index 0 always current).
-    let activeThrough = 0;
-    for (let i = 1; i < journey.length; i += 1) {
-      if (journey[i].enabled) activeThrough = i;
-      else break;
-    }
-    const pathD = "M 200 50 Q 300 200 200 350 T 100 550 T 200 750";
-    // Approximate active path segment lengths for 1..3 hops from top.
-    const activePaths = [
-      "",
-      "M 200 50 Q 300 200 200 350",
-      "M 200 50 Q 300 200 200 350 T 100 550",
-      "M 200 50 Q 300 200 200 350 T 100 550 T 200 750",
-    ];
-    const activeD = activePaths[Math.min(activeThrough, 3)] || "";
+    const byId = Object.fromEntries(journey.map((node) => [node.id, node]));
+    const currentNode = byId.current || journey[0];
+    const hasKam = Boolean(byId.kam);
 
-    const markers = journey.map((node, index) => {
-      const isCurrent = node.state === "current";
-      const isLocked = !node.enabled && !isCurrent;
-      const isChosen = choiceId && node.id === choiceId;
-      const anchor = anchors[index] || { x: 50, y: 50, side: "right" };
-      const cardClass = isLocked
-        ? "milestone-card locked border-[#926e6c] bg-[#fddbd8] opacity-95"
-        : isChosen
-          ? "milestone-card active border-[#16a34a] shadow-lg bg-white"
-          : "milestone-card active border-[#df162b] shadow-lg bg-white";
-      const accent = isLocked ? "text-[#5d3f3d]" : isChosen ? "text-[#16a34a]" : "text-[#df162b]";
-      const footerText = isCurrent ? "Current" : isLocked ? "Locked" : (isChosen ? "Locked aspiration" : "Next Step");
-      const footerIcon = isCurrent ? "location_on" : isLocked ? "lock" : "stars";
-      const tier = isCurrent ? "Start" : isLocked ? (node.id === "rd" ? "Apex" : "Future") : "Eligible";
-      const clickable = !isCurrent && node.selectable && !state.choice;
-      return `<div class="milestone-marker side-${anchor.side}" style="left:${anchor.x}%; top:${anchor.y}%;">
-        <button type="button" data-path="${esc(node.id)}" data-label="${esc(node.label)}" ${clickable ? "" : "disabled"}
-          class="${cardClass} ${clickable ? "cursor-pointer hover:scale-105 transition-transform" : "cursor-default"} ${isCurrent ? "scale-110" : ""}">
-          <span class="font-bold text-[11px] uppercase block mb-1 ${accent}">${esc(tier)}</span>
-          <span class="font-extrabold text-lg block ${isLocked ? "text-[#402b2a]" : "text-[#291716]"}">${esc(node.short_label || node.label)}</span>
-          <div class="flex items-center justify-center gap-1 text-[12px] mt-1 ${accent}">
-            <span class="material-symbols-outlined text-[14px]" style="font-variation-settings:'FILL' ${isCurrent ? 1 : 0}">${footerIcon}</span>
-            <span>${esc(footerText)}</span>
-          </div>
+    const trackCode = (node) => {
+      if (!node) return "—";
+      if (node.id === "current") {
+        const raw = String(node.short_label || node.label || state.current || "");
+        return raw.replace(/\s*RL[\d][\w\-–]*/gi, "").replace(/\s+/g, " ").trim() || (state.current === "KAM" ? "KAM" : "BD");
+      }
+      return String(node.short_label || node.id || "").toUpperCase();
+    };
+
+    const fullTitle = (node) => {
+      if (!node) return "";
+      if (node.id === "current") {
+        if (state.current === "KAM") return "Key Account Manager";
+        return "Business Development";
+      }
+      return node.label || "";
+    };
+
+    const nodeStatus = (node) => {
+      if (!node) return "missing";
+      if (node.state === "current") return "current";
+      if (choiceId && node.id === choiceId) return "selected";
+      if (node.enabled) return "eligible";
+      return "locked";
+    };
+
+    const pathStroke = (fromId, toId) => {
+      const from = byId[fromId];
+      const to = byId[toId];
+      if (!to) return { base: "#cfcfcf", glow: "transparent", lit: false };
+      const st = nodeStatus(to);
+      if (st === "selected") return { base: "#16a34a", glow: "#16a34a", lit: true };
+      if (st === "eligible" || (from && nodeStatus(from) === "current" && to.enabled)) {
+        return { base: "#1464F4", glow: "#1464F4", lit: true };
+      }
+      // path into locked role stays muted
+      return { base: "#c5c5c5", glow: "transparent", lit: false };
+    };
+
+    const pipe = (d, style) => {
+      const { base, glow, lit } = style;
+      return `${lit ? `<path d="${d}" fill="none" stroke="${glow}" stroke-width="22" stroke-linecap="round" opacity="0.22"/>` : ""}
+        <path d="${d}" fill="none" stroke="#e8e8e8" stroke-width="18" stroke-linecap="round"/>
+        <path d="${d}" fill="none" stroke="${base}" stroke-width="8" stroke-linecap="round" opacity="${lit ? 0.95 : 0.55}"/>
+        ${lit ? `<path d="${d}" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-dasharray="6 10" opacity="0.7"/>` : ""}`;
+    };
+
+    // Horizontal lattice coords (viewBox 1000×520): current left → KAM/ZM mid → RD right.
+    // Always draw KAM→RD when KAM exists (backend eligibility drives glow).
+    let pathsHtml = "";
+    if (hasKam) {
+      const bdKam = pathStroke("current", "kam");
+      const bdZm = pathStroke("current", "zm");
+      const kamRd = pathStroke("kam", "rd");
+      const zmRd = pathStroke("zm", "rd");
+      // Card centers @ x=550; ~220px wide → edges ≈ 440 / 660. Stretch SVG to stage.
+      pathsHtml = [
+        pipe("M 240 260 C 310 260 340 150 410 150", bdKam),
+        pipe("M 240 260 C 310 260 340 370 410 370", bdZm),
+        pipe("M 590 150 C 680 150 740 220 780 260", kamRd),
+        pipe("M 590 370 C 680 370 740 300 780 260", zmRd),
+      ].join("");
+    } else {
+      const bdZm = pathStroke("current", "zm");
+      const zmRd = pathStroke("zm", "rd");
+      pathsHtml = [
+        pipe("M 240 260 C 320 260 350 370 410 370", bdZm),
+        pipe("M 590 370 C 680 370 740 280 780 260", zmRd),
+      ].join("");
+    }
+
+    const cardHtml = (node, slot) => {
+      if (!node) return "";
+      const st = nodeStatus(node);
+      const code = trackCode(node);
+      const title = fullTitle(node);
+      const clickable = st === "eligible" && node.selectable && !state.choice;
+      const slots = {
+        current: "left:18%; top:50%; transform:translate(-50%,-50%)",
+        kam: "left:50%; top:26%; transform:translate(-50%,-50%)",
+        zm: "left:50%; top:74%; transform:translate(-50%,-50%)",
+        rd: "left:82%; top:50%; transform:translate(-50%,-50%)",
+      };
+      if (!hasKam && node.id === "zm") slots.zm = "left:50%; top:50%; transform:translate(-50%,-50%)";
+
+      let shell = "lattice-card bg-white/80 backdrop-blur-md border-2 shadow-sm";
+      let glow = "";
+      let statusBlock = "";
+      if (st === "current") {
+        shell += " border-[#df162b]";
+        statusBlock = `<p class="text-xs font-semibold text-[#df162b] mt-2 inline-flex items-center gap-1">
+          <span class="material-symbols-outlined text-[16px]" style="font-variation-settings:'FILL' 1">location_on</span>
+          You are here
+        </p>`;
+      } else if (st === "selected") {
+        shell += " border-[#16a34a] ring-2 ring-[#16a34a]/25";
+        glow = "box-shadow:0 0 0 4px rgba(22,163,74,.12), 0 0 28px rgba(22,163,74,.25);";
+        statusBlock = `<p class="text-xs font-bold text-[#16a34a] mt-2 uppercase tracking-wide">Selected</p>`;
+      } else if (st === "eligible") {
+        shell += " border-[#1464F4]";
+        glow = "box-shadow:0 0 0 4px rgba(20,100,244,.10), 0 0 28px rgba(20,100,244,.22);";
+        statusBlock = `<p class="text-xs font-bold text-[#1464F4] mt-2 uppercase tracking-wide">Eligible</p>`;
+      } else {
+        shell += " border-[#c9c9c9] opacity-90";
+        statusBlock = `<p class="text-[11px] font-bold text-[#5d3f3d] mt-1.5 uppercase tracking-wide">Locked</p>`;
+      }
+
+      const pin = st === "current"
+        ? `<div class="absolute -left-7 top-1/2 -translate-y-1/2 w-6 h-6 rounded-full bg-[#df162b] grid place-items-center shadow-md shadow-[#df162b]/35">
+            <span class="material-symbols-outlined text-white text-[14px]" style="font-variation-settings:'FILL' 1">location_on</span>
+          </div>`
+        : "";
+      const lockOverlay = st === "locked"
+        ? `<div class="absolute inset-0 grid place-items-center pointer-events-none">
+            <span class="material-symbols-outlined text-4xl text-[#9ca3af]/85" style="font-variation-settings:'FILL' 1">lock</span>
+          </div>`
+        : "";
+      const corner = st === "current"
+        ? `<span class="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full border-2 border-[#df162b]"></span>`
+        : st === "locked"
+          ? `<span class="absolute top-1.5 right-1.5 text-[9px] font-bold uppercase text-[#5d3f3d] bg-[#f2f2f2] px-1 py-0.5 rounded">Locked</span>`
+          : "";
+
+      return `<div class="absolute z-20" style="${slots[slot] || slots.current}">
+        <button type="button" data-path="${esc(node.id)}" data-label="${esc(node.label || title)}"
+          ${clickable ? "" : "disabled"}
+          class="${shell} relative w-[148px] sm:w-[160px] rounded-xl p-3 text-left transition-transform ${clickable ? "cursor-pointer hover:scale-[1.03]" : "cursor-default"}"
+          style="${glow}">
+          ${pin}${corner}${lockOverlay}
+          <p class="text-2xl font-extrabold tracking-tight leading-none ${st === "locked" ? "text-[#9ca3af]" : "text-[#291716]"}">${esc(code)}</p>
+          <p class="text-[11px] text-[#5d3f3d] mt-1 leading-snug">${esc(title)}</p>
+          ${statusBlock}
         </button>
       </div>`;
-    }).join("");
+    };
 
     const tips = (insights.tips || []).map((tip) => `<li class="flex items-start gap-2">
-      <div class="w-6 h-6 rounded-full bg-[#ffe1df] grid place-items-center shrink-0 mt-0.5">
-        <span class="material-symbols-outlined text-[#df162b] text-[16px]">info</span>
+      <div class="w-6 h-6 rounded-full bg-[#d5e3ff] grid place-items-center shrink-0 mt-0.5">
+        <span class="material-symbols-outlined text-[#1464F4] text-[16px]">info</span>
       </div>
       <p class="text-sm text-[#291716]">${esc(tip)}</p>
     </li>`).join("");
 
+    const cards = [
+      cardHtml(currentNode, "current"),
+      hasKam ? cardHtml(byId.kam, "kam") : "",
+      cardHtml(byId.zm, "zm"),
+      cardHtml(byId.rd, "rd"),
+    ].join("");
+
     render(`<style>
-      .road-stage{position:relative;width:min(100%,380px);aspect-ratio:400/800;margin:0 auto}
-      .milestone-marker{position:absolute;z-index:20}
-      .milestone-marker.side-left{transform:translate(calc(-100% - 10px),-50%)}
-      .milestone-marker.side-right{transform:translate(10px,-50%)}
-      .milestone-card{padding:12px 18px;border-radius:12px;border-width:2px;min-width:132px;text-align:center;background:#fff}
-      .road-centerline{fill:none;stroke:rgba(255,255,255,.6);stroke-width:2;stroke-dasharray:12 18;stroke-linecap:round}
+      .lattice-stage{
+        position:relative;width:100%;min-height:400px;border-radius:1rem;overflow:hidden;
+        padding:1.5rem 2.25rem;box-sizing:border-box;
+        background:
+          linear-gradient(180deg,#fafafa 0%,#f2f2f2 100%);
+      }
+      .lattice-stage::before{
+        content:"";position:absolute;inset:0;opacity:.35;pointer-events:none;
+        background-image:
+          linear-gradient(#d0d0d0 1px,transparent 1px),
+          linear-gradient(90deg,#d0d0d0 1px,transparent 1px);
+        background-size:48px 48px;
+        mask-image:radial-gradient(ellipse at center, #000 40%, transparent 85%);
+      }
+      .lattice-card{border-radius:12px}
     </style>
     <section class="bg-white border border-[#e7bdb9] rounded-xl p-5 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 shadow-sm">
       <div>
-        <h1 class="text-xl md:text-2xl font-extrabold text-[#291716]">Path Explorer Journey</h1>
-        <p class="text-sm text-[#5d3f3d] mt-1">Career map from Probable Career Paths — green paths are selectable, grey paths stay locked.</p>
+        <h1 class="text-xl md:text-2xl font-extrabold text-[#291716]">My Path</h1>
+        <p class="text-sm text-[#5d3f3d] mt-1">Career lattice from Probable Career Paths — blue = eligible, green = selected, grey = locked.</p>
       </div>
-      <div class="text-sm font-bold text-[#df162b] bg-[#fff0ef] border border-[#e7bdb9] rounded-lg px-4 py-2">${esc(state.current_label || state.current)}${state.designation ? ` · ${esc(state.designation)}` : ""}</div>
+      <div class="text-sm font-bold text-[#df162b] bg-[#fff0ef] border border-[#e7bdb9] rounded-lg px-4 py-2">
+        ${esc(trackCode(currentNode))}
+        ${state.current === "KAM" || /kam/i.test(String(state.current_label || ""))
+          ? ` · ${esc(state.designation || "Key Account Manager")}`
+          : (state.designation ? ` · ${esc(state.designation)}` : "")}
+      </div>
     </section>
     <div class="grid grid-cols-12 gap-6 items-start">
-      <div class="col-span-12 lg:col-span-8 bg-white border border-[#e7bdb9] rounded-xl p-5 md:p-8 relative overflow-hidden flex flex-col min-h-[780px]">
-        <div class="absolute inset-0 opacity-[0.03] pointer-events-none" style="background-image:radial-gradient(#df162b 1px,transparent 1px);background-size:32px 32px"></div>
-        <div class="flex-grow flex items-center justify-center relative py-4">
-          <div class="road-stage">
-            <svg class="absolute inset-0 w-full h-full" viewBox="0 0 400 800" preserveAspectRatio="none" aria-hidden="true">
-              <defs>
-                <linearGradient id="roadGradient" x1="0%" x2="0%" y1="0%" y2="100%">
-                  <stop offset="0%" style="stop-color:#222;stop-opacity:1"/>
-                  <stop offset="100%" style="stop-color:#444;stop-opacity:1"/>
-                </linearGradient>
-              </defs>
-              <path d="${pathD}" fill="none" stroke="#333" stroke-linecap="round" stroke-linejoin="round" stroke-width="48"/>
-              <path d="${pathD}" fill="none" stroke="url(#roadGradient)" stroke-linecap="round" stroke-linejoin="round" stroke-width="40"/>
-              ${activeD ? `<path d="${activeD}" fill="none" opacity="0.35" stroke="#df162b" stroke-linecap="round" stroke-linejoin="round" stroke-width="42"/>` : ""}
-              <path class="road-centerline" d="${pathD}"/>
-            </svg>
-            ${markers}
-          </div>
+      <div class="col-span-12 xl:col-span-9">
+        <div class="lattice-stage border border-[#e0e0e0] shadow-sm">
+          <svg class="absolute inset-0 w-full h-full" viewBox="0 0 1000 520" preserveAspectRatio="none" aria-hidden="true">
+            ${pathsHtml}
+          </svg>
+          ${cards}
         </div>
-        <div class="flex flex-wrap gap-5 pt-4 mt-auto border-t border-[#e7bdb9] relative z-30">
-          <div class="flex items-center gap-2"><div class="w-4 h-4 rounded-full bg-[#df162b] border-2 border-white shadow-sm"></div><span class="text-xs font-semibold text-[#291716]">Active / eligible</span></div>
-          <div class="flex items-center gap-2"><div class="w-4 h-4 rounded-full bg-[#e7bdb9] border-2 border-white shadow-sm"></div><span class="text-xs font-semibold text-[#5d3f3d]">Grey / locked future</span></div>
-          ${state.choice ? `<p class="ml-auto text-xs font-bold text-[#df162b]">Aspiration locked — Admin reset required to change</p>` : `<p class="ml-auto text-xs font-semibold text-[#5d3f3d]">Tap an eligible role to lock aspiration</p>`}
+        <div class="flex flex-wrap gap-5 pt-4 mt-3">
+          <div class="flex items-center gap-2"><div class="w-4 h-4 rounded-full bg-[#df162b] border-2 border-white shadow-sm"></div><span class="text-xs font-semibold text-[#291716]">You are here</span></div>
+          <div class="flex items-center gap-2"><div class="w-4 h-4 rounded-full bg-[#1464F4] border-2 border-white shadow-sm"></div><span class="text-xs font-semibold text-[#291716]">Eligible</span></div>
+          <div class="flex items-center gap-2"><div class="w-4 h-4 rounded-full bg-[#16a34a] border-2 border-white shadow-sm"></div><span class="text-xs font-semibold text-[#291716]">Selected</span></div>
+          <div class="flex items-center gap-2"><div class="w-4 h-4 rounded-full bg-[#c9c9c9] border-2 border-white shadow-sm"></div><span class="text-xs font-semibold text-[#5d3f3d]">Locked</span></div>
+          ${state.choice
+            ? `<p class="ml-auto text-xs font-bold text-[#16a34a]">Aspiration locked — Admin reset required</p>`
+            : `<p class="ml-auto text-xs font-semibold text-[#5d3f3d]">Tap an eligible role to lock aspiration</p>`}
         </div>
       </div>
-      <div class="col-span-12 lg:col-span-4 space-y-5">
+      <div class="col-span-12 xl:col-span-3 space-y-5">
         <div class="bg-white border border-[#e7bdb9] rounded-xl p-5 shadow-sm">
-          <div class="flex items-center gap-2 mb-3"><span class="material-symbols-outlined text-[#df162b]">insights</span><h3 class="font-bold text-[#291716]">Role Insight</h3></div>
+          <div class="flex items-center gap-2 mb-3"><span class="material-symbols-outlined text-[#1464F4]">insights</span><h3 class="font-bold text-[#291716]">Role Insight</h3></div>
           <div class="space-y-3">
-            <div class="p-3 bg-[#fff0ef] border-l-4 border-[#df162b] rounded-r-lg">
-              <p class="text-[11px] font-bold uppercase text-[#df162b] mb-1">Growth Potential</p>
+            <div class="p-3 bg-[#eff6ff] border-l-4 border-[#1464F4] rounded-r-lg">
+              <p class="text-[11px] font-bold uppercase text-[#1464F4] mb-1">Growth Potential</p>
               <p class="text-sm text-[#291716]">${esc(insights.growth || "")}</p>
             </div>
             <div class="p-3 bg-[#fff8f7] border-l-4 border-[#e7bdb9] rounded-r-lg">
@@ -1763,7 +1865,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           </div>
         </div>
         <div class="bg-white border border-[#e7bdb9] rounded-xl p-5 shadow-sm">
-          <div class="flex items-center gap-2 mb-4"><span class="material-symbols-outlined text-[#df162b]">tips_and_updates</span><h3 class="font-bold text-[#291716]">Route Guide</h3></div>
+          <div class="flex items-center gap-2 mb-4"><span class="material-symbols-outlined text-[#1464F4]">tips_and_updates</span><h3 class="font-bold text-[#291716]">Route Guide</h3></div>
           <ul class="space-y-3">${tips || `<li class="text-sm text-[#5d3f3d]">No guidance yet.</li>`}</ul>
         </div>
       </div>
@@ -1785,19 +1887,52 @@ Before you begin, we encourage you to take a few minutes to understand the philo
   }
 
   let basket = new Map();
+  let curatedOtherSources = {};
+
+  function parseDurationSeconds(value) {
+    const text = String(value || "").trim();
+    if (!text) return 0;
+    if (/^\d+m$/i.test(text)) return Number(text.replace(/m/i, "")) * 60;
+    const parts = text.split(":").map((part) => Number(part));
+    if (parts.some((part) => Number.isNaN(part))) return 0;
+    if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+    if (parts.length === 2) return parts[0] * 60 + parts[1];
+    return 0;
+  }
+
+  function hoursLeftLabel(course) {
+    const status = course.status || "not_started";
+    if (status === "completed") return "0.0h left";
+    let totalSec = parseDurationSeconds(course.duration);
+    if (!totalSec && course.duration_minutes) totalSec = Number(course.duration_minutes) * 60;
+    if (!totalSec) return "—";
+    const pct = Math.max(0, Math.min(100, Number(course.progress_pct || 0)));
+    const leftSec = Math.round(totalSec * (1 - pct / 100));
+    return `${(leftSec / 3600).toFixed(1)}h left`;
+  }
 
   function otherSourcesFor(competency) {
-    const slug = String(competency || "Skill");
-    return [
-      { kind: "youtube", label: "YouTube", icon: "smart_display", iconClass: "text-[#df162b]", title: `${slug} Strategies 2024` },
-      { kind: "case_study", label: "Case Study", icon: "description", iconClass: "text-[#1464F4]", title: `${slug} in Practice` },
-      { kind: "webinar", label: "Internal Webinar", icon: "podcasts", iconClass: "text-[#005f81]", title: `${slug} Excellence Clinic` },
-    ].map((item) => ({
-      ...item,
-      id: `other:${item.kind}:${competency}`,
-      competency,
-      source: "other",
-    }));
+    const picks = curatedOtherSources[competency] || [];
+    const meta = [
+      { kind: "youtube", label: "YouTube", icon: "smart_display", iconClass: "text-[#df162b]" },
+      { kind: "case_study", label: "Case Study", icon: "description", iconClass: "text-[#1464F4]" },
+      { kind: "tedx", label: "TEDx Talk", icon: "podcasts", iconClass: "text-[#005f81]" },
+    ];
+    return meta.map((item) => {
+      const pick = picks.find((row) => row.kind === item.kind)
+        || picks.find((row) => item.kind === "tedx" && ["webinar", "ted", "tedx_talk"].includes(row.kind));
+      const title = pick?.title || `${competency} ${item.label}`;
+      const url = pick?.url || "";
+      return {
+        ...item,
+        id: pick?.id || `other:${item.kind}:${competency}`,
+        competency,
+        source: "other",
+        title,
+        url,
+        duration_minutes: pick?.duration_minutes,
+      };
+    });
   }
 
   function otherSourcesBlock(competency) {
@@ -1810,21 +1945,71 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         ${otherSourcesFor(competency).map((item) => {
           const inBasket = basket.has(item.id);
-          return `<div class="bg-[#fff8f7] p-3 rounded-lg border border-[#e7bdb9] flex flex-col gap-2 ${inBasket ? "ring-1 ring-[#1464F4]" : ""}">
-            <div class="flex items-center gap-2"><span class="material-symbols-outlined ${item.iconClass} text-lg">${item.icon}</span><span class="text-[10px] font-bold uppercase text-[#5d3f3d]">${esc(item.label)}</span></div>
-            <p class="text-sm font-bold text-[#291716] flex-grow">${esc(item.title)}</p>
-            <button type="button" data-course="${esc(item.id)}" data-competency="${esc(competency)}" data-title="${esc(item.title)}" data-source="other" data-kind="${esc(item.kind)}"
-              class="w-full px-3 py-2 rounded-lg font-bold text-xs ${inBasket ? "bg-[#5d3f3d] text-white cursor-not-allowed" : "bg-[#1464F4] text-white hover:opacity-90"}"
-              ${inBasket ? "disabled" : ""}>${inBasket ? "Added" : "Add to Cart"}</button>
+          const thumb = otherSourceThumb({ ...item, source: "other" });
+          return `<div class="bg-[#fff8f7] rounded-lg border border-[#e7bdb9] overflow-hidden flex flex-col ${inBasket ? "ring-1 ring-[#1464F4]" : ""}">
+            <div class="h-24 w-full relative bg-[#fff0ef] overflow-hidden">
+              <img class="w-full h-full object-cover" alt="" src="${esc(thumb)}" loading="lazy" referrerpolicy="no-referrer"/>
+              <div class="absolute bottom-2 left-2 bg-[#5d3f3d]/90 text-white px-2 py-0.5 rounded text-[10px] font-bold uppercase">${esc(item.label)}</div>
+            </div>
+            <div class="p-3 flex flex-col gap-2 flex-grow">
+              <p class="text-sm font-bold text-[#291716] flex-grow">${esc(item.title)}</p>
+              <button type="button" data-course="${esc(item.id)}" data-competency="${esc(competency)}" data-title="${esc(item.title)}" data-source="other" data-kind="${esc(item.kind)}" data-url="${esc(item.url || "")}" data-duration-minutes="${esc(item.duration_minutes || "")}"
+                class="w-full px-3 py-2 rounded-lg font-bold text-xs ${inBasket ? "bg-[#5d3f3d] text-white cursor-not-allowed" : "bg-[#1464F4] text-white hover:opacity-90"}"
+                ${inBasket ? "disabled" : ""}>${inBasket ? "Added" : "Add to Cart"}</button>
+            </div>
           </div>`;
         }).join("")}
       </div>
     </div>`;
   }
 
+  function youtubeThumbFromUrl(url) {
+    const match = String(url || "").match(/(?:youtube\.com\/(?:watch\?(?:[^#]*&)?v=|embed\/|shorts\/)|youtu\.be\/)([A-Za-z0-9_-]{6,11})/i);
+    return match ? `https://img.youtube.com/vi/${match[1]}/hqdefault.jpg` : "";
+  }
+
+  function stablePick(seedText, pool) {
+    let hash = 0;
+    const text = String(seedText || "course");
+    for (let i = 0; i < text.length; i += 1) hash = ((hash << 5) - hash) + text.charCodeAt(i);
+    const index = Math.abs(hash) % pool.length;
+    return pool[index];
+  }
+
+  function otherSourceThumb(course) {
+    if (course.thumbnail) return course.thumbnail;
+    const fromYt = youtubeThumbFromUrl(course.url);
+    if (fromYt) return fromYt;
+    const kind = String(course.kind || "").toLowerCase().replace(/\s+/g, "_");
+    const pools = {
+      case_study: [
+        "https://images.unsplash.com/photo-1454165804606-c3d57bc86b40?auto=format&fit=crop&w=640&h=360&q=80",
+        "https://images.unsplash.com/photo-1553877522-43269d4ea984?auto=format&fit=crop&w=640&h=360&q=80",
+        "https://images.unsplash.com/photo-1507679799987-c73779587ccf?auto=format&fit=crop&w=640&h=360&q=80",
+        "https://images.unsplash.com/photo-1521737604893-d14cc237f11d?auto=format&fit=crop&w=640&h=360&q=80",
+      ],
+      tedx: [
+        "https://images.unsplash.com/photo-1475721027785-f74eccf877e2?auto=format&fit=crop&w=640&h=360&q=80",
+        "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=640&h=360&q=80",
+        "https://images.unsplash.com/photo-1505373877841-8d25f7d46678?auto=format&fit=crop&w=640&h=360&q=80",
+        "https://images.unsplash.com/photo-1591115765373-5207764f72e7?auto=format&fit=crop&w=640&h=360&q=80",
+      ],
+      youtube: [
+        "https://images.unsplash.com/photo-1611162616475-46b635cb6868?auto=format&fit=crop&w=640&h=360&q=80",
+        "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?auto=format&fit=crop&w=640&h=360&q=80",
+        "https://images.unsplash.com/photo-1485846234645-a62644f84728?auto=format&fit=crop&w=640&h=360&q=80",
+        "https://images.unsplash.com/photo-1492619375914-88005aa9e8fb?auto=format&fit=crop&w=640&h=360&q=80",
+      ],
+    };
+    const pool = pools[kind] || pools.case_study;
+    return stablePick(`${course.id || ""}|${course.title || ""}|${kind}`, pool);
+  }
+
   function courseThumb(course) {
-    return course.thumbnail
-      ? `<img class="w-full h-full object-cover" alt="" src="${esc(course.thumbnail)}">`
+    const isOther = course.source === "other" || String(course.id || course.course_id || "").startsWith("other:");
+    const src = course.thumbnail || (isOther ? otherSourceThumb(course) : "") || youtubeThumbFromUrl(course.url);
+    return src
+      ? `<img class="w-full h-full object-cover" alt="" src="${esc(src)}" loading="lazy" referrerpolicy="no-referrer">`
       : `<div class="w-full h-full bg-gradient-to-br from-[#ffe1df] to-[#d5e3ff] flex items-center justify-center"><span class="material-symbols-outlined text-4xl text-[#df162b]">school</span></div>`;
   }
 
@@ -1880,6 +2065,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
 
     const gaps = result.target?.gaps || [];
     const entries = Object.entries(result.competencies || {});
+    curatedOtherSources = result.other_sources || {};
     const required = entries.map(([competency]) => competency);
     const gapCount = gaps.length || entries.length;
 
@@ -1894,11 +2080,12 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       return;
     }
 
+    const isExplore = result.target?.mode === "future_role";
     const sections = entries.map(([competency, courses]) => {
       return `<section class="mb-8">
         <div class="flex flex-wrap items-center gap-2 mb-4">
           <h2 class="text-xl font-bold text-[#291716]">${esc(competency)}</h2>
-          <span class="bg-[#df162b] text-white text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">Gap Identified</span>
+          <span class="bg-[#df162b] text-white text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">${isExplore ? "Explore" : "Gap Identified"}</span>
         </div>
         <div class="grid md:grid-cols-2 gap-4">${(courses || []).map((course) => courseCard(course, competency)).join("")}</div>
         ${otherSourcesBlock(competency)}
@@ -1921,7 +2108,9 @@ Before you begin, we encourage you to take a few minutes to understand the philo
             <span class="material-symbols-outlined">warning</span>
             <div>
               <p class="font-bold">Action Required</p>
-              <p class="text-sm mt-1">You're going great! However, we have identified ${gapCount} foccus areas${gapCount === 1 ? "" : "s"}. Please add at least <strong>1 LinkedIn course per gap</strong>. Other sources are optional.</p>
+              <p class="text-sm mt-1">${result.target?.mode === "future_role"
+                ? "You're thriving in your current role. Now, explore the journey toward your aspiration role. Please add at least <strong>1 LinkedIn course per skill</strong>. Other sources are optional."
+                : `You're going great! However, we have identified ${gapCount} focus area${gapCount === 1 ? "" : "s"}. Please add at least <strong>1 LinkedIn course per gap</strong>. Other sources are optional.`}</p>
             </div>
           </div>
           ${sections}
@@ -1958,6 +2147,8 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           title: control.dataset.title,
           source: control.dataset.source || "linkedin",
           kind: control.dataset.kind || "",
+          url: control.dataset.url || "",
+          duration_minutes: control.dataset.durationMinutes || "",
         });
         control.textContent = "Added";
         control.disabled = true;
@@ -2019,6 +2210,8 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           competency: item.competency,
           title: item.title,
           kind: item.kind || "",
+          url: item.url || "",
+          duration_minutes: item.duration_minutes || "",
         }));
         await api("/api/employee/learning/checkout", {
           method: "POST",
@@ -2080,7 +2273,11 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         ? (kindLabel || course.provider || "Other source")
         : (course.source_type || "LinkedIn Learning");
       const isMmt = !isOther && /mmt|academy|internal/i.test(provider);
-      const duration = course.duration || (isOther ? "—" : "—");
+      const timeLeft = hoursLeftLabel(course);
+      const kindNorm = String(course.kind || "").toLowerCase();
+      const providerLabel = isOther
+        ? (kindNorm === "tedx" || kindNorm === "ted" || kindNorm === "webinar" ? "TEDx Talk" : (kindLabel || course.provider || "Other source"))
+        : provider;
       const badge = status === "completed"
         ? '<span class="px-2 py-0.5 bg-green-100 text-green-800 rounded-full text-[10px] font-bold uppercase whitespace-nowrap">Completed</span>'
         : status === "in_progress"
@@ -2093,20 +2290,21 @@ Before you begin, we encourage you to take a few minutes to understand the philo
             ? `<div class="flex-1 min-w-0"><div class="w-full bg-[#ffe1df] h-1.5 rounded-full overflow-hidden mb-1"><div class="bg-[#1464F4] h-full rounded-full" style="width:${progressPct}%"></div></div><span class="text-[#5d3f3d] text-sm">${progressPct}% through</span></div>`
             : `<span class="text-[#5d3f3d] text-sm">In progress</span>`)
           : `<span class="text-[#5d3f3d] text-sm">Available</span>`;
+      const primaryLabel = status === "in_progress" ? "Continue" : "Start";
       const actions = status === "completed"
         ? (course.url
           ? `<a href="${esc(course.url)}" target="_blank" rel="noopener" class="px-4 py-1.5 border border-[#df162b] text-[#df162b] rounded-lg font-bold text-sm hover:bg-[#df162b]/5">Review</a>`
           : `<span class="text-sm text-[#5d3f3d]">Done</span>`)
         : `<div class="flex flex-wrap gap-2 justify-end">
-            <button type="button" data-progress-action="launch" data-course-id="${esc(courseId)}" data-url="${esc(course.url || "")}" class="px-4 py-1.5 bg-[#df162b] text-white rounded-lg font-bold text-sm hover:opacity-90">${status === "in_progress" ? "Continue" : "Launch"}</button>
-            ${status === "in_progress" ? `<button type="button" data-progress-action="complete" data-course-id="${esc(courseId)}" class="px-4 py-1.5 border border-[#1464F4] text-[#1464F4] rounded-lg font-bold text-sm">Mark Complete</button>` : ""}
+            <button type="button" data-progress-action="launch" data-course-id="${esc(courseId)}" data-url="${esc(course.url || "")}" class="px-4 py-1.5 bg-[#df162b] text-white rounded-lg font-bold text-sm hover:opacity-90">${primaryLabel}</button>
+            ${isOther && status === "in_progress" ? `<button type="button" data-progress-action="complete" data-course-id="${esc(courseId)}" class="px-4 py-1.5 border border-[#1464F4] text-[#1464F4] rounded-lg font-bold text-sm">Mark Complete</button>` : ""}
           </div>`;
       return `<article class="bg-white rounded-xl border border-[#e7bdb9] overflow-hidden hover:shadow-md transition-all">
         <div class="h-36 w-full bg-[#fff0ef] relative overflow-hidden">${courseThumb(course)}
           <div class="absolute top-2 right-2 bg-white/90 px-2 py-1 rounded-lg text-[10px] font-bold text-[#291716] flex items-center gap-1">
-            <span class="material-symbols-outlined text-sm">timer</span> ${esc(duration)}
+            <span class="material-symbols-outlined text-sm">timer</span> ${esc(timeLeft)}
           </div>
-          <div class="absolute bottom-2 left-2 ${isOther ? "bg-[#5d3f3d]" : isMmt ? "bg-[#df162b]" : "bg-[#0077b5]"} text-white px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">${esc(provider)}</div>
+          <div class="absolute bottom-2 left-2 ${isOther ? "bg-[#5d3f3d]" : isMmt ? "bg-[#df162b]" : "bg-[#0077b5]"} text-white px-2 py-1 rounded text-[10px] font-bold uppercase tracking-wider">${esc(providerLabel)}</div>
         </div>
         <div class="p-4">
           <div class="flex justify-between items-start gap-3 mb-3">
@@ -2157,7 +2355,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
             <h3 class="text-xl font-bold text-[#291716] mb-2">Learning Completion Status: ${completed}/${total} Courses</h3>
             <p class="text-sm text-[#5d3f3d] mb-4">${pct === 100
               ? "All locked courses are complete. Keep applying what you learned on the job."
-              : `Launch courses to track progress. Focus next on <span class="font-bold text-[#291716]">${esc(focusGap)}</span>.`}</p>
+              : `Start courses to track progress.`}</p>
             <div class="w-full bg-[#ffe1df] h-3 rounded-full overflow-hidden">
               <div class="bg-[#df162b] h-full rounded-full" style="width:${pct}%"></div>
             </div>
@@ -2190,11 +2388,507 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     });
   }
 
+  function lbInitials(name) {
+    return String(name || "?")
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0]?.toUpperCase() || "")
+      .join("") || "?";
+  }
+
+  function lbBadgeIcons(rowBadges, catalog) {
+    const list = rowBadges || [];
+    if (!list.length) return `<span class="text-[#926e6c]">—</span>`;
+    return `<div class="flex flex-wrap gap-1 justify-center">${list.slice(0, 4).map((badge) => {
+      const cat = catalog.find((item) => item.id === badge.id);
+      return `<span class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#eff6ff] text-[#005cab]" title="${esc(badge.title)}">
+        <span class="material-symbols-outlined text-[14px]" style="font-variation-settings:'FILL' 1">${esc(cat?.icon || "military_tech")}</span>
+      </span>`;
+    }).join("")}${list.length > 4 ? `<span class="text-[10px] text-[#5d3f3d]">+${list.length - 4}</span>` : ""}</div>`;
+  }
+
   async function initLeaderboard() {
-    const rows = (await api("/api/leaderboard")).leaderboard;
-    render(`${pageHeader("Learning Leaderboard")}
-      <div class="overflow-x-auto bg-white border rounded-xl"><table class="w-full min-w-[600px] text-sm"><thead class="bg-slate-50 text-left"><tr><th class="p-4">Rank</th><th class="p-4">Employee</th><th class="p-4">Number of gaps cohort</th><th class="p-4">LinkedIn hours</th></tr></thead>
-      <tbody>${rows.map((row) => `<tr class="border-t"><td class="p-4 font-bold text-blue-700">#${row.rank}</td><td class="p-4"><strong>${esc(row.name)}</strong><div class="text-xs text-slate-500">${esc(row.employee_code)}</div></td><td class="p-4">${row.gap_cohort}</td><td class="p-4 font-bold">${Number(row.learning_hours).toFixed(1)}h</td></tr>`).join("") || empty("Leaderboard is empty until final profiles and synced LinkedIn activity exist.", 4)}</tbody></table></div>`);
+    const payload = await api("/api/leaderboard");
+    const role = session.user?.role;
+    if (role === "admin") return initAdminLeaderboard(payload);
+    if (role === "zm" || role === "rd") return initManagerLeaderboard(payload, role);
+    return initEmployeeLeaderboard(payload);
+  }
+
+  function initEmployeeLeaderboard(payload) {
+    const rows = payload.leaderboard || [];
+    const viewer = payload.viewer || {};
+    const badges = payload.badges || [];
+    const catalog = payload.badge_catalog || [];
+    const earnedIds = new Set(badges.map((badge) => badge.id));
+    const meCode = viewer.employee_code || session.user?.employee_code || "";
+    const gaps = viewer.gaps || [];
+    const intensityWidth = { High: 75, Med: 45, Low: 20 };
+    const intensityColor = { High: "bg-[#df162b]", Med: "bg-[#005cab]", Low: "bg-[#926e6c]" };
+
+    const cohortCard = `<div class="bg-white border border-[#e7bdb9] rounded-xl p-5 relative overflow-hidden flex flex-col justify-between">
+      <div class="absolute top-0 right-0 w-28 h-28 bg-[#fddbd8] rounded-bl-full opacity-30 -mr-8 -mt-8 pointer-events-none"></div>
+      <div>
+        <p class="text-[11px] font-bold uppercase tracking-wide text-[#005cab]">Your Cohort</p>
+        <h2 class="text-4xl font-extrabold text-[#291716] mt-3 tracking-tight">${viewer.rank != null ? `Rank #${viewer.rank}` : "Unranked"}</h2>
+        <p class="text-sm text-[#5d3f3d] mt-2 flex items-center gap-1">
+          <span class="material-symbols-outlined text-[16px]">groups</span>
+          Competing with peers on LinkedIn hours
+        </p>
+      </div>
+      <div class="mt-6 pt-4 border-t border-[#e7bdb9] flex justify-between items-end gap-3">
+        <p class="text-sm text-[#5d3f3d]">Focus areas: <strong class="text-[#291716]">${viewer.focus_areas ?? "—"}</strong></p>
+        <div class="text-right">
+          <p class="text-[11px] font-bold uppercase text-[#5d3f3d]">Ranked by</p>
+          <p class="text-sm font-bold text-[#291716]">LinkedIn hours</p>
+        </div>
+      </div>
+    </div>`;
+
+    const pulseCard = `<div class="bg-white border border-[#e7bdb9] rounded-xl p-5 flex flex-col justify-between">
+      <div>
+        <p class="text-[11px] font-bold uppercase tracking-wide text-[#5d3f3d] flex items-center gap-1">
+          <span class="material-symbols-outlined text-[16px]">show_chart</span> Growth Pulse
+        </p>
+        <h3 class="text-2xl font-extrabold text-[#291716] mt-2">${Number(viewer.learning_hours || 0).toFixed(1)}h</h3>
+        <p class="text-sm text-[#5d3f3d]">LinkedIn learning hours</p>
+      </div>
+      <svg class="w-full h-14 mt-4 overflow-visible" viewBox="0 0 100 30" aria-hidden="true">
+        <path d="M0,25 Q10,20 20,22 T40,15 T60,18 T80,5 T100,2" fill="none" stroke="#005cab" stroke-width="2"></path>
+        <circle cx="100" cy="2" fill="#005cab" r="3"></circle>
+      </svg>
+    </div>`;
+
+    const weakSkills = `<div class="bg-white border border-[#e7bdb9] rounded-xl p-5 flex flex-col">
+      <p class="text-[11px] font-bold uppercase tracking-wide text-[#5d3f3d] flex items-center gap-1">
+        <span class="material-symbols-outlined text-[16px]">track_changes</span> Weak Skills
+      </p>
+      <div class="mt-4 space-y-3 flex-1 flex flex-col justify-end">
+        ${gaps.length
+          ? gaps.slice(0, 3).map((gap) => {
+            const intensity = gap.intensity || "Low";
+            return `<div>
+              <div class="text-[11px] font-semibold mb-1 text-[#291716]">${esc(gap.competency)}</div>
+              <div class="w-full bg-[#ffe1df] rounded-full h-1.5 overflow-hidden">
+                <div class="${intensityColor[intensity] || intensityColor.Low} h-1.5 rounded-full" style="width:${intensityWidth[intensity] || 20}%"></div>
+              </div>
+            </div>`;
+          }).join("")
+          : `<p class="text-sm text-[#5d3f3d]">No focus gaps — keep stacking hours.</p>`}
+      </div>
+    </div>`;
+
+    const badgeShelf = `<div class="mb-8">
+      <h3 class="text-lg font-bold text-[#291716] mb-3">Badge shelf</h3>
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        ${catalog.map((badge) => {
+          const earned = earnedIds.has(badge.id);
+          const mine = badges.find((item) => item.id === badge.id);
+          const tier = mine?.meta?.tier;
+          return `<div class="bg-white border rounded-xl p-4 flex flex-col items-center text-center ${earned ? "border-[#005cab] bg-[#eff6ff]" : "border-[#e7bdb9] opacity-70"}">
+            <div class="w-12 h-12 rounded-full ${earned ? "bg-[#0075d7] text-white" : "bg-[#ffe1df] text-[#5d3f3d]"} flex items-center justify-center mb-3">
+              <span class="material-symbols-outlined" style="font-variation-settings:'FILL' ${earned ? 1 : 0}">${esc(badge.icon || "military_tech")}</span>
+            </div>
+            <strong class="text-sm text-[#291716]">${esc(badge.title)}${tier ? ` ×${tier}` : ""}</strong>
+            <p class="text-[11px] text-[#5d3f3d] mt-1">${esc(badge.rule)}</p>
+            <span class="text-[10px] font-bold uppercase tracking-wider mt-3 ${earned ? "text-[#005cab]" : "text-[#926e6c]"}">${earned ? "Earned" : "Locked"}</span>
+          </div>`;
+        }).join("")}
+      </div>
+    </div>`;
+
+    render(`${pageHeader("Learning Leaderboard", "Compete with peers in your cohort. Focus areas show how many skills need work.")}
+      <div class="grid grid-cols-1 md:grid-cols-12 gap-4 mb-8">
+        <div class="md:col-span-6">${cohortCard}</div>
+        <div class="md:col-span-3">${pulseCard}</div>
+        <div class="md:col-span-3">${weakSkills}</div>
+      </div>
+      ${badgeShelf}
+      <h3 class="text-lg font-bold text-[#291716] mb-3">Peer Rankings</h3>
+      <div class="overflow-x-auto bg-white border border-[#e7bdb9] rounded-xl">
+        <table class="w-full min-w-[640px] text-sm text-left">
+          <thead class="bg-[#ffe9e7] text-[11px] uppercase tracking-wider text-[#5d3f3d]">
+            <tr>
+              <th class="p-4">Rank</th>
+              <th class="p-4">Employee</th>
+              <th class="p-4">Focus Areas</th>
+              <th class="p-4">LinkedIn Hours</th>
+              <th class="p-4 hidden sm:table-cell">Courses</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${rows.map((row) => {
+              const mine = meCode && row.employee_code === meCode;
+              return `<tr class="border-t border-[#e7bdb9] ${mine ? "bg-[#eff6ff] border-l-4 border-l-[#005cab]" : "hover:bg-[#fff0ef]"}">
+                <td class="p-4 font-bold text-[#005cab]">#${row.rank}</td>
+                <td class="p-4">
+                  <div class="flex items-center gap-2">
+                    <strong class="text-[#291716]">${esc(row.name)}</strong>
+                    ${mine ? `<span class="bg-[#df162b] text-white text-[10px] font-bold uppercase px-1.5 py-0.5 rounded">You</span>` : ""}
+                  </div>
+                  <div class="text-xs text-[#5d3f3d]">${esc(row.employee_code)}</div>
+                </td>
+                <td class="p-4 ${mine ? "font-bold" : ""}">${row.focus_areas}</td>
+                <td class="p-4 font-bold">${Number(row.learning_hours).toFixed(1)}h</td>
+                <td class="p-4 hidden sm:table-cell ${mine ? "font-bold" : ""}">${Number(row.completions || 0)}</td>
+              </tr>`;
+            }).join("") || empty("Leaderboard empty until final profiles exist.", 5)}
+          </tbody>
+        </table>
+      </div>`);
+  }
+
+  function initManagerLeaderboard(payload, role) {
+    const rows = payload.leaderboard || [];
+    const stats = payload.stats || {};
+    const catalog = payload.badge_catalog || [];
+    const titleScope = role === "rd" ? "Regional" : "Zonal";
+    let searchTerm = "";
+    let searchRaw = "";
+
+    const draw = () => {
+      const list = rows.filter((row) => {
+        if (!searchTerm) return true;
+        return [row.employee_code, row.name].some((value) => String(value || "").toLowerCase().includes(searchTerm));
+      });
+      const focusMax = Math.max(1, ...(stats.focus_area_distribution || []).map((row) => row.count), 0);
+      const hoursMax = Math.max(1, ...(stats.hours_buckets || []).map((row) => row.count), 0);
+      const badgeRows = (stats.badge_distribution || []).slice(0, 5);
+      const badgeTotal = badgeRows.reduce((sum, row) => sum + Number(row.count || 0), 0);
+      const badgeColors = ["#0075d7", "#df162b", "#7bd0fe", "#005cab", "#926e6c"];
+
+      render(`${pageHeader("Learning Leaderboard", `${titleScope} performance and competency calibration metrics.`)}
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-6">
+          <div class="lg:col-span-8 bg-white border border-[#e7bdb9] rounded-xl p-5">
+            <div class="flex justify-between items-end gap-3 mb-4 flex-wrap">
+              <div>
+                <h3 class="text-lg font-bold text-[#291716]">${titleScope} Learning Pulse</h3>
+                <p class="text-sm text-[#5d3f3d] mt-1">LinkedIn hours mix across your team</p>
+              </div>
+              <div class="text-right">
+                <p class="text-3xl font-extrabold text-[#005cab]">${Number(stats.total_hours || 0).toFixed(0)}</p>
+                <p class="text-xs text-[#5d3f3d]">Total hours · ${stats.team_size || 0} people</p>
+              </div>
+            </div>
+            <div class="flex items-end gap-2 h-40">
+              ${(stats.hours_buckets || []).map((bucket) => {
+                const height = Math.max(8, Math.round((bucket.count / hoursMax) * 100));
+                return `<div class="flex-1 flex flex-col items-center gap-2 h-full justify-end">
+                  <div class="w-full max-w-[48px] bg-[#a6c8ff] hover:bg-[#0075d7] rounded-t transition-colors relative group" style="height:${height}%">
+                    <span class="absolute -top-7 left-1/2 -translate-x-1/2 text-[10px] font-bold text-[#291716] opacity-0 group-hover:opacity-100 whitespace-nowrap">${bucket.count}</span>
+                  </div>
+                  <span class="text-[10px] text-[#926e6c]">${esc(bucket.label)}</span>
+                </div>`;
+              }).join("") || `<p class="text-sm text-[#5d3f3d]">No learning activity yet.</p>`}
+            </div>
+          </div>
+          <div class="lg:col-span-4 bg-white border border-[#e7bdb9] rounded-xl p-5 flex flex-col">
+            <h3 class="text-lg font-bold text-[#291716]">Milestone Badges</h3>
+            <p class="text-sm text-[#5d3f3d] mb-4">Earned badges across your roster</p>
+            <div class="flex-1 flex items-center justify-center py-4">
+              <div class="relative w-28 h-28 rounded-full border-[14px] border-[#ffe1df] flex items-center justify-center">
+                <div class="text-center">
+                  <p class="text-2xl font-extrabold text-[#291716]">${badgeTotal}</p>
+                  <p class="text-[10px] font-bold uppercase text-[#5d3f3d]">Total</p>
+                </div>
+              </div>
+            </div>
+            <div class="space-y-2 mt-2">
+              ${badgeRows.map((row, index) => {
+                const pct = badgeTotal ? Math.round((row.count / badgeTotal) * 100) : 0;
+                return `<div class="flex justify-between items-center text-sm gap-2">
+                  <div class="flex items-center gap-2 min-w-0">
+                    <span class="w-3 h-3 rounded-full shrink-0" style="background:${badgeColors[index % badgeColors.length]}"></span>
+                    <span class="truncate text-[#291716]">${esc(row.name)}</span>
+                  </div>
+                  <span class="font-bold text-[#5d3f3d] shrink-0">${pct}%</span>
+                </div>`;
+              }).join("") || `<p class="text-xs text-[#5d3f3d]">No badges earned yet.</p>`}
+            </div>
+          </div>
+          <div class="lg:col-span-12 bg-white border border-[#e7bdb9] rounded-xl p-5">
+            <h3 class="text-lg font-bold text-[#291716] mb-4">Focus areas distribution</h3>
+            <div class="grid md:grid-cols-2 gap-x-8 gap-y-3">
+              ${(stats.focus_area_distribution || []).map((row) => `
+                <div>
+                  <div class="flex justify-between text-sm mb-1">
+                    <span class="text-[#291716]">${row.focus_areas} focus area${row.focus_areas === 1 ? "" : "s"}</span>
+                    <span class="font-bold text-[#005cab]">${row.count} people</span>
+                  </div>
+                  <div class="h-2 bg-[#ffe1df] rounded-full overflow-hidden">
+                    <div class="h-full bg-[#0075d7] rounded-full" style="width:${Math.round((row.count / focusMax) * 100)}%"></div>
+                  </div>
+                </div>`).join("") || `<p class="text-sm text-[#5d3f3d]">No rated profiles yet.</p>`}
+            </div>
+            <p class="text-xs text-[#5d3f3d] mt-4">${stats.journey_locked_pct || 0}% journeys locked · avg ${Number(stats.avg_hours || 0).toFixed(1)}h</p>
+          </div>
+        </div>
+        <div class="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h3 class="text-lg font-bold text-[#291716]">Team leaderboards</h3>
+            <p class="text-xs text-[#5d3f3d] mt-0.5">Separate rankings per gap-severity band · ranked by LinkedIn hours</p>
+          </div>
+          <label class="relative block">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#926e6c] text-[18px]">search</span>
+            <input data-lb-search value="${esc(searchRaw)}" class="pl-10 pr-4 py-2 border border-[#e7bdb9] rounded-full text-sm w-full sm:w-64 outline-none focus:border-[#005cab]" placeholder="Search employees...">
+          </label>
+        </div>
+        <div class="space-y-6">
+          ${(() => {
+            const grouped = {};
+            for (const row of list) {
+              const key = row.severity_band;
+              if (!grouped[key]) grouped[key] = [];
+              grouped[key].push(row);
+            }
+            const groupKeys = Object.keys(grouped).map(Number).sort((a, b) => a - b);
+            if (!groupKeys.length) {
+              return `<div class="bg-white border border-[#e7bdb9] rounded-xl p-8 text-center text-sm text-[#5d3f3d]">No employees in scope yet.</div>`;
+            }
+            return groupKeys.map((band) => {
+              const bandRows = grouped[band].sort((a, b) => a.rank - b.rank || String(a.name).localeCompare(String(b.name)));
+              return `<section class="bg-white border border-[#e7bdb9] rounded-xl overflow-hidden">
+                <div class="p-4 bg-[#fff8f7] border-b border-[#e7bdb9] flex justify-between items-center gap-3 flex-wrap">
+                  <div>
+                    <h3 class="text-lg font-bold text-[#291716]">Severity band ${band}</h3>
+                    <p class="text-xs text-[#5d3f3d] mt-0.5">${bandRows.length} employee${bandRows.length === 1 ? "" : "s"} · ranked by LinkedIn hours</p>
+                  </div>
+                  <span class="text-xs font-bold uppercase tracking-wide text-[#df162b] bg-[#fff0ef] border border-[#e7bdb9] px-3 py-1 rounded-full">Gap severity ${band}</span>
+                </div>
+                <div class="overflow-x-auto">
+                  <table class="w-full min-w-[720px] text-sm text-left">
+                    <thead class="bg-[#fff0ef] text-[11px] uppercase tracking-wide text-[#5d3f3d]">
+                      <tr>
+                        <th class="p-4">Rank</th>
+                        <th class="p-4">Employee</th>
+                        <th class="p-4">Focus areas</th>
+                        <th class="p-4 text-right">Hours</th>
+                        <th class="p-4">Courses</th>
+                        <th class="p-4 text-center">Badges</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      ${bandRows.map((row) => `<tr class="border-t border-[#e7bdb9] hover:bg-[#fff0ef]">
+                        <td class="p-4 font-bold text-[#0075d7]">#${row.rank}</td>
+                        <td class="p-4">
+                          <div class="flex items-center gap-2">
+                            <div class="w-8 h-8 rounded-full bg-[#f4d2d0] text-[#5d3f3d] flex items-center justify-center text-xs font-bold">${esc(lbInitials(row.name))}</div>
+                            <div>
+                              <strong class="text-[#291716]">${esc(row.name)}</strong>
+                              <div class="text-xs text-[#5d3f3d]">${esc(row.employee_code)}</div>
+                            </div>
+                          </div>
+                        </td>
+                        <td class="p-4 font-bold">${row.focus_areas}</td>
+                        <td class="p-4 text-right font-mono font-bold">${Number(row.learning_hours).toFixed(1)}h</td>
+                        <td class="p-4">${Number(row.completions || 0)}</td>
+                        <td class="p-4 text-center">${lbBadgeIcons(row.badges, catalog)}</td>
+                      </tr>`).join("")}
+                    </tbody>
+                  </table>
+                </div>
+              </section>`;
+            }).join("");
+          })()}
+        </div>`);
+
+      qs("[data-lb-search]").oninput = (event) => {
+        searchRaw = event.target.value;
+        searchTerm = searchRaw.trim().toLowerCase();
+        draw();
+        const input = qs("[data-lb-search]");
+        if (input) {
+          input.focus();
+          const end = input.value.length;
+          input.setSelectionRange(end, end);
+        }
+      };
+    };
+
+    draw();
+  }
+
+  function initAdminLeaderboard(payload) {
+    const rows = payload.leaderboard || [];
+    const catalog = payload.badge_catalog || [];
+    const bands = [...new Set(rows.map((row) => row.severity_band))].sort((a, b) => a - b);
+    let filterBand = "all";
+    let sortMode = "rank-asc";
+    let filterOpen = false;
+    let sortOpen = false;
+    let searchTerm = "";
+    let searchRaw = "";
+
+    const filterLabel = {
+      all: "All bands",
+      ...Object.fromEntries(bands.map((band) => [`band-${band}`, `Severity ${band}`])),
+      locked: "Journey locked",
+      unlocked: "Journey open",
+      focus0: "0 focus areas",
+      focus1plus: "1+ focus areas",
+    };
+    const sortLabel = {
+      "rank-asc": "Rank low→high",
+      "rank-desc": "Rank high→low",
+      "hours-desc": "Hours high→low",
+      "hours-asc": "Hours low→high",
+      "name-asc": "Name A–Z",
+      "name-desc": "Name Z–A",
+      "focus-desc": "Focus areas high→low",
+      "severity-asc": "Severity low→high",
+    };
+
+    const filtered = () => {
+      let list = rows.filter((row) => {
+        if (filterBand.startsWith("band-") && String(row.severity_band) !== filterBand.slice(5)) return false;
+        if (filterBand === "locked" && !row.journey_locked) return false;
+        if (filterBand === "unlocked" && row.journey_locked) return false;
+        if (filterBand === "focus0" && Number(row.focus_areas) !== 0) return false;
+        if (filterBand === "focus1plus" && Number(row.focus_areas) < 1) return false;
+        if (!searchTerm) return true;
+        return [row.employee_code, row.name].some((value) => String(value || "").toLowerCase().includes(searchTerm));
+      });
+      list = [...list].sort((a, b) => {
+        if (sortMode === "rank-asc") return (a.rank - b.rank) || (a.severity_band - b.severity_band) || String(a.name).localeCompare(String(b.name));
+        if (sortMode === "rank-desc") return (b.rank - a.rank) || (a.severity_band - b.severity_band);
+        if (sortMode === "hours-desc") return b.learning_hours - a.learning_hours;
+        if (sortMode === "hours-asc") return a.learning_hours - b.learning_hours;
+        if (sortMode === "name-asc") return String(a.name || "").localeCompare(String(b.name || ""));
+        if (sortMode === "name-desc") return String(b.name || "").localeCompare(String(a.name || ""));
+        if (sortMode === "focus-desc") return b.focus_areas - a.focus_areas;
+        if (sortMode === "severity-asc") return a.severity_band - b.severity_band || a.rank - b.rank;
+        return 0;
+      });
+      return list;
+    };
+
+    const draw = () => {
+      const list = filtered();
+      const filterActive = filterBand !== "all";
+      const chipBase = "px-3 py-1.5 bg-white border rounded-full text-xs font-bold inline-flex items-center gap-1 cursor-pointer hover:border-[#df162b] hover:text-[#df162b] transition-colors";
+      const chipOn = "border-[#df162b] text-[#df162b] bg-[#fff0ef]";
+      const chipOff = "border-[#e7bdb9] text-[#5d3f3d]";
+      const grouped = {};
+      for (const row of list) {
+        const key = row.severity_band;
+        if (!grouped[key]) grouped[key] = [];
+        grouped[key].push(row);
+      }
+      const groupKeys = Object.keys(grouped).map(Number).sort((a, b) => a - b);
+
+      render(`${pageHeader("Learning Leaderboard", "All employees ranked within gap-severity cohorts. Search, filter, and sort across bands.")}
+        <label class="block mb-4"><span class="sr-only">Search employees</span>
+          <input data-lb-search value="${esc(searchRaw)}" class="w-full md:w-96 border border-slate-200 rounded-lg px-4 py-3" placeholder="Search code or name">
+        </label>
+        <div class="bg-white rounded-xl border border-[#e7bdb9] overflow-hidden mb-6">
+          <div class="p-4 bg-[#fff0ef] border-b border-[#e7bdb9] flex justify-between items-center gap-3 flex-wrap">
+            <div class="flex gap-2 flex-wrap items-center">
+              <div class="relative">
+                <button type="button" data-toggle-filter class="${chipBase} ${filterActive || filterOpen ? chipOn : chipOff}">
+                  <span class="material-symbols-outlined text-[16px]">filter_list</span>
+                  Filter${filterActive ? `: ${esc(filterLabel[filterBand] || filterBand)}` : ""}
+                </button>
+                ${filterOpen ? `<div class="absolute left-0 top-full mt-2 z-20 min-w-[200px] max-h-72 overflow-y-auto bg-white border border-[#e7bdb9] rounded-xl shadow-lg py-1">
+                  ${Object.entries(filterLabel).map(([key, label]) => `<button type="button" data-filter="${key}" class="w-full text-left px-4 py-2 text-sm font-semibold hover:bg-[#fff0ef] ${filterBand === key ? "text-[#df162b]" : "text-[#291716]"}">${esc(label)}</button>`).join("")}
+                </div>` : ""}
+              </div>
+              <div class="relative">
+                <button type="button" data-toggle-sort class="${chipBase} ${sortMode !== "rank-asc" || sortOpen ? chipOn : chipOff}">
+                  <span class="material-symbols-outlined text-[16px]">sort</span>
+                  Sort: ${esc(sortLabel[sortMode])}
+                </button>
+                ${sortOpen ? `<div class="absolute left-0 top-full mt-2 z-20 min-w-[220px] bg-white border border-[#e7bdb9] rounded-xl shadow-lg py-1">
+                  ${Object.entries(sortLabel).map(([key, label]) => `<button type="button" data-sort="${key}" class="w-full text-left px-4 py-2 text-sm font-semibold hover:bg-[#fff0ef] ${sortMode === key ? "text-[#df162b]" : "text-[#291716]"}">${esc(label)}</button>`).join("")}
+                </div>` : ""}
+              </div>
+            </div>
+            <span class="text-xs text-[#5d3f3d]">Showing ${list.length} of ${rows.length} · ${groupKeys.length} band${groupKeys.length === 1 ? "" : "s"}</span>
+          </div>
+        </div>
+        <div class="space-y-6">
+          ${groupKeys.map((band) => {
+            const bandRows = grouped[band];
+            return `<section class="bg-white border border-[#e7bdb9] rounded-xl overflow-hidden">
+              <div class="p-4 bg-[#fff8f7] border-b border-[#e7bdb9] flex justify-between items-center gap-3 flex-wrap">
+                <div>
+                  <h3 class="text-lg font-bold text-[#291716]">Severity band ${band}</h3>
+                  <p class="text-xs text-[#5d3f3d] mt-0.5">${bandRows.length} employee${bandRows.length === 1 ? "" : "s"} · ranked by LinkedIn hours</p>
+                </div>
+                <span class="text-xs font-bold uppercase tracking-wide text-[#df162b] bg-[#fff0ef] border border-[#e7bdb9] px-3 py-1 rounded-full">Gap severity ${band}</span>
+              </div>
+              <div class="overflow-x-auto">
+                <table class="w-full min-w-[720px] text-sm text-left">
+                  <thead class="bg-[#fff0ef] text-[11px] uppercase tracking-wide text-[#5d3f3d]">
+                    <tr>
+                      <th class="p-4">Rank</th>
+                      <th class="p-4">Employee</th>
+                      <th class="p-4">Focus areas</th>
+                      <th class="p-4">Hours</th>
+                      <th class="p-4">Courses</th>
+                      <th class="p-4 text-center">Badges</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    ${bandRows.map((row) => `<tr class="border-t border-[#e7bdb9] hover:bg-[#fff0ef]">
+                      <td class="p-4 font-bold text-[#005cab]">#${row.rank}</td>
+                      <td class="p-4"><strong>${esc(row.name)}</strong><div class="text-xs text-[#5d3f3d]">${esc(row.employee_code)}</div></td>
+                      <td class="p-4 font-bold">${row.focus_areas}</td>
+                      <td class="p-4 font-bold">${Number(row.learning_hours).toFixed(1)}h</td>
+                      <td class="p-4">${Number(row.completions || 0)}</td>
+                      <td class="p-4 text-center">${lbBadgeIcons(row.badges, catalog)}</td>
+                    </tr>`).join("")}
+                  </tbody>
+                </table>
+              </div>
+            </section>`;
+          }).join("") || `<div class="bg-white border border-[#e7bdb9] rounded-xl p-8 text-center text-sm text-[#5d3f3d]">No matching employees.</div>`}
+        </div>`);
+
+      qs("[data-toggle-filter]")?.addEventListener("click", (event) => {
+        event.stopPropagation();
+        filterOpen = !filterOpen;
+        sortOpen = false;
+        draw();
+      });
+      qs("[data-toggle-sort]")?.addEventListener("click", (event) => {
+        event.stopPropagation();
+        sortOpen = !sortOpen;
+        filterOpen = false;
+        draw();
+      });
+      qsa("[data-filter]").forEach((control) => {
+        control.onclick = (event) => {
+          event.stopPropagation();
+          filterBand = control.dataset.filter;
+          filterOpen = false;
+          draw();
+        };
+      });
+      qsa("[data-sort]").forEach((control) => {
+        control.onclick = (event) => {
+          event.stopPropagation();
+          sortMode = control.dataset.sort;
+          sortOpen = false;
+          draw();
+        };
+      });
+      qs("[data-lb-search]").oninput = (event) => {
+        searchRaw = event.target.value;
+        searchTerm = searchRaw.trim().toLowerCase();
+        filterOpen = false;
+        sortOpen = false;
+        draw();
+        const input = qs("[data-lb-search]");
+        if (input) {
+          input.focus();
+          const end = input.value.length;
+          input.setSelectionRange(end, end);
+        }
+      };
+    };
+
+    draw();
   }
 
   async function initAdminOverview() {
@@ -2560,12 +3254,28 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       const result = await api(`/api/final-profile?employee_code=${encodeURIComponent(employeeCode)}`);
       const emp = result.employee || {};
       const name = emp.name || "Employee";
-      const ratingRows = Object.entries(result.ratings || {}).map(([competency, rating]) =>
-        `<div class="py-3 flex justify-between gap-3 border-b border-[#e7bdb9] last:border-0"><span class="text-sm text-[#291716]">${esc(competency)}</span><strong class="text-sm text-[#005cab]">${esc(rating)}</strong></div>`
-      ).join("") || '<p class="py-8 text-center text-sm text-[#5d3f3d]">Final rating not available yet.</p>';
+      const isAdmin = session.user?.role === "admin";
+      const ideals = result.ideal_ratings || {};
+      const competencies = Object.keys(result.ratings || {}).length
+        ? Object.keys(result.ratings)
+        : Object.keys(ideals);
+      const ratingRows = competencies.length
+        ? (isAdmin
+          ? `<div class="grid grid-cols-[1.4fr_1fr_1fr] gap-2 text-[11px] font-bold uppercase tracking-wider text-[#5d3f3d] pb-2 border-b border-[#e7bdb9]">
+              <span>Competency</span><span>Final rating</span><span>Ideal rating</span>
+            </div>
+            ${competencies.map((competency) => `<div class="py-3 grid grid-cols-[1.4fr_1fr_1fr] gap-2 items-center border-b border-[#e7bdb9] last:border-0">
+              <span class="text-sm text-[#291716]">${esc(competency)}</span>
+              <strong class="text-sm text-[#005cab]">${esc(result.ratings?.[competency] || "—")}</strong>
+              <strong class="text-sm text-[#5d3f3d]">${esc(ideals[competency] || "—")}</strong>
+            </div>`).join("")}`
+          : Object.entries(result.ratings || {}).map(([competency, rating]) =>
+            `<div class="py-3 flex justify-between gap-3 border-b border-[#e7bdb9] last:border-0"><span class="text-sm text-[#291716]">${esc(competency)}</span><strong class="text-sm text-[#005cab]">${esc(rating)}</strong></div>`
+          ).join(""))
+        : '<p class="py-8 text-center text-sm text-[#5d3f3d]">Final rating not available yet.</p>';
       const modal = document.createElement("div");
       modal.className = "fixed inset-0 z-[80] bg-slate-900/50 p-4 grid place-items-center";
-      modal.innerHTML = `<section class="bg-white rounded-xl p-6 max-w-xl w-full border border-[#e7bdb9] shadow-2xl max-h-[90vh] overflow-y-auto" role="dialog" aria-modal="true">
+      modal.innerHTML = `<section class="bg-white rounded-xl p-6 ${isAdmin ? "max-w-2xl" : "max-w-xl"} w-full border border-[#e7bdb9] shadow-2xl max-h-[90vh] overflow-y-auto" role="dialog" aria-modal="true">
         <div class="flex justify-between gap-3">
           <div>
             <h2 class="text-xl font-extrabold text-[#291716]">Final rating of ${esc(name)}</h2>
@@ -2625,18 +3335,136 @@ Before you begin, we encourage you to take a few minutes to understand the philo
 
   async function initConfidence() {
     const overview = await api("/api/admin/overview");
-    const selected = params.get("employee") || overview.employees[0]?.employee_code || "";
-    const options = overview.employees.map((row) => `<option value="${esc(row.employee_code)}" ${row.employee_code === selected ? "selected" : ""}>${esc(row.name)} (${esc(row.employee_code)})</option>`).join("");
-    if (!selected) {
+    const employees = overview.employees || [];
+    if (!employees.length) {
       render(`${pageHeader("Confidence Scores")}<p class="bg-white border rounded-xl p-8">No employees available.</p>`);
       return;
     }
-    const result = await api(`/api/admin/confidence?employee_code=${encodeURIComponent(selected)}`);
-    render(`${pageHeader("Confidence Scores", "Calculated only when ZM, RD, and all seven AI assessment ratings exist.", `<select data-employee-select class="border rounded-lg px-3 py-2 bg-white">${options}</select>`)}
-      <div class="mb-7">${metric("Overall confidence", result.score == null ? "Pending" : `${result.score}%`, result.band || `${result.completed || 0}/${result.total || 7} competencies complete`)}</div>
-      <div class="overflow-x-auto bg-white border rounded-xl"><table class="w-full min-w-[850px] text-sm"><thead class="bg-slate-50 text-left"><tr><th class="p-4">Competency</th><th class="p-4">RD</th><th class="p-4">ZM</th><th class="p-4">AI</th><th class="p-4">ZM agreement</th><th class="p-4">AI agreement</th><th class="p-4">Confidence</th></tr></thead><tbody>
-      ${(result.competencies || []).map((row) => `<tr class="border-t"><td class="p-4 font-bold">${esc(row.competency)}</td><td class="p-4">${esc(row.rd_rating || "Pending")}</td><td class="p-4">${esc(row.zm_rating || "Pending")}</td><td class="p-4">${esc(row.ai_rating || "Pending")}</td><td class="p-4">${row.zm_agreement == null ? "—" : `${row.zm_agreement}%`}</td><td class="p-4">${row.ai_agreement == null ? "—" : `${row.ai_agreement}%`}</td><td class="p-4">${row.confidence == null ? "Pending" : `${row.confidence}%`}</td></tr>`).join("") || empty("Confidence pending. Required assessment inputs are incomplete.", 7)}</tbody></table></div>`);
-    qs("[data-employee-select]").onchange = (event) => go("admin/confidence", `?employee=${encodeURIComponent(event.target.value)}`);
+
+    let selected = params.get("employee") || employees[0].employee_code;
+    if (!employees.some((row) => row.employee_code === selected)) selected = employees[0].employee_code;
+    let searchTerm = "";
+    let searchRaw = "";
+    let result = null;
+
+    const bandTone = (band) => {
+      if (band === "High") return "bg-emerald-50 text-emerald-800 border-emerald-200";
+      if (band === "Low") return "bg-[#fff0ef] text-[#df162b] border-[#e7bdb9]";
+      return "bg-[#fff4e8] text-[#9a5b1a] border-[#f0d4b0]";
+    };
+
+    const loadResult = async () => {
+      result = await api(`/api/admin/confidence?employee_code=${encodeURIComponent(selected)}`);
+    };
+
+    const draw = () => {
+      const selectedEmp = employees.find((row) => row.employee_code === selected) || employees[0];
+      const label = `${selectedEmp.name} (${selectedEmp.employee_code})`;
+      const filtered = employees.filter((row) => {
+        if (!searchTerm) return true;
+        return [row.name, row.employee_code, row.designation]
+          .some((value) => String(value || "").toLowerCase().includes(searchTerm));
+      });
+      const score = result?.score;
+      const band = result?.band || "";
+      const scoreLabel = score == null ? "Pending" : `${score}%`;
+      const pct = score == null ? 0 : Math.max(0, Math.min(100, Number(score)));
+      const ringStyle = `background: conic-gradient(#005cab ${pct * 3.6}deg, #fddbd8 0)`;
+
+      render(`<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <aside class="lg:col-span-3 bg-white border border-[#e7bdb9] rounded-xl overflow-hidden sticky top-4">
+          <div class="p-4 border-b border-[#e7bdb9]">
+            <h2 class="text-base font-extrabold text-[#291716]">Employees</h2>
+            <label class="relative block mt-3">
+              <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#926e6c] text-[18px]">search</span>
+              <input data-conf-search value="${esc(searchRaw)}" class="w-full pl-10 pr-3 py-2.5 border border-[#e7bdb9] rounded-full text-sm outline-none focus:border-[#df162b] bg-[#fff8f7]" placeholder="Search team...">
+            </label>
+          </div>
+          <div class="max-h-[70vh] overflow-y-auto p-2 space-y-1">
+            ${filtered.map((row) => {
+              const active = row.employee_code === selected;
+              return `<button type="button" data-conf-emp="${esc(row.employee_code)}" class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold flex items-center justify-between gap-2 transition-colors ${active ? "bg-[#df162b] text-white shadow-sm" : "text-[#291716] hover:bg-[#fff0ef]"}">
+                <span class="truncate">${esc(row.name)} <span class="${active ? "text-white/80" : "text-[#5d3f3d]"} font-normal">(${esc(row.employee_code)})</span></span>
+                ${active ? `<span class="material-symbols-outlined text-[18px] shrink-0" style="font-variation-settings:'FILL' 1">check</span>` : ""}
+              </button>`;
+            }).join("") || `<p class="p-3 text-sm text-[#5d3f3d]">No matches.</p>`}
+          </div>
+        </aside>
+
+        <section class="lg:col-span-9 min-w-0">
+          <div class="mb-6">
+            <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight text-[#df162b]">Confidence Score Details</h1>
+            <p class="text-base text-[#5d3f3d] mt-2 max-w-3xl">Reviewing assessment consensus for <strong class="text-[#291716]">${esc(label)}</strong>. Calculated only when ZM, RD, and all seven AI assessment ratings exist.</p>
+          </div>
+
+          <div class="bg-white border border-[#e7bdb9] rounded-xl p-5 md:p-6 mb-6 flex flex-col md:flex-row md:items-center gap-6">
+            <div class="flex-1 min-w-0">
+              <p class="text-[11px] font-bold uppercase tracking-wider text-[#5d3f3d]">Overall confidence</p>
+              <div class="flex flex-wrap items-center gap-3 mt-2">
+                <p class="text-5xl font-extrabold text-[#005cab] leading-none">${esc(scoreLabel)}</p>
+                ${band ? `<span class="px-3 py-1 rounded-full text-xs font-bold border ${bandTone(band)}">${esc(band)}</span>` : ""}
+              </div>
+              <p class="text-sm text-[#5d3f3d] mt-4 leading-relaxed">Calculated based on the agreement between Zonal Manager (ZM), Regional Director (RD), and AI assessment ratings across all core competencies.</p>
+            </div>
+            <div class="shrink-0 mx-auto md:mx-0">
+              <div class="relative w-28 h-28 rounded-full" style="${ringStyle}">
+                <div class="absolute inset-[12px] rounded-full bg-white flex items-center justify-center">
+                  <span class="material-symbols-outlined text-[#005cab] text-[28px]">analytics</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div class="overflow-x-auto bg-white border border-[#e7bdb9] rounded-xl">
+            <table class="w-full min-w-[900px] text-sm text-left">
+              <thead class="bg-[#fff0ef] text-[#5d3f3d]">
+                <tr>
+                  <th class="p-4 font-bold">Competency</th>
+                  <th class="p-4 font-bold">RD's Rating</th>
+                  <th class="p-4 font-bold">ZM's Rating</th>
+                  <th class="p-4 font-bold">Assessment Score</th>
+                  <th class="p-4 font-bold">RD vs ZM Rating</th>
+                  <th class="p-4 font-bold">RD vs Assessment Rating</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${(result?.competencies || []).map((row, index) => `<tr class="border-t border-[#e7bdb9] ${index % 2 ? "bg-[#f8fbff]" : "bg-white"}">
+                  <td class="p-4 font-bold text-[#291716]">${esc(row.competency)}</td>
+                  <td class="p-4">${esc(row.rd_rating || "Pending")}</td>
+                  <td class="p-4">${esc(row.zm_rating || "Pending")}</td>
+                  <td class="p-4">${esc(row.ai_rating || "Pending")}</td>
+                  <td class="p-4 font-bold text-[#005cab]">${row.zm_agreement == null ? "—" : `${row.zm_agreement}%`}</td>
+                  <td class="p-4 font-bold text-[#005cab]">${row.ai_agreement == null ? "—" : `${row.ai_agreement}%`}</td>
+                </tr>`).join("") || empty("Confidence pending. Required assessment inputs are incomplete.", 6)}
+              </tbody>
+            </table>
+          </div>
+        </section>
+      </div>`);
+
+      qs("[data-conf-search]").oninput = (event) => {
+        searchRaw = event.target.value;
+        searchTerm = searchRaw.trim().toLowerCase();
+        draw();
+        const input = qs("[data-conf-search]");
+        if (input) {
+          input.focus();
+          const end = input.value.length;
+          input.setSelectionRange(end, end);
+        }
+      };
+      qsa("[data-conf-emp]").forEach((control) => {
+        control.onclick = async () => {
+          selected = control.dataset.confEmp;
+          history.replaceState({}, "", `/app/admin/confidence?employee=${encodeURIComponent(selected)}`);
+          await loadResult();
+          draw();
+        };
+      });
+    };
+
+    await loadResult();
+    draw();
   }
 
   async function initAudit() {
@@ -2682,6 +3510,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       "admin/overview": initAdminOverview,
       "admin/phases": initPhases,
       "admin/employees": initAdminEmployees,
+      "admin/leaderboard": initLeaderboard,
       "admin/confidence": initConfidence,
       "admin/audit": initAudit,
     };

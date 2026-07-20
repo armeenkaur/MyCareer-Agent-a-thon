@@ -123,3 +123,93 @@ def _fallback_choices(candidates: list[dict[str, Any]]) -> list[dict[str, Any]]:
         )
         output.append(item)
     return output
+
+
+# Verified public links only (YouTube oEmbed + live article HEAD). TED talks use
+# official YouTube uploads — ted.com slugs and LLM-invented video IDs often 404.
+OTHER_SOURCE_FALLBACKS: dict[str, list[dict[str, Any]]] = {
+    "Communication": [
+        {"kind": "youtube", "title": "Think Fast, Talk Smart — Communication Techniques", "url": "https://www.youtube.com/watch?v=HAnw168huqA", "duration_minutes": 21},
+        {"kind": "case_study", "title": "HBR: The Science of Strong Business Writing", "url": "https://hbr.org/2021/07/the-science-of-strong-business-writing", "duration_minutes": 15},
+        {"kind": "tedx", "title": "TEDx: How to speak so that people want to listen", "url": "https://www.youtube.com/watch?v=eIho2S0ZahI", "duration_minutes": 10},
+    ],
+    "Consultative Selling": [
+        {"kind": "youtube", "title": "Science of Persuasion", "url": "https://www.youtube.com/watch?v=cFdCzN7RYbw", "duration_minutes": 12},
+        {"kind": "case_study", "title": "Solution Selling — Overview", "url": "https://en.wikipedia.org/wiki/Solution_selling", "duration_minutes": 12},
+        {"kind": "tedx", "title": "TEDx: The surprising habits of original thinkers", "url": "https://www.youtube.com/watch?v=fxbCHn6gE3U", "duration_minutes": 15},
+    ],
+    "Data Analytics": [
+        {"kind": "youtube", "title": "But what is a neural network? — Deep learning intro", "url": "https://www.youtube.com/watch?v=aircAruvnKk", "duration_minutes": 19},
+        {"kind": "case_study", "title": "HBR: Good Data Won't Guarantee Good Decisions", "url": "https://hbr.org/2012/04/good-data-wont-guarantee-good-decisions", "duration_minutes": 12},
+        {"kind": "tedx", "title": "TEDx: The best stats you've ever seen", "url": "https://www.youtube.com/watch?v=hVimVzgtD6w", "duration_minutes": 20},
+    ],
+    "Executive Presence": [
+        {"kind": "youtube", "title": "How to Speak — Executive Communication", "url": "https://www.youtube.com/watch?v=Unzc731iCUY", "duration_minutes": 20},
+        {"kind": "case_study", "title": "HBR: The Authenticity Paradox", "url": "https://hbr.org/2015/01/the-authenticity-paradox", "duration_minutes": 15},
+        {"kind": "tedx", "title": "TEDx: Your body language may shape who you are", "url": "https://www.youtube.com/watch?v=Ks-_Mh1QhMc", "duration_minutes": 21},
+    ],
+    "Ownership & Accountability": [
+        {"kind": "youtube", "title": "Extreme Ownership — Leadership Accountability", "url": "https://www.youtube.com/watch?v=ljqra3BcqWM", "duration_minutes": 16},
+        {"kind": "case_study", "title": "Accountability — Overview", "url": "https://en.wikipedia.org/wiki/Accountability", "duration_minutes": 12},
+        {"kind": "tedx", "title": "TEDx: How great leaders inspire action", "url": "https://www.youtube.com/watch?v=qp0HIF3SfI4", "duration_minutes": 18},
+    ],
+    "Stakeholder Management": [
+        {"kind": "youtube", "title": "10 ways to have a better conversation", "url": "https://www.youtube.com/watch?v=R1vskiVDwl4", "duration_minutes": 12},
+        {"kind": "case_study", "title": "HBR: Managing Your Boss", "url": "https://hbr.org/2005/01/managing-your-boss", "duration_minutes": 15},
+        {"kind": "tedx", "title": "TEDx: How to turn a group of strangers into a team", "url": "https://www.youtube.com/watch?v=3boKz0Exros", "duration_minutes": 13},
+    ],
+    "Team Management": [
+        {"kind": "youtube", "title": "The puzzle of motivation", "url": "https://www.youtube.com/watch?v=rrkrvAUbU9Y", "duration_minutes": 18},
+        {"kind": "case_study", "title": "HBR: What Great Managers Do", "url": "https://hbr.org/2005/03/what-great-managers-do", "duration_minutes": 14},
+        {"kind": "tedx", "title": "TEDx: Why good leaders make you feel safe", "url": "https://www.youtube.com/watch?v=lmyZMtPVodo", "duration_minutes": 12},
+    ],
+}
+
+
+def _normalize_other_kind(kind: str) -> str:
+    value = str(kind or "").strip().lower().replace(" ", "_")
+    if value in {"webinar", "internal_webinar", "ted", "ted_talk", "tedx_talk"}:
+        return "tedx"
+    if value in {"case", "casestudy"}:
+        return "case_study"
+    if value in {"yt", "video"}:
+        return "youtube"
+    return value if value in {"youtube", "case_study", "tedx"} else ""
+
+
+def _fallback_other_sources(competency: str) -> list[dict[str, Any]]:
+    rows = OTHER_SOURCE_FALLBACKS.get(competency) or OTHER_SOURCE_FALLBACKS["Communication"]
+    return [
+        {
+            "kind": row["kind"],
+            "title": row["title"],
+            "url": row["url"],
+            "duration_minutes": row["duration_minutes"],
+            "id": f"other:{row['kind']}:{competency}",
+            "competency": competency,
+            "source": "other",
+            "label": {"youtube": "YouTube", "case_study": "Case Study", "tedx": "TEDx Talk"}.get(row["kind"], row["kind"]),
+        }
+        for row in rows
+    ]
+
+
+def resolve_other_source(competency: str, kind: str) -> dict[str, Any] | None:
+    """Return verified catalog row for competency+kind (repairs stale locked journeys)."""
+    kind = _normalize_other_kind(kind)
+    if not kind:
+        return None
+    for row in _fallback_other_sources(competency or "Communication"):
+        if row["kind"] == kind:
+            return row
+    return None
+
+
+def curate_other_sources(competencies: list[str], emp_code: str = "") -> dict[str, list[dict[str, Any]]]:
+    """Return verified YouTube / case study / TEDx links per competency.
+
+    Uses curated catalog only — LLM-invented video IDs frequently 404.
+    """
+    _ = emp_code  # kept for call-site compatibility / future audit
+    unique = [name for name in competencies if name]
+    return {competency: _fallback_other_sources(competency) for competency in unique}

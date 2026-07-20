@@ -40,6 +40,7 @@ STITCH_PAGES = {
     "admin/overview": "admin_overview_final",
     "admin/phases": "admin_phase_control",
     "admin/employees": "admin_employee_master_table",
+    "admin/leaderboard": "rd_learning_leaderboard_1",
     "admin/confidence": "admin_confidence_scores",
     "admin/audit": "admin_agent_audit",
 }

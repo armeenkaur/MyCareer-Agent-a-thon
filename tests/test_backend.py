@@ -26,10 +26,10 @@ class BackendWorkflowTest(unittest.TestCase):
         self.temp.cleanup()
 
     def test_role_scoped_accounts_and_generated_passwords(self) -> None:
-        employee = self.data.employees["MMT001"]
-        account = self.db.authenticate("MMT001", "employee", generated_password(employee["name"]))
+        employee = self.data.employees["MMT1001"]
+        account = self.db.authenticate("MMT1001", "employee", generated_password(employee["name"]))
         self.assertIsNotNone(account)
-        self.assertIsNone(self.db.authenticate("MMT001", "employee", "wrong"))
+        self.assertIsNone(self.db.authenticate("MMT1001", "employee", "wrong"))
 
         # Dinesh keeps separate ZM and RD account rows under the same login ID.
         self.assertIsNotNone(self.db.authenticate("MMT11043", "zm", "Dinesh"))
@@ -40,7 +40,7 @@ class BackendWorkflowTest(unittest.TestCase):
         with self.db.transaction() as connection:
             connection.execute(
                 "INSERT INTO curated_evidence(employee_code,competency,evidence_json,generated_at) VALUES(?,?,?,?)",
-                ("MMT001", "Communication", "{}", utc_now()),
+                ("MMT1001", "Communication", "{}", utc_now()),
             )
             connection.execute(
                 """
@@ -49,7 +49,7 @@ class BackendWorkflowTest(unittest.TestCase):
                     candidate_ids_json,courses_json,generated_at
                 ) VALUES(?,?,?,?,?,?,?,?)
                 """,
-                ("MMT001", "test", "Communication", "Beginner", "Intermediate", "[]", "[]", utc_now()),
+                ("MMT1001", "test", "Communication", "Beginner", "Intermediate", "[]", "[]", utc_now()),
             )
 
         self.db.clear_runtime_cache()
@@ -61,7 +61,7 @@ class BackendWorkflowTest(unittest.TestCase):
             self.assertEqual(connection.execute("SELECT COUNT(*) FROM employees").fetchone()[0], 44)
 
     def test_phase_gate_blocks_login_until_admin_opens_phase(self) -> None:
-        employee = self.data.employees["MMT001"]
+        employee = self.data.employees["MMT1001"]
         with self.assertRaises(BackendError) as error:
             self.backend.login(employee["manager_code"], "zm", generated_password(employee["manager"]))
         self.assertEqual(error.exception.code, "phase_closed")
@@ -78,7 +78,7 @@ class BackendWorkflowTest(unittest.TestCase):
         self.assertFalse(self.backend.phase("zm")["progress"]["is_complete"])
 
     def test_rd_cannot_rate_employee_before_zm_submission(self) -> None:
-        employee = self.data.employees["MMT001"]
+        employee = self.data.employees["MMT1001"]
         self.backend.open_phase(self.admin, "rd", override=True)
         rd = self.db.authenticate(employee["rd_code"], "rd", generated_password(employee["rd"]))
         assert rd is not None
@@ -94,7 +94,7 @@ class BackendWorkflowTest(unittest.TestCase):
         self.assertEqual(error.exception.code, "zm_assessment_required")
 
     def test_rd_validation_does_not_run_evidence_agent_before_zm_submission(self) -> None:
-        employee = self.data.employees["MMT001"]
+        employee = self.data.employees["MMT1001"]
         rd = self.db.authenticate(employee["rd_code"], "rd", generated_password(employee["rd"]))
         assert rd is not None
 
@@ -106,39 +106,39 @@ class BackendWorkflowTest(unittest.TestCase):
 
     @patch("skillsync_ai.backend._rank_all_with_agent", return_value=({}, "test ranker"))
     def test_zm_then_rd_submission_makes_rd_profile_final(self, ranker) -> None:
-        employee = self.data.employees["MMT001"]
+        employee = self.data.employees["MMT1001"]
         self.backend.open_phase(self.admin, "zm")
         zm = self.db.authenticate(employee["manager_code"], "zm", generated_password(employee["manager"]))
         assert zm is not None
         zm_ratings = {competency: "Beginner" for competency in self.backend.competencies}
-        result = self.backend.save_assessment(zm, "MMT001", zm_ratings, submit=True)
+        result = self.backend.save_assessment(zm, "MMT1001", zm_ratings, submit=True)
         self.assertEqual(result["status"], "submitted")
 
         self.backend.open_phase(self.admin, "rd", override=True)
         rd = self.db.authenticate(employee["rd_code"], "rd", generated_password(employee["rd"]))
         assert rd is not None
         rd_ratings = {competency: "Intermediate" for competency in self.backend.competencies}
-        result = self.backend.save_assessment(rd, "MMT001", rd_ratings, submit=True)
+        result = self.backend.save_assessment(rd, "MMT1001", rd_ratings, submit=True)
         self.assertEqual(result["status"], "submitted")
-        self.assertEqual(self.backend.final_profile("MMT001"), rd_ratings)
+        self.assertEqual(self.backend.final_profile("MMT1001"), rd_ratings)
         expected_agent_runs = sum(
-            bool(target["gaps"]) for target in self.backend.recommendation_targets("MMT001")
+            bool(target["gaps"]) for target in self.backend.recommendation_targets("MMT1001")
         )
         self.assertEqual(ranker.call_count, expected_agent_runs)
-        self.assertTrue(self.backend.recommendations("MMT001")["ready"])
+        self.assertTrue(self.backend.recommendations("MMT1001")["ready"])
 
     @patch("skillsync_ai.backend._rank_all_with_agent", return_value=({}, "test ranker"))
     def test_confidence_is_deterministic_and_uses_zm_plus_ai(self, _ranker) -> None:
-        employee = self.data.employees["MMT001"]
+        employee = self.data.employees["MMT1001"]
         self.backend.open_phase(self.admin, "zm")
         zm = self.db.authenticate(employee["manager_code"], "zm", generated_password(employee["manager"]))
         assert zm is not None
         ratings = {competency: "Proficient" for competency in self.backend.competencies}
-        self.backend.save_assessment(zm, "MMT001", ratings, submit=True)
+        self.backend.save_assessment(zm, "MMT1001", ratings, submit=True)
         self.backend.open_phase(self.admin, "rd", override=True)
         rd = self.db.authenticate(employee["rd_code"], "rd", generated_password(employee["rd"]))
         assert rd is not None
-        self.backend.save_assessment(rd, "MMT001", ratings, submit=True)
+        self.backend.save_assessment(rd, "MMT1001", ratings, submit=True)
         with self.db.transaction() as connection:
             for competency in self.backend.competencies:
                 connection.execute(
@@ -147,9 +147,9 @@ class BackendWorkflowTest(unittest.TestCase):
                         employee_code,competency,status,ai_proficiency,updated_at
                     ) VALUES(?,?, 'completed','Proficient',?)
                     """,
-                    ("MMT001", competency, utc_now()),
+                    ("MMT1001", competency, utc_now()),
                 )
-        confidence = self.backend.confidence("MMT001")
+        confidence = self.backend.confidence("MMT1001")
         self.assertEqual(confidence["status"], "complete")
         self.assertEqual(confidence["score"], 100.0)
 
@@ -165,7 +165,7 @@ class BackendWorkflowTest(unittest.TestCase):
                 ) VALUES(?,?,?,?,?,?,?,?,?,?)
                 """,
                 (
-                    "MMT001",
+                    "MMT1001",
                     "Communication",
                     screenshot.name,
                     str(screenshot),
@@ -179,12 +179,12 @@ class BackendWorkflowTest(unittest.TestCase):
             )
 
         employee_view = next(
-            row for row in self.backend.roleplays("MMT001") if row["competency"] == "Communication"
+            row for row in self.backend.roleplays("MMT1001") if row["competency"] == "Communication"
         )
         for private_field in ("ai_proficiency", "rationale", "ocr_text", "filename", "file_path"):
             self.assertNotIn(private_field, employee_view)
 
-        admin_view = self.backend.admin_roleplays(self.admin, "MMT001", "Communication")
+        admin_view = self.backend.admin_roleplays(self.admin, "MMT1001", "Communication")
         communication = next(
             row for row in admin_view["roleplays"] if row["competency"] == "Communication"
         )
@@ -192,10 +192,10 @@ class BackendWorkflowTest(unittest.TestCase):
         self.assertEqual(communication["rationale"], "Observed behavior")
         self.assertEqual(admin_view["screenshot"]["content_base64"], "cHJpdmF0ZSBzY3JlZW5zaG90")
 
-        employee = self.db.authenticate("MMT001", "employee", generated_password(self.data.employees["MMT001"]["name"]))
+        employee = self.db.authenticate("MMT1001", "employee", generated_password(self.data.employees["MMT1001"]["name"]))
         assert employee is not None
         with self.assertRaises(BackendError) as error:
-            self.backend.admin_roleplays(employee, "MMT001")
+            self.backend.admin_roleplays(employee, "MMT1001")
         self.assertEqual(error.exception.code, "forbidden")
 
     @patch("skillsync_ai.backend._rank_all_with_agent")
@@ -204,16 +204,16 @@ class BackendWorkflowTest(unittest.TestCase):
             {key: _first_two(value["candidates"]) for key, value in groups.items()},
             "test ranker",
         )
-        employee = self.data.employees["MMT002"]
+        employee = self.data.employees["MMT1002"]
         self.backend.open_phase(self.admin, "zm")
         zm = self.db.authenticate(employee["manager_code"], "zm", generated_password(employee["manager"]))
         assert zm is not None
         ratings = {competency: "Advanced" for competency in self.backend.competencies}
-        self.backend.save_assessment(zm, "MMT002", ratings, submit=True)
+        self.backend.save_assessment(zm, "MMT1002", ratings, submit=True)
         self.backend.open_phase(self.admin, "rd", override=True)
         rd = self.db.authenticate(employee["rd_code"], "rd", generated_password(employee["rd"]))
         assert rd is not None
-        self.backend.save_assessment(rd, "MMT002", ratings, submit=True)
+        self.backend.save_assessment(rd, "MMT1002", ratings, submit=True)
         self.backend.open_phase(self.admin, "employee", override=True)
         with self.db.transaction() as connection:
             for competency in self.backend.competencies:
@@ -223,9 +223,9 @@ class BackendWorkflowTest(unittest.TestCase):
                         employee_code,competency,status,ai_proficiency,updated_at
                     ) VALUES(?,?, 'completed','Advanced',?)
                     """,
-                    ("MMT002", competency, utc_now()),
+                    ("MMT1002", competency, utc_now()),
                 )
-        user = self.db.authenticate("MMT002", "employee", generated_password(employee["name"]))
+        user = self.db.authenticate("MMT1002", "employee", generated_password(employee["name"]))
         assert user is not None
         state = self.backend.choose_career(user, "kam")
         self.assertEqual(state["choice"]["aspiration_role"], "kam")
@@ -235,14 +235,14 @@ class BackendWorkflowTest(unittest.TestCase):
 
         with self.db.connect() as connection:
             rows = connection.execute(
-                "SELECT candidate_ids_json FROM course_recommendations WHERE employee_code='MMT002'"
+                "SELECT candidate_ids_json FROM course_recommendations WHERE employee_code='MMT1002'"
             ).fetchall()
         # Candidate rows can be empty when final profile already meets the target; no general course can enter either way.
         self.assertTrue(all("general" not in row["candidate_ids_json"] for row in rows))
 
-    def test_leaderboard_ranks_only_linkedin_hours_and_shares_ties(self) -> None:
+    def test_leaderboard_ranks_hours_then_completions_and_shares_full_ties(self) -> None:
         with self.db.transaction() as connection:
-            for code in ("MMT002", "MMT004"):
+            for code in ("MMT1002", "MMT1004"):
                 cursor = connection.execute(
                     """
                     INSERT INTO assessments(
@@ -256,15 +256,27 @@ class BackendWorkflowTest(unittest.TestCase):
                         "INSERT INTO assessment_ratings(assessment_id,competency,proficiency) VALUES(?,?,'Beginner')",
                         (cursor.lastrowid, competency),
                     )
-            for code, hours in (("MMT002", 3.5), ("MMT004", 3.5)):
-                connection.execute(
-                    "INSERT INTO linkedin_activity(employee_code,learning_hours,completions,synced_at) VALUES(?,?,0,?)",
-                    (code, hours, utc_now()),
-                )
-        rows = [row for row in self.backend.leaderboard(self.admin) if row["employee_code"] in {"MMT002", "MMT004"}]
+            connection.execute(
+                "INSERT INTO linkedin_activity(employee_code,learning_hours,completions,synced_at) VALUES(?,?,?,?)",
+                ("MMT1002", 3.5, 2, utc_now()),
+            )
+            connection.execute(
+                "INSERT INTO linkedin_activity(employee_code,learning_hours,completions,synced_at) VALUES(?,?,?,?)",
+                ("MMT1004", 3.5, 1, utc_now()),
+            )
+        payload = self.backend.leaderboard(self.admin)
+        rows = [row for row in payload["leaderboard"] if row["employee_code"] in {"MMT1002", "MMT1004"}]
         self.assertEqual(len(rows), 2)
+        by_code = {row["employee_code"]: row for row in rows}
+        self.assertEqual(by_code["MMT1002"]["rank"], 1)
+        self.assertEqual(by_code["MMT1004"]["rank"], 2)
+        self.assertEqual(by_code["MMT1002"]["focus_areas"], by_code["MMT1004"]["focus_areas"])
+        # Full tie on hours + completions → shared rank
+        with self.db.transaction() as connection:
+            connection.execute("UPDATE linkedin_activity SET completions=2 WHERE employee_code='MMT1004'")
+        payload = self.backend.leaderboard(self.admin)
+        rows = [row for row in payload["leaderboard"] if row["employee_code"] in {"MMT1002", "MMT1004"}]
         self.assertEqual({row["rank"] for row in rows}, {1})
-        self.assertEqual({row["learning_hours"] for row in rows}, {3.5})
 
     def test_course_frontend_contract_contains_required_catalog_fields(self) -> None:
         row = self.backend._course_contract(
@@ -279,12 +291,12 @@ class BackendWorkflowTest(unittest.TestCase):
         self.assertEqual(row["supported_proficiency_movement"], {"from": "Beginner", "to": "Intermediate"})
 
     def test_frontend_employee_summary_and_final_profile_contract(self) -> None:
-        employee = self.data.employees["MMT001"]
+        employee = self.data.employees["MMT1001"]
         with self.db.transaction() as connection:
             cursor = connection.execute(
                 """
                 INSERT INTO assessments(employee_code,assessor_role,assessor_login_id,status,created_at,updated_at,submitted_at)
-                VALUES('MMT001','rd','TEST-RD','submitted',?,?,?)
+                VALUES('MMT1001','rd','TEST-RD','submitted',?,?,?)
                 """,
                 (utc_now(), utc_now(), utc_now()),
             )
@@ -295,14 +307,14 @@ class BackendWorkflowTest(unittest.TestCase):
                 )
         zm = self.db.authenticate(employee["manager_code"], "zm", generated_password(employee["manager"]))
         assert zm is not None
-        summary = next(row for row in self.backend.employee_summaries(zm) if row["employee_code"] == "MMT001")
+        summary = next(row for row in self.backend.employee_summaries(zm) if row["employee_code"] == "MMT1001")
         self.assertTrue(summary["final_profile_available"])
-        profile = self.backend.profile_for_user(zm, "MMT001")
+        profile = self.backend.profile_for_user(zm, "MMT1001")
         self.assertEqual(profile["status"], "final")
         self.assertEqual(len(profile["ratings"]), 7)
 
     def test_agent_audit_contract_lists_recorded_agent(self) -> None:
-        self.backend._audit("MMT001", "Evidence Curator Agent", "Communication", "TNA", {"evidence": []}, "ok")
+        self.backend._audit("MMT1001", "Evidence Curator Agent", "Communication", "TNA", {"evidence": []}, "ok")
         rows = self.backend.agent_audit()
         self.assertEqual(rows[0]["agent"], "Evidence Curator Agent")
         self.assertEqual(rows[0]["output"], {"evidence": []})
