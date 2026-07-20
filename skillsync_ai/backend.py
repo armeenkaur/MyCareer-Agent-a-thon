@@ -3,6 +3,7 @@ from __future__ import annotations
 import base64
 import json
 import mimetypes
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 import re
 from typing import Any
@@ -29,14 +30,11 @@ SCREENSHOT_EXTENSIONS = {".png", ".jpg", ".jpeg", ".webp"}
 log = get_logger("skillsync.backend")
 
 BADGE_CATALOG = [
-    {"id": "hours_stacked", "title": "Hours Stacked", "rule": "Every 2 LinkedIn learning hours", "icon": "bolt"},
-    {"id": "first_mile", "title": "First Mile", "rule": "Complete 1 LinkedIn course", "icon": "flag"},
-    {"id": "pathway_pack", "title": "Pathway Pack", "rule": "Complete 3 LinkedIn courses", "icon": "stacks"},
-    {"id": "lattice_climber", "title": "Lattice Climber", "rule": "Complete 5 LinkedIn courses", "icon": "moving"},
+    {"id": "two_hour_club", "title": "Two-Hour Club", "rule": "Reach 2 LinkedIn learning hours", "icon": "bolt"},
     {"id": "ten_hour_club", "title": "Ten-Hour Club", "rule": "Reach 10 LinkedIn hours", "icon": "schedule"},
+    {"id": "five_day_streak", "title": "5-Day Streak", "rule": "Learn on 5 consecutive days", "icon": "local_fire_department"},
     {"id": "full_circuit", "title": "Full Circuit", "rule": "Finish all locked LinkedIn courses", "icon": "all_inclusive"},
     {"id": "gap_closer", "title": "Gap Closer", "rule": "Close all focus-area gaps", "icon": "verified"},
-    {"id": "cohort_crown", "title": "Cohort Crown", "rule": "#1 in your severity band", "icon": "military_tech"},
 ]
 
 
@@ -781,7 +779,7 @@ class MyCareerBackend:
             connection.execute("DELETE FROM other_source_recommendations WHERE employee_code=?", (employee_code,))
 
     def reset_learning(self, admin: dict[str, Any], employee_code: str) -> dict[str, Any]:
-        """Unlock Shop Your Courses for an employee without clearing aspiration."""
+        """Unlock Select Your Courses for an employee without clearing aspiration."""
         if admin["role"] != "admin":
             raise BackendError("Admin access required.", "forbidden", 403)
         employee = self.employee(employee_code)
@@ -1204,6 +1202,7 @@ class MyCareerBackend:
                         "UPDATE external_learning SET completed_at=? WHERE employee_code=? AND resource_id=?",
                         (now, employee_code, course_id),
                     )
+        self.record_learning_day(employee_code)
         return self.learning_journey(employee_code)
 
     def learning_journey(self, employee_code: str) -> dict[str, Any]:
@@ -1359,7 +1358,15 @@ class MyCareerBackend:
                 severity = int(target["total_gap_levels"])
                 if employee_cohort is not None and severity != employee_cohort:
                     continue
-                focus_areas = len(target.get("gaps") or [])
+                gaps = target.get("gaps") or []
+                focus_areas = len(gaps)
+                gap_skills = [
+                    {
+                        "competency": gap["competency"],
+                        "gap_levels": int(gap.get("gap_levels") or 0),
+                    }
+                    for gap in gaps
+                ]
                 activity = connection.execute(
                     "SELECT learning_hours,completions FROM linkedin_activity WHERE employee_code=?",
                     (code,),
@@ -1389,6 +1396,7 @@ class MyCareerBackend:
                         "name": employee["name"],
                         "severity_band": severity,
                         "focus_areas": focus_areas,
+                        "gaps": gap_skills,
                         "gap_cohort": severity,  # back-compat
                         "learning_hours": hours,
                         "completions": completions,
@@ -1478,32 +1486,20 @@ class MyCareerBackend:
     def _sync_badges_for_row(self, row: dict[str, Any]) -> list[dict[str, Any]]:
         code = row["employee_code"]
         hours = float(row["learning_hours"])
-        completions = int(row["completions"])
         earned: list[tuple[str, str, dict[str, Any]]] = []
-        stacked = int(hours // 2)
-        if stacked >= 1:
-            earned.append(
-                (
-                    "hours_stacked",
-                    "Hours Stacked",
-                    {"tier": stacked, "hours": hours, "copy": f"+{stacked * 2:.0f}h on LinkedIn — Hours Stacked unlocked"},
-                )
-            )
-        if completions >= 1:
-            earned.append(("first_mile", "First Mile", {"completions": completions}))
-        if completions >= 3:
-            earned.append(("pathway_pack", "Pathway Pack", {"completions": completions}))
-        if completions >= 5:
-            earned.append(("lattice_climber", "Lattice Climber", {"completions": completions}))
+        if hours >= 2:
+            earned.append(("two_hour_club", "Two-Hour Club", {"hours": hours}))
         if hours >= 10:
             earned.append(("ten_hour_club", "Ten-Hour Club", {"hours": hours}))
+        streak = self.learning_streak(code)
+        if streak >= 5:
+            earned.append(("five_day_streak", "5-Day Streak", {"streak_days": streak}))
         if row.get("full_circuit"):
             earned.append(("full_circuit", "Full Circuit", {}))
         if int(row.get("focus_areas") or 0) == 0 and int(row.get("severity_band") or 0) == 0:
             earned.append(("gap_closer", "Gap Closer", {"focus_areas": 0}))
-        if int(row.get("rank") or 0) == 1:
-            earned.append(("cohort_crown", "Cohort Crown", {"severity_band": row.get("severity_band")}))
 
+        earned_ids = {badge_id for badge_id, _, _ in earned}
         now = utc_now()
         with self.db.transaction() as connection:
             for badge_id, title, meta in earned:
@@ -1517,6 +1513,14 @@ class MyCareerBackend:
                     """,
                     (code, badge_id, title, now, json.dumps(meta, default=str)),
                 )
+            if earned_ids:
+                placeholders = ",".join("?" for _ in earned_ids)
+                connection.execute(
+                    f"DELETE FROM employee_badges WHERE employee_code=? AND badge_id NOT IN ({placeholders})",
+                    (code, *earned_ids),
+                )
+            else:
+                connection.execute("DELETE FROM employee_badges WHERE employee_code=?", (code,))
         return self.badges_for(code)
 
     @staticmethod
@@ -1540,11 +1544,19 @@ class MyCareerBackend:
                 hours_buckets["5–10h"] += 1
             else:
                 hours_buckets["10h+"] += 1
-        badge_dist: dict[str, int] = {}
+        badge_earned: dict[str, int] = {badge["id"]: 0 for badge in BADGE_CATALOG}
         for row in rows:
             for badge in row.get("badges") or []:
-                key = badge.get("title") or badge.get("id") or "Badge"
-                badge_dist[key] = badge_dist.get(key, 0) + 1
+                badge_id = badge.get("id")
+                if badge_id in badge_earned:
+                    badge_earned[badge_id] += 1
+        skill_gaps: dict[str, int] = {}
+        for row in rows:
+            for gap in row.get("gaps") or []:
+                skill = str(gap.get("competency") or "").strip()
+                if not skill:
+                    continue
+                skill_gaps[skill] = skill_gaps.get(skill, 0) + 1
         return {
             "team_size": team_size,
             "total_hours": total_hours,
@@ -1554,10 +1566,20 @@ class MyCareerBackend:
             "focus_area_distribution": [
                 {"focus_areas": key, "count": focus_dist[key]} for key in sorted(focus_dist)
             ],
+            "skill_gap_distribution": [
+                {"competency": skill, "count": skill_gaps[skill]}
+                for skill in sorted(skill_gaps, key=lambda name: (-skill_gaps[name], name))
+            ],
             "hours_buckets": [{"label": label, "count": count} for label, count in hours_buckets.items()],
             "badge_distribution": [
-                {"name": name, "count": count}
-                for name, count in sorted(badge_dist.items(), key=lambda item: (-item[1], item[0]))
+                {
+                    "id": badge["id"],
+                    "name": badge["title"],
+                    "rule": badge["rule"],
+                    "icon": badge.get("icon") or "military_tech",
+                    "count": badge_earned.get(badge["id"], 0),
+                }
+                for badge in BADGE_CATALOG
             ],
             "severity_bands": [
                 {"band": band, "count": sum(1 for row in rows if row["severity_band"] == band)}
@@ -1642,7 +1664,53 @@ class MyCareerBackend:
                         """,
                         (employee_code, hours, runtime.linkedin_completions.get(employee_code, 0), utc_now()),
                     )
+                    if float(hours or 0) > 0 or int(runtime.linkedin_completions.get(employee_code, 0) or 0) > 0:
+                        day = utc_now()[:10]
+                        connection.execute(
+                            """
+                            INSERT OR IGNORE INTO learning_activity_days(employee_code, activity_date)
+                            VALUES(?, ?)
+                            """,
+                            (employee_code, day),
+                        )
         return result
+
+    def record_learning_day(self, employee_code: str, day: str | None = None) -> None:
+        activity_date = (day or utc_now())[:10]
+        with self.db.transaction() as connection:
+            connection.execute(
+                """
+                INSERT OR IGNORE INTO learning_activity_days(employee_code, activity_date)
+                VALUES(?, ?)
+                """,
+                (employee_code, activity_date),
+            )
+
+    def learning_streak(self, employee_code: str) -> int:
+        """Current consecutive learning-day streak ending today or yesterday."""
+        with self.db.connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT activity_date FROM learning_activity_days
+                WHERE employee_code=?
+                ORDER BY activity_date DESC
+                """,
+                (employee_code,),
+            ).fetchall()
+        if not rows:
+            return 0
+        days = {row["activity_date"][:10] for row in rows}
+        today = datetime.now(timezone.utc).date()
+        cursor = today
+        if cursor.isoformat() not in days:
+            cursor = today - timedelta(days=1)
+            if cursor.isoformat() not in days:
+                return 0
+        streak = 0
+        while cursor.isoformat() in days:
+            streak += 1
+            cursor -= timedelta(days=1)
+        return streak
 
     # Helpers
     def employee(self, employee_code: str) -> dict[str, Any]:

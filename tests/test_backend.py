@@ -104,6 +104,42 @@ class BackendWorkflowTest(unittest.TestCase):
         self.assertEqual(error.exception.code, "phase_closed")
         self.assertEqual(self.db.session_user(zm_login["token"])["role"], "zm")
 
+    def test_badge_catalog_two_hour_and_five_day_streak(self) -> None:
+        from datetime import datetime, timedelta, timezone
+        from skillsync_ai.backend import BADGE_CATALOG
+
+        ids = {badge["id"] for badge in BADGE_CATALOG}
+        self.assertEqual(
+            ids,
+            {"two_hour_club", "ten_hour_club", "five_day_streak", "full_circuit", "gap_closer"},
+        )
+        self.assertNotIn("hours_stacked", ids)
+        self.assertNotIn("cohort_crown", ids)
+
+        code = "MMT1001"
+        today = datetime.now(timezone.utc).date()
+        for offset in range(5):
+            day = (today - timedelta(days=offset)).isoformat()
+            self.backend.record_learning_day(code, day)
+        self.assertGreaterEqual(self.backend.learning_streak(code), 5)
+
+        badges = self.backend._sync_badges_for_row(
+            {
+                "employee_code": code,
+                "learning_hours": 2.5,
+                "completions": 0,
+                "focus_areas": 1,
+                "severity_band": 3,
+                "rank": 2,
+                "full_circuit": False,
+            }
+        )
+        earned = {badge["id"] for badge in badges}
+        self.assertIn("two_hour_club", earned)
+        self.assertIn("five_day_streak", earned)
+        self.assertNotIn("first_mile", earned)
+        self.assertNotIn("cohort_crown", earned)
+
     def test_phase_override_does_not_report_incomplete_previous_phase_as_complete(self) -> None:
         self.backend.open_phase(self.admin, "rd", override=True)
 

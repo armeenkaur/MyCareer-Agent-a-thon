@@ -147,7 +147,7 @@
   function commonBrand(mmt, homeRoute) {
     return `<a data-route="${homeRoute}" href="/app/${homeRoute}" class="flex items-center gap-2 min-w-0">
       <img src="/stitch/common/my-logo.png" alt="my" class="h-10 w-10 rounded-lg object-cover shrink-0 shadow-sm" width="40" height="40"/>
-      <strong class="block ${mmt ? "text-[#df162b]" : "text-blue-800"} leading-none text-xl md:text-2xl font-extrabold tracking-tight truncate">Career Compass</strong>
+      <strong class="block text-[#291716] leading-none text-xl md:text-2xl font-extrabold tracking-tight truncate">Career Compass</strong>
     </a>`;
   }
 
@@ -818,10 +818,10 @@
 Before you begin, we encourage you to take a few minutes to understand the philosophy behind this initiative. It has been designed to support your career aspirations and continuous upskilling.</p>
             <div class="mt-3 flex flex-wrap items-center justify-between gap-2 text-sm">
               <p>
-                <button type="button" data-open-disclaimer class="text-[#0075d7] font-semibold underline hover:opacity-80">click to read more</button>
+                <button type="button" data-open-disclaimer class="text-[#0075d7] font-semibold underline hover:opacity-80">Click to read more</button>
                 ${acked ? `<span data-ack-badge class="ml-2 text-[#93000a] font-semibold">· Acknowledged</span>` : `<span data-ack-badge class="hidden ml-2 text-[#93000a] font-semibold">· Acknowledged</span>`}
               </p>
-              <a href="https://imgak.mmtcdn.com/mmt-careers-ui/assets/static/documents/Career_Progression_Guide.pdf" target="_blank" rel="noopener noreferrer" class="text-[#0075d7] font-semibold underline hover:opacity-80 shrink-0">see more about this</a>
+              <a href="https://imgak.mmtcdn.com/mmt-careers-ui/assets/static/documents/Career_Progression_Guide.pdf" target="_blank" rel="noopener noreferrer" class="text-[#0075d7] font-semibold underline hover:opacity-80 shrink-0">See more about this</a>
             </div>
           </aside>
         </div>
@@ -961,6 +961,8 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       list = [...list].sort((a, b) => {
         if (sortMode === "name-asc") return String(a.name || "").localeCompare(String(b.name || ""));
         if (sortMode === "name-desc") return String(b.name || "").localeCompare(String(a.name || ""));
+        if (sortMode === "code-asc") return String(a.employee_code || "").localeCompare(String(b.employee_code || ""), undefined, { numeric: true });
+        if (sortMode === "code-desc") return String(b.employee_code || "").localeCompare(String(a.employee_code || ""), undefined, { numeric: true });
         if (sortMode === "status-asc") return rank[statusKey(a)] - rank[statusKey(b)] || String(a.name || "").localeCompare(String(b.name || ""));
         if (sortMode === "status-desc") return rank[statusKey(b)] - rank[statusKey(a)] || String(a.name || "").localeCompare(String(b.name || ""));
         return 0;
@@ -978,6 +980,8 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     const sortLabel = {
       "name-asc": "Name A–Z",
       "name-desc": "Name Z–A",
+      "code-asc": "Employee code A–Z",
+      "code-desc": "Employee code Z–A",
       "status-asc": "Status: Awaiting first",
       "status-desc": "Status: Validated first",
     };
@@ -1199,6 +1203,8 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       list = [...list].sort((a, b) => {
         if (sortMode === "name-asc") return String(a.name || "").localeCompare(String(b.name || ""));
         if (sortMode === "name-desc") return String(b.name || "").localeCompare(String(a.name || ""));
+        if (sortMode === "code-asc") return String(a.employee_code || "").localeCompare(String(b.employee_code || ""), undefined, { numeric: true });
+        if (sortMode === "code-desc") return String(b.employee_code || "").localeCompare(String(a.employee_code || ""), undefined, { numeric: true });
         if (sortMode === "status-asc") return rank[statusKey(a)] - rank[statusKey(b)] || String(a.name || "").localeCompare(String(b.name || ""));
         if (sortMode === "status-desc") return rank[statusKey(b)] - rank[statusKey(a)] || String(a.name || "").localeCompare(String(b.name || ""));
         return 0;
@@ -1210,6 +1216,8 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     const sortLabel = {
       "name-asc": "Name A–Z",
       "name-desc": "Name Z–A",
+      "code-asc": "Employee code A–Z",
+      "code-desc": "Employee code Z–A",
       "status-asc": "Status: Pending first",
       "status-desc": "Status: Completed first",
     };
@@ -1226,7 +1234,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           ? "px-4 py-2 bg-[#005cab] text-white rounded-lg font-bold text-sm hover:opacity-90"
           : "px-4 py-2 bg-[#df162b] text-white rounded-lg font-bold text-sm hover:opacity-90";
         const finalBtn = finalReady
-          ? `<button type="button" data-view-ratings="${esc(row.employee_code)}" class="px-4 py-2 bg-emerald-700 text-white rounded-lg font-bold text-sm hover:opacity-90">View Final Rating</button>`
+          ? `<button type="button" data-view-ratings="${esc(row.employee_code)}" class="px-4 py-2 bg-emerald-700 text-white rounded-lg font-bold text-sm hover:opacity-90">View Final Assessment</button>`
           : "";
         return `<tr class="border-t border-[#e7bdb9] hover:bg-[#fff0ef]">
           <td class="p-4">
@@ -1306,7 +1314,6 @@ Before you begin, we encourage you to take a few minutes to understand the philo
               <tbody>${tableRows}</tbody>
             </table>
           </div>
-          <div class="p-4 border-t border-[#e7bdb9] text-xs text-[#5d3f3d]">Live statuses from saved drafts and submissions.</div>
         </div>`);
 
       qsa("[data-employee]").forEach((control) => {
@@ -1862,8 +1869,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     </style>
     <section class="bg-white border border-[#e7bdb9] rounded-xl p-5 md:p-6 flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 shadow-sm">
       <div>
-        <h1 class="text-xl md:text-2xl font-extrabold text-[#291716]">My Path</h1>
-        <p class="text-sm text-[#5d3f3d] mt-1">Career lattice from Probable Career Paths — blue = eligible, green = selected, grey = locked.</p>
+        <h1 class="text-xl md:text-2xl font-extrabold text-[#291716]">My Career Lattice</h1>
       </div>
       <div class="text-sm font-bold text-[#df162b] bg-[#fff0ef] border border-[#e7bdb9] rounded-lg px-4 py-2">
         ${esc(trackCode(currentNode))}
@@ -1891,19 +1897,6 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         </div>
       </div>
       <div class="col-span-12 xl:col-span-3 space-y-5">
-        <div class="bg-white border border-[#e7bdb9] rounded-xl p-5 shadow-sm">
-          <div class="flex items-center gap-2 mb-3"><span class="material-symbols-outlined text-[#1464F4]">insights</span><h3 class="font-bold text-[#291716]">Role Insight</h3></div>
-          <div class="space-y-3">
-            <div class="p-3 bg-[#eff6ff] border-l-4 border-[#1464F4] rounded-r-lg">
-              <p class="text-[11px] font-bold uppercase text-[#1464F4] mb-1">Growth Potential</p>
-              <p class="text-sm text-[#291716]">${esc(insights.growth || "")}</p>
-            </div>
-            <div class="p-3 bg-[#fff8f7] border-l-4 border-[#e7bdb9] rounded-r-lg">
-              <p class="text-[11px] font-bold uppercase text-[#5d3f3d] mb-1">Key Competency</p>
-              <p class="text-sm text-[#291716]">${esc(insights.key_competency || "")}</p>
-            </div>
-          </div>
-        </div>
         <div class="bg-white border border-[#e7bdb9] rounded-xl p-5 shadow-sm">
           <div class="flex items-center gap-2 mb-4"><span class="material-symbols-outlined text-[#1464F4]">tips_and_updates</span><h3 class="font-bold text-[#291716]">Route Guide</h3></div>
           <ul class="space-y-3">${tips || `<li class="text-sm text-[#5d3f3d]">No guidance yet.</li>`}</ul>
@@ -2083,7 +2076,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       const linkedInCount = lockedCourses.filter((course) => !(course.source === "other" || String(course.id || "").startsWith("other:"))).length;
       const otherCount = lockedCourses.length - linkedInCount;
       render(`<div class="mb-6">
-          <h1 class="text-2xl md:text-3xl font-extrabold text-[#df162b]">Shop Your Courses</h1>
+          <h1 class="text-2xl md:text-3xl font-extrabold text-[#df162b]">Select Your Courses</h1>
           <p class="text-[#5d3f3d] mt-1">Your learning journey is locked. Course selection can no longer be changed.</p>
         </div>
         <div class="bg-white border border-[#e7bdb9] rounded-xl p-8 max-w-2xl">
@@ -2115,7 +2108,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         : !result.ready && gaps.length
           ? "Course recommendations are being prepared from the final RD profile."
           : "No proficiency gaps currently require courses.";
-      render(`${pageHeader("Shop Your Courses", "AI-Powered Learning Recommendations based on your skill gaps.")}
+      render(`${pageHeader("Select Your Courses", "AI-Powered Learning Recommendations based on your skill gaps.")}
         <div class="bg-white border border-[#e7bdb9] rounded-xl p-8 text-[#5d3f3d]">${esc(emptyMsg)}</div>`);
       return;
     }
@@ -2134,7 +2127,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
 
     render(`<div class="mb-6 flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h1 class="text-2xl md:text-3xl font-extrabold text-[#df162b]">Shop Your Courses</h1>
+          <h1 class="text-2xl md:text-3xl font-extrabold text-[#df162b]">Select Your Courses</h1>
           <p class="text-[#5d3f3d] mt-1">AI-Powered Learning Recommendations based on your skill gaps.</p>
         </div>
         <div class="bg-[#df162b] text-white px-4 py-2 rounded-lg flex items-center gap-2 text-sm font-bold">
@@ -2408,7 +2401,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         </div>
       </section>
       <section>${sections}</section>
-      <p class="text-center text-xs text-[#926e6c] mt-8">Journey locked after checkout · Admin reset required to change selections</p>`);
+      <p class="text-center text-xs text-[#926e6c] mt-8">Journey locked after checkout</p>`);
 
     qsa("[data-progress-action]").forEach((control) => {
       control.onclick = async () => {
@@ -2502,7 +2495,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
 
     const weakSkills = `<div class="bg-white border border-[#e7bdb9] rounded-xl p-5 flex flex-col">
       <p class="text-[11px] font-bold uppercase tracking-wide text-[#5d3f3d] flex items-center gap-1">
-        <span class="material-symbols-outlined text-[16px]">track_changes</span> Weak Skills
+        <span class="material-symbols-outlined text-[16px]">track_changes</span> Focus Areas
       </p>
       <div class="mt-4 space-y-3 flex-1 flex flex-col justify-end">
         ${gaps.length
@@ -2521,24 +2514,24 @@ Before you begin, we encourage you to take a few minutes to understand the philo
 
     const badgeShelf = `<div class="mb-8">
       <h3 class="text-lg font-bold text-[#291716] mb-3">Badge shelf</h3>
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+      <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
         ${catalog.map((badge) => {
           const earned = earnedIds.has(badge.id);
           const mine = badges.find((item) => item.id === badge.id);
           const tier = mine?.meta?.tier;
-          return `<div class="bg-white border rounded-xl p-4 flex flex-col items-center text-center ${earned ? "border-[#005cab] bg-[#eff6ff]" : "border-[#e7bdb9] opacity-70"}">
-            <div class="w-12 h-12 rounded-full ${earned ? "bg-[#0075d7] text-white" : "bg-[#ffe1df] text-[#5d3f3d]"} flex items-center justify-center mb-3">
-              <span class="material-symbols-outlined" style="font-variation-settings:'FILL' ${earned ? 1 : 0}">${esc(badge.icon || "military_tech")}</span>
+          return `<div class="bg-white border rounded-lg p-2.5 flex flex-col items-center text-center ${earned ? "border-[#005cab] bg-[#eff6ff]" : "border-[#e7bdb9] opacity-70"}">
+            <div class="w-9 h-9 rounded-full ${earned ? "bg-[#0075d7] text-white" : "bg-[#ffe1df] text-[#5d3f3d]"} flex items-center justify-center mb-2">
+              <span class="material-symbols-outlined text-[20px]" style="font-variation-settings:'FILL' ${earned ? 1 : 0}">${esc(badge.icon || "military_tech")}</span>
             </div>
-            <strong class="text-sm text-[#291716]">${esc(badge.title)}${tier ? ` ×${tier}` : ""}</strong>
-            <p class="text-[11px] text-[#5d3f3d] mt-1">${esc(badge.rule)}</p>
-            <span class="text-[10px] font-bold uppercase tracking-wider mt-3 ${earned ? "text-[#005cab]" : "text-[#926e6c]"}">${earned ? "Earned" : "Locked"}</span>
+            <strong class="text-xs text-[#291716] leading-tight">${esc(badge.title)}${tier ? ` ×${tier}` : ""}</strong>
+            <p class="text-[10px] text-[#5d3f3d] mt-1 leading-snug">${esc(badge.rule)}</p>
+            <span class="text-[9px] font-bold uppercase tracking-wider mt-2 ${earned ? "text-[#005cab]" : "text-[#926e6c]"}">${earned ? "Earned" : "Locked"}</span>
           </div>`;
         }).join("")}
       </div>
     </div>`;
 
-    render(`${pageHeader("Learning Leaderboard", "Compete with peers in your cohort. Focus areas show how many skills need work.")}
+    render(`${pageHeader("Leaderboard", "Compete with peers in your cohort. Focus areas show how many skills need work.")}
       <div class="grid grid-cols-1 md:grid-cols-12 gap-4 mb-8">
         <div class="md:col-span-6">${cohortCard}</div>
         <div class="md:col-span-3">${pulseCard}</div>
@@ -2592,15 +2585,28 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         if (!searchTerm) return true;
         return [row.employee_code, row.name].some((value) => String(value || "").toLowerCase().includes(searchTerm));
       });
-      const focusMax = Math.max(1, ...(stats.focus_area_distribution || []).map((row) => row.count), 0);
+      const skillGaps = stats.skill_gap_distribution || [];
+      const skillMax = Math.max(1, ...skillGaps.map((row) => row.count), 0);
       const hoursMax = Math.max(1, ...(stats.hours_buckets || []).map((row) => row.count), 0);
-      const badgeRows = (stats.badge_distribution || []).slice(0, 5);
-      const badgeTotal = badgeRows.reduce((sum, row) => sum + Number(row.count || 0), 0);
-      const badgeColors = ["#0075d7", "#df162b", "#7bd0fe", "#005cab", "#926e6c"];
+      const badgeRows = stats.badge_distribution?.length
+        ? stats.badge_distribution
+        : catalog.map((badge) => ({
+          id: badge.id,
+          name: badge.title,
+          rule: badge.rule,
+          icon: badge.icon,
+          count: 0,
+        }));
+      const badgeEarners = badgeRows.reduce((sum, row) => sum + Number(row.count || 0), 0);
+      const gapTooltip = (row) => {
+        const gaps = row.gaps || [];
+        if (!gaps.length) return "No focus gaps";
+        return gaps.map((gap) => gap.competency).filter(Boolean).join(" · ") || "No focus gaps";
+      };
 
-      render(`${pageHeader("Learning Leaderboard", `${titleScope} performance and competency calibration metrics.`)}
+      render(`${pageHeader("Leaderboard", `${titleScope} performance and competency calibration metrics.`)}
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-6">
-          <div class="lg:col-span-8 bg-white border border-[#e7bdb9] rounded-xl p-5">
+          <div class="lg:col-span-7 bg-white border border-[#e7bdb9] rounded-xl p-5">
             <div class="flex justify-between items-end gap-3 mb-4 flex-wrap">
               <div>
                 <h3 class="text-lg font-bold text-[#291716]">${titleScope} Learning Pulse</h3>
@@ -2623,43 +2629,41 @@ Before you begin, we encourage you to take a few minutes to understand the philo
               }).join("") || `<p class="text-sm text-[#5d3f3d]">No learning activity yet.</p>`}
             </div>
           </div>
-          <div class="lg:col-span-4 bg-white border border-[#e7bdb9] rounded-xl p-5 flex flex-col">
-            <h3 class="text-lg font-bold text-[#291716]">Milestone Badges</h3>
-            <p class="text-sm text-[#5d3f3d] mb-4">Earned badges across your roster</p>
-            <div class="flex-1 flex items-center justify-center py-4">
-              <div class="relative w-28 h-28 rounded-full border-[14px] border-[#ffe1df] flex items-center justify-center">
-                <div class="text-center">
-                  <p class="text-2xl font-extrabold text-[#291716]">${badgeTotal}</p>
-                  <p class="text-[10px] font-bold uppercase text-[#5d3f3d]">Total</p>
-                </div>
-              </div>
-            </div>
-            <div class="space-y-2 mt-2">
-              ${badgeRows.map((row, index) => {
-                const pct = badgeTotal ? Math.round((row.count / badgeTotal) * 100) : 0;
-                return `<div class="flex justify-between items-center text-sm gap-2">
-                  <div class="flex items-center gap-2 min-w-0">
-                    <span class="w-3 h-3 rounded-full shrink-0" style="background:${badgeColors[index % badgeColors.length]}"></span>
-                    <span class="truncate text-[#291716]">${esc(row.name)}</span>
+          <div class="lg:col-span-5 bg-white border border-[#e7bdb9] rounded-xl p-5 flex flex-col">
+            <h3 class="text-lg font-bold text-[#291716]">Team badges</h3>
+            <p class="text-sm text-[#5d3f3d] mb-4">All badges available to earn · ${badgeEarners} earned on roster</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1 content-start">
+              ${badgeRows.map((row) => {
+                const earned = Number(row.count || 0) > 0;
+                return `<div class="rounded-lg border p-2.5 flex items-start gap-2 ${earned ? "border-[#005cab] bg-[#eff6ff]" : "border-[#e7bdb9] bg-white"}">
+                  <div class="w-8 h-8 rounded-full shrink-0 ${earned ? "bg-[#0075d7] text-white" : "bg-[#ffe1df] text-[#5d3f3d]"} flex items-center justify-center">
+                    <span class="material-symbols-outlined text-[16px]" style="font-variation-settings:'FILL' ${earned ? 1 : 0}">${esc(row.icon || "military_tech")}</span>
                   </div>
-                  <span class="font-bold text-[#5d3f3d] shrink-0">${pct}%</span>
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-center justify-between gap-2">
+                      <strong class="text-xs text-[#291716] truncate">${esc(row.name)}</strong>
+                      <span class="text-[10px] font-bold ${earned ? "text-[#005cab]" : "text-[#926e6c]"} shrink-0">${earned ? `${row.count} earned` : "Available"}</span>
+                    </div>
+                    <p class="text-[10px] text-[#5d3f3d] mt-0.5 leading-snug">${esc(row.rule || "")}</p>
+                  </div>
                 </div>`;
-              }).join("") || `<p class="text-xs text-[#5d3f3d]">No badges earned yet.</p>`}
+              }).join("")}
             </div>
           </div>
           <div class="lg:col-span-12 bg-white border border-[#e7bdb9] rounded-xl p-5">
-            <h3 class="text-lg font-bold text-[#291716] mb-4">Focus areas distribution</h3>
-            <div class="grid md:grid-cols-2 gap-x-8 gap-y-3">
-              ${(stats.focus_area_distribution || []).map((row) => `
-                <div>
-                  <div class="flex justify-between text-sm mb-1">
-                    <span class="text-[#291716]">${row.focus_areas} focus area${row.focus_areas === 1 ? "" : "s"}</span>
-                    <span class="font-bold text-[#005cab]">${row.count} people</span>
-                  </div>
-                  <div class="h-2 bg-[#ffe1df] rounded-full overflow-hidden">
-                    <div class="h-full bg-[#0075d7] rounded-full" style="width:${Math.round((row.count / focusMax) * 100)}%"></div>
-                  </div>
-                </div>`).join("") || `<p class="text-sm text-[#5d3f3d]">No rated profiles yet.</p>`}
+            <h3 class="text-lg font-bold text-[#291716] mb-1">Skill gap distribution</h3>
+            <p class="text-sm text-[#5d3f3d] mb-4">People with a gap in each competency</p>
+            <div class="flex items-end gap-2 h-44 overflow-x-auto pb-1">
+              ${skillGaps.length
+                ? skillGaps.map((row) => {
+                  const height = Math.max(10, Math.round((row.count / skillMax) * 100));
+                  return `<div class="flex-1 min-w-[72px] flex flex-col items-center gap-2 h-full justify-end">
+                    <span class="text-xs font-bold text-[#005cab]">${row.count}</span>
+                    <div class="w-full max-w-[56px] bg-[#a6c8ff] hover:bg-[#0075d7] rounded-t transition-colors" style="height:${height}%" title="${esc(row.competency)}: ${row.count}"></div>
+                    <span class="text-[10px] text-[#5d3f3d] text-center leading-tight line-clamp-2 min-h-[2.5rem]">${esc(row.competency)}</span>
+                  </div>`;
+                }).join("")
+                : `<p class="text-sm text-[#5d3f3d]">No skill gaps in scope yet.</p>`}
             </div>
             <p class="text-xs text-[#5d3f3d] mt-4">${stats.journey_locked_pct || 0}% journeys locked · avg ${Number(stats.avg_hours || 0).toFixed(1)}h</p>
           </div>
@@ -2720,7 +2724,14 @@ Before you begin, we encourage you to take a few minutes to understand the philo
                             </div>
                           </div>
                         </td>
-                        <td class="p-4 font-bold">${row.focus_areas}</td>
+                        <td class="p-4">
+                          <span class="relative inline-flex group/focus cursor-help font-bold text-[#291716] border-b border-dotted border-[#926e6c]">
+                            ${row.focus_areas}
+                            <span class="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-20 hidden group-hover/focus:block w-56 rounded-lg bg-[#291716] text-white text-[11px] font-normal leading-snug px-3 py-2 shadow-lg">
+                              ${esc(gapTooltip(row))}
+                            </span>
+                          </span>
+                        </td>
                         <td class="p-4 text-right font-mono font-bold">${Number(row.learning_hours).toFixed(1)}h</td>
                         <td class="p-4">${Number(row.completions || 0)}</td>
                         <td class="p-4 text-center">${lbBadgeIcons(row.badges, catalog)}</td>
@@ -2775,6 +2786,8 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       "hours-asc": "Hours low→high",
       "name-asc": "Name A–Z",
       "name-desc": "Name Z–A",
+      "code-asc": "Employee code A–Z",
+      "code-desc": "Employee code Z–A",
       "focus-desc": "Focus areas high→low",
       "severity-asc": "Severity low→high",
     };
@@ -2796,6 +2809,8 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         if (sortMode === "hours-asc") return a.learning_hours - b.learning_hours;
         if (sortMode === "name-asc") return String(a.name || "").localeCompare(String(b.name || ""));
         if (sortMode === "name-desc") return String(b.name || "").localeCompare(String(a.name || ""));
+        if (sortMode === "code-asc") return String(a.employee_code || "").localeCompare(String(b.employee_code || ""), undefined, { numeric: true });
+        if (sortMode === "code-desc") return String(b.employee_code || "").localeCompare(String(a.employee_code || ""), undefined, { numeric: true });
         if (sortMode === "focus-desc") return b.focus_areas - a.focus_areas;
         if (sortMode === "severity-asc") return a.severity_band - b.severity_band || a.rank - b.rank;
         return 0;
@@ -2817,7 +2832,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       }
       const groupKeys = Object.keys(grouped).map(Number).sort((a, b) => a - b);
 
-      render(`${pageHeader("Learning Leaderboard", "All employees ranked within gap-severity cohorts. Search, filter, and sort across bands.")}
+      render(`${pageHeader("Leaderboard", "All employees ranked within gap-severity cohorts. Search, filter, and sort across bands.")}
         <label class="block mb-4"><span class="sr-only">Search employees</span>
           <input data-lb-search value="${esc(searchRaw)}" class="w-full md:w-96 border border-slate-200 rounded-lg px-4 py-3" placeholder="Search code or name">
         </label>
@@ -3172,7 +3187,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       });
       qsa("[data-reset-courses]").forEach((control) => {
         control.onclick = async () => {
-          if (!confirm("Reset this employee's Shop Your Courses / learning journey? They can select courses again. Aspiration stays locked.")) return;
+          if (!confirm("Reset this employee's Select Your Courses / learning journey? They can select courses again. Aspiration stays locked.")) return;
           try {
             await api("/api/admin/learning/reset", { method: "POST", body: JSON.stringify({ employee_code: control.dataset.resetCourses }) });
             toast("Course shop unlocked for employee.");
