@@ -3049,11 +3049,25 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     const phases = (await api("/api/phases")).phases;
     const names = { zm: "ZM Competency Assessment", rd: "RD Competency Validation", employee: "Employee Career & Learning" };
     render(`${pageHeader("Phase Control", "Opening a later phase requires 100% prior completion or explicit Admin override.")}
-      <div class="space-y-4">${phases.map((phase) => `<section class="bg-white border border-slate-200 rounded-xl p-6">
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4"><div><div class="flex items-center gap-3"><h2 class="text-xl font-bold">${esc(names[phase.phase])}</h2>${statusChip(phase.status)}</div><p class="text-sm text-slate-500 mt-2">${phase.progress.completed}/${phase.progress.total} complete · ${phase.progress.percentage}%${phase.override_used ? " · opened by override" : ""}</p></div>
-        ${button(phase.status === "open" ? "Close Phase" : "Open Phase", `data-phase="${phase.phase}" data-status="${phase.status}"`)}</div>
+      <div class="space-y-4">${phases.map((phase) => {
+        const open = phase.status === "open";
+        return `<section class="bg-white border border-slate-200 rounded-xl p-6">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+          <div>
+            <div class="flex items-center gap-3"><h2 class="text-xl font-bold">${esc(names[phase.phase])}</h2>${statusChip(phase.status)}</div>
+            <p class="text-sm text-slate-500 mt-2">${phase.progress.completed}/${phase.progress.total} complete · ${phase.progress.percentage}%${phase.override_used ? " · opened by override" : ""}</p>
+          </div>
+          <label class="inline-flex items-center gap-3 cursor-pointer select-none shrink-0">
+            <span class="text-xs font-bold uppercase tracking-wide ${open ? "text-emerald-700" : "text-slate-500"}">${open ? "Open" : "Closed"}</span>
+            <button type="button" role="switch" aria-checked="${open ? "true" : "false"}" data-phase="${phase.phase}" data-status="${phase.status}"
+              class="relative w-14 h-8 rounded-full transition-colors ${open ? "bg-emerald-600" : "bg-slate-300"} focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-600">
+              <span class="absolute top-1 left-1 w-6 h-6 rounded-full bg-white shadow transition-transform ${open ? "translate-x-6" : "translate-x-0"}"></span>
+            </button>
+          </label>
+        </div>
         <div class="h-2 bg-slate-100 rounded mt-5 overflow-hidden"><div class="h-full bg-blue-700" style="width:${phase.progress.percentage}%"></div></div>
-      </section>`).join("")}</div>`);
+      </section>`;
+      }).join("")}</div>`);
     qsa("[data-phase]").forEach((control) => {
       control.onclick = async () => {
         const phase = phases.find((item) => item.phase === control.dataset.phase);
@@ -3074,6 +3088,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           await initPhases();
         } catch (error) {
           toast(error.message, "error");
+          await initPhases();
         }
       };
     });
