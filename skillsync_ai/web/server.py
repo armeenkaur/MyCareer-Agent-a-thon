@@ -90,6 +90,21 @@ class MyCareerServer:
                 else:
                     self.send_error(HTTPStatus.NOT_FOUND)
 
+            def do_HEAD(self) -> None:
+                # Render health checks use HEAD; BaseHTTPRequestHandler defaults to 501.
+                path = urlparse(self.path).path
+                if (
+                    path in {"/", "/backend", "/api/health"}
+                    or path.startswith("/api/")
+                    or path.startswith("/app")
+                ):
+                    self.send_response(HTTPStatus.OK)
+                    self.send_header("Content-Type", "text/plain; charset=utf-8")
+                    self.send_header("Content-Length", "0")
+                    self.end_headers()
+                    return
+                self.send_error(HTTPStatus.NOT_FOUND)
+
             def do_POST(self) -> None:
                 path = urlparse(self.path).path
                 if path.startswith("/api/"):
@@ -167,6 +182,7 @@ class MyCareerServer:
         return Handler
 
 
-def create_server(host: str = "127.0.0.1", port: int = 5050) -> ThreadingHTTPServer:
+def create_server(host: str = "0.0.0.0", port: int = 5050) -> ThreadingHTTPServer:
     application = MyCareerServer()
+    log.info("Binding HTTP server host=%s port=%s", host, port)
     return ThreadingHTTPServer((host, port), application.handler())
