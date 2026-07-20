@@ -20,8 +20,11 @@ def create_app(host: str = "127.0.0.1", port: int = 5050) -> ThreadingHTTPServer
 
 
 def main() -> None:
+    # Render/Railway set PORT and require 0.0.0.0; local defaults stay 5050.
+    host = os.environ.get("HOST", "0.0.0.0")
+    port = int(os.environ.get("PORT", "5050"))
     key = os.environ.get("OPENAI_API_KEY", "").strip()
-    log.info("Starting MyCareer Compass")
+    log.info("Starting MyCareer Compass host=%s port=%s", host, port)
     log.info("OPENAI_API_KEY configured=%s model=%s", bool(key), OPENAI_MODEL)
     log.info("OCR_BACKEND=openai-vision+tesseract")
     log.info("File logs → %s", ROOT / "logs" / "skillsync.log")
@@ -32,8 +35,9 @@ def main() -> None:
     else:
         log.error("Tesseract not found. Run: brew install tesseract && pip install pytesseract pillow")
 
-    server = create_app()
-    print("Serving MyCareer Compass at http://127.0.0.1:5050")
+    server = create_app(host=host, port=port)
+    print(f"Serving MyCareer Compass at http://{host}:{port}")
+    print(f"Open login: http://{host}:{port}/app/login")
     print(f"Logs: {ROOT / 'logs' / 'skillsync.log'}")
     if not (TESSERACT_CMD or shutil.which("tesseract")):
         print("ACTION REQUIRED: brew install tesseract && pip install pytesseract pillow")
