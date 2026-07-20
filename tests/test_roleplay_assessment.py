@@ -3,10 +3,36 @@ from __future__ import annotations
 import unittest
 from unittest.mock import patch
 
-from skillsync_ai.agents.roleplay_assessment import assess_roleplay
+from skillsync_ai.agents.roleplay_assessment import assess_roleplay, transcript_is_keyword_stuffed
 
 
 class RoleplayAssessmentTest(unittest.TestCase):
+    def test_keyword_stuffed_advanced_page_is_detected(self) -> None:
+        transcript = "Communication\n" + ("advanced " * 80)
+        self.assertTrue(transcript_is_keyword_stuffed(transcript))
+
+    @patch("skillsync_ai.agents.roleplay_assessment.chat_json")
+    @patch("skillsync_ai.agents.roleplay_assessment.extract_screenshot_text")
+    def test_keyword_stuffing_rejects_without_llm(self, ocr, chat) -> None:
+        ocr.return_value = {
+            "text": "Communication\n" + ("Advanced advanced " * 40),
+            "source": "openai-vision",
+            "error": "",
+        }
+
+        result = assess_roleplay(
+            "Communication",
+            "fake.png",
+            b"image",
+            {"Advanced": "definition"},
+            "MMT1001",
+        )
+
+        self.assertEqual(result["status"], "reupload_required")
+        self.assertIsNone(result["proficiency"])
+        self.assertIn("genuine role-play feedback", result["error"])
+        chat.assert_not_called()
+
     @patch("skillsync_ai.agents.roleplay_assessment.chat_json")
     @patch("skillsync_ai.agents.roleplay_assessment.extract_screenshot_text")
     def test_readable_wrong_competency_returns_specific_message(self, ocr, chat) -> None:
