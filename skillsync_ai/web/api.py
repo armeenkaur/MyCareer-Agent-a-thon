@@ -146,8 +146,11 @@ class BackendAPI:
         try:
             body = self._body(handler)
             if parsed.path == "/api/auth/login":
+                role = str(body.get("role") or "").strip() or None
                 result = self.backend.login(
-                    str(body.get("login_id") or ""), str(body.get("role") or ""), str(body.get("password") or "")
+                    str(body.get("login_id") or ""),
+                    str(body.get("password") or ""),
+                    role=role,
                 )
                 self._send(handler, 200, result)
                 return
@@ -155,6 +158,13 @@ class BackendAPI:
             if parsed.path == "/api/auth/logout":
                 self.backend.logout(self._token(handler))
                 self._send(handler, 200, {"status": "ok"})
+            elif parsed.path == "/api/auth/switch-role":
+                result = self.backend.switch_role(
+                    user,
+                    self._token(handler),
+                    str(body.get("role") or ""),
+                )
+                self._send(handler, 200, result)
             elif parsed.path == "/api/auth/password":
                 self._send(
                     handler,

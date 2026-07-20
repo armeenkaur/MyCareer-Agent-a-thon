@@ -152,7 +152,7 @@
   }
 
   function avatarStorageKey(user = session.user) {
-    return `mycareer_avatar_${user?.role || "unknown"}_${user?.login_id || "anon"}`;
+    return `mycareer_avatar_${user?.login_id || "anon"}`;
   }
 
   function ackStorageKey(user = session.user) {
@@ -161,7 +161,16 @@
 
   function loadAvatar(user = session.user) {
     try {
-      return localStorage.getItem(avatarStorageKey(user)) || "";
+      const key = avatarStorageKey(user);
+      const current = localStorage.getItem(key) || "";
+      if (current) return current;
+      // Migrate legacy role-scoped avatar keys once.
+      const legacy = localStorage.getItem(`mycareer_avatar_${user?.role || "unknown"}_${user?.login_id || "anon"}`) || "";
+      if (legacy) {
+        localStorage.setItem(key, legacy);
+        return legacy;
+      }
+      return "";
     } catch (_) {
       return "";
     }
@@ -214,6 +223,10 @@
     const photo = loadAvatar(user);
     const primary = mmt ? "bg-[#df162b] text-white" : "bg-blue-700 text-white";
     const border = mmt ? "border-[#e7bdb9]" : "border-slate-200";
+    const available = user.available_roles || [user.role];
+    const canSwitch = available.includes("zm") && available.includes("rd");
+    const switchTarget = user.role === "zm" ? "rd" : user.role === "rd" ? "zm" : "";
+    const switchLabel = switchTarget === "rd" ? "Switch to RD dashboard" : "Switch to ZM dashboard";
     const node = document.createElement("div");
     node.id = "mc-account-modal";
     node.className = "fixed inset-0 z-[80] bg-black/40 grid place-items-center p-4";
@@ -235,6 +248,9 @@
             </div>
           </div>
         </section>
+        ${canSwitch && switchTarget ? `<button type="button" data-switch-role="${switchTarget}" class="w-full border ${border} text-[#291716] rounded-lg px-4 py-2.5 text-sm font-bold hover:bg-[#fff0ef] inline-flex items-center justify-center gap-2">
+          <span class="material-symbols-outlined text-[18px]">swap_horiz</span>${esc(switchLabel)}
+        </button>` : ""}
         <button type="button" data-open-password class="w-full ${primary} rounded-lg px-4 py-2.5 text-sm font-bold">Change password</button>
       </div>
     </div>`;
@@ -243,6 +259,28 @@
     node.addEventListener("click", (event) => { if (event.target === node) dismiss(); });
     qs("[data-close-account]", node).onclick = dismiss;
     qs("[data-open-password]", node).onclick = () => openPasswordModal();
+    qs("[data-switch-role]", node)?.addEventListener("click", async () => {
+      const target = qs("[data-switch-role]", node).dataset.switchRole;
+      try {
+        const result = await api("/api/auth/switch-role", {
+          method: "POST",
+          body: JSON.stringify({ role: target }),
+        });
+        session.token = result.token;
+        session.user = result.user;
+        localStorage.setItem(tokenKey, result.token);
+        localStorage.setItem(userKey, JSON.stringify(result.user));
+        dismiss();
+        go(result.user.role === "admin" ? "admin/overview" : `${result.user.role}/welcome`);
+      } catch (error) {
+        if (error.code === "phase_closed") {
+          dismiss();
+          showPhaseNotOpenYet(target);
+        } else {
+          toast(error.message, "error");
+        }
+      }
+    });
     qs("[data-avatar-file]", node).onchange = (event) => {
       const file = event.target.files?.[0];
       if (!file) return;
@@ -271,6 +309,26 @@
       };
       reader.readAsDataURL(file);
     };
+  }
+
+  function showPhaseNotOpenYet(role) {
+    closeOverlay("mc-phase-closed");
+    const label = role === "rd" ? "RD" : role === "zm" ? "ZM" : String(role || "This").toUpperCase();
+    const node = document.createElement("div");
+    node.id = "mc-phase-closed";
+    node.className = "fixed inset-0 z-[90] bg-black/40 grid place-items-center p-4";
+    node.innerHTML = `<div class="bg-white rounded-xl shadow-2xl w-full max-w-sm border border-[#e7bdb9] p-6 text-center">
+      <div class="w-16 h-16 mx-auto rounded-full bg-[#fff0ef] grid place-items-center text-[#df162b] mb-4">
+        <span class="material-symbols-outlined text-[36px]">lock_clock</span>
+      </div>
+      <h2 class="text-xl font-extrabold text-[#291716] mb-2">${esc(label)} portal not open yet</h2>
+      <p class="text-sm text-[#5d3f3d] mb-5">This phase is not open yet. You will be notified when access becomes available.</p>
+      <button type="button" data-close-phase class="px-6 py-2.5 border border-[#e7bdb9] rounded-full text-sm font-bold text-[#291716] hover:bg-[#fff0ef]">OK</button>
+    </div>`;
+    document.body.appendChild(node);
+    const dismiss = () => closeOverlay("mc-phase-closed");
+    node.addEventListener("click", (event) => { if (event.target === node) dismiss(); });
+    qs("[data-close-phase]", node).onclick = dismiss;
   }
 
   function openPasswordModal() {
@@ -447,25 +505,6 @@
   }
 
   function initLogin() {
-    let selectedRole = "employee";
-    window.selectRole = (role) => {
-      selectedRole = role.toLowerCase();
-      qsa(".role-btn").forEach((candidate) => {
-        const label = candidate.querySelector("span:last-child")?.textContent.trim().toLowerCase();
-        const active = label === selectedRole;
-        candidate.classList.toggle("active-role", active);
-        candidate.classList.toggle("border-2", active);
-        candidate.classList.toggle("border-secondary", active);
-        candidate.classList.toggle("bg-secondary/5", active);
-        candidate.classList.toggle("border", !active);
-        candidate.classList.toggle("border-outline-variant", !active);
-        qsa("span", candidate).forEach((child) => {
-          child.classList.toggle("text-secondary", active);
-          child.classList.toggle("text-on-surface-variant", !active);
-        });
-      });
-    };
-    window.selectRole("Employee");
     window.togglePassword = (event) => {
       const input = qs("#password-input");
       input.type = input.type === "password" ? "text" : "password";
@@ -479,13 +518,14 @@
       try {
         const result = await api("/api/auth/login", {
           method: "POST",
-          body: JSON.stringify({ login_id: inputs[0].value.trim(), role: selectedRole, password: inputs[1].value }),
+          body: JSON.stringify({ login_id: inputs[0].value.trim(), password: inputs[1].value }),
         });
         session.token = result.token;
         session.user = result.user;
         localStorage.setItem(tokenKey, result.token);
         localStorage.setItem(userKey, JSON.stringify(result.user));
-        go(selectedRole === "admin" ? "admin/overview" : `${selectedRole}/welcome`);
+        const role = result.user.role;
+        go(role === "admin" ? "admin/overview" : `${role}/welcome`);
       } catch (error) {
         if (error.code === "phase_closed") {
           qs("#portal-closed-card")?.classList.remove("hidden");
@@ -1846,7 +1886,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           <div class="flex items-center gap-2"><div class="w-4 h-4 rounded-full bg-[#16a34a] border-2 border-white shadow-sm"></div><span class="text-xs font-semibold text-[#291716]">Selected</span></div>
           <div class="flex items-center gap-2"><div class="w-4 h-4 rounded-full bg-[#c9c9c9] border-2 border-white shadow-sm"></div><span class="text-xs font-semibold text-[#5d3f3d]">Locked</span></div>
           ${state.choice
-            ? `<p class="ml-auto text-xs font-bold text-[#16a34a]">Aspiration locked — Admin reset required</p>`
+            ? `<p class="ml-auto text-xs font-bold text-[#16a34a]">Aspiration locked</p>`
             : `<p class="ml-auto text-xs font-semibold text-[#5d3f3d]">Tap an eligible role to lock aspiration</p>`}
         </div>
       </div>
@@ -2109,7 +2149,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
             <div>
               <p class="font-bold">Action Required</p>
               <p class="text-sm mt-1">${result.target?.mode === "future_role"
-                ? "You're thriving in your current role. Now, explore the journey toward your aspiration role. Please add at least <strong>1 LinkedIn course per skill</strong>. Other sources are optional."
+                ? "You're thriving in your current role. Now, explore the journey towards your aspiration role. Please add at least <strong>1 LinkedIn course per skill</strong>. Other sources are optional."
                 : `You're going great! However, we have identified ${gapCount} focus area${gapCount === 1 ? "" : "s"}. Please add at least <strong>1 LinkedIn course per gap</strong>. Other sources are optional.`}</p>
             </div>
           </div>
