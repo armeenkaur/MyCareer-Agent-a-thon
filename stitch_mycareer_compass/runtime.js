@@ -1633,7 +1633,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       return `<section class="bg-white border border-[#e7bdb9] rounded-xl p-5 flex flex-col min-h-[220px]">
         <div class="flex justify-between items-start mb-4">
           <div class="p-2 bg-[#fff0ef] text-[#df162b] rounded-lg"><span class="material-symbols-outlined">${icons[row.competency] || "assignment"}</span></div>
-          <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${done ? "bg-green-100 text-green-700" : "bg-[#ffe1df] text-[#5d3f3d]"}">${esc(row.status || "pending")}</span>
+          <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${done ? "bg-green-100 text-green-700" : "bg-[#ffe1df] text-[#5d3f3d]"}">${esc(String(row.status || "pending").replaceAll("_", " "))}</span>
         </div>
         <h2 class="font-bold text-lg text-[#291716] mb-4">${esc(row.competency)}</h2>
         ${row.error ? `<p class="text-sm text-[#df162b] mb-3">${esc(row.error)}</p>` : ""}

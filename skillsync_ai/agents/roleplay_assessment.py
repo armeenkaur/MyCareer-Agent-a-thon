@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import re
+from collections import Counter
 from typing import Any
 
 from .llm import chat_json, normalize_proficiency
@@ -9,6 +11,7 @@ from .ocr_qwen import extract_screenshot_text
 
 AGENT_NAME = "Role-play Assessment Agent"
 MIN_READABLE_CHARS = 40
+_PROFICIENCY_WORDS = {"beginner", "intermediate", "proficient", "advanced"}
 
 SYSTEM = """You are Role-play Assessment Agent for MyCareer Compass.
 Rate only the named competency using only supplied screenshot transcript and the exact four-level rubric. Do not use general
@@ -19,13 +22,35 @@ If image text is unreadable, return
 If text is readable but evaluates a different competency, return
 {"rejected":true,"reason_code":"competency_mismatch","reason":"..."}.
 If text concerns the named competency but lacks enough behavior evidence to apply the rubric, return
-{"rejected":true,"reason_code":"insufficient_evidence","reason":"..."}."""
+{"rejected":true,"reason_code":"insufficient_evidence","reason":"..."}.
+If the transcript is keyword stuffing, a typed proficiency label repeated, or otherwise not genuine role-play feedback
+(no scenario outcome, rubric comments, scores, or observable behavior), return
+{"rejected":true,"reason_code":"invalid_evidence","reason":"..."}.
+Never assign a level solely because the word Beginner/Intermediate/Proficient/Advanced appears in the transcript."""
 
 REJECTION_MESSAGES = {
     "unreadable": "Screenshot text could not be read. Upload a clearer screenshot.",
     "competency_mismatch": "Screenshot is readable, but its feedback does not match the selected competency.",
     "insufficient_evidence": "Screenshot is readable, but it lacks enough behavior evidence for the selected competency.",
+    "invalid_evidence": "Screenshot does not look like genuine role-play feedback. Upload the actual assessment result screen.",
 }
+
+
+def transcript_is_keyword_stuffed(transcript: str) -> bool:
+    """Detect fake screenshots that mostly repeat proficiency labels or one word."""
+    tokens = re.findall(r"[A-Za-z]+", transcript.lower())
+    if len(tokens) < 8:
+        return False
+    label_hits = sum(1 for token in tokens if token in _PROFICIENCY_WORDS)
+    if label_hits >= 5 and label_hits / len(tokens) >= 0.35:
+        return True
+    counts = Counter(tokens)
+    top_count = counts.most_common(1)[0][1]
+    if top_count >= 8 and top_count / len(tokens) >= 0.45:
+        return True
+    if len(tokens) >= 20 and len(counts) / len(tokens) < 0.15:
+        return True
+    return False
 
 
 def assess_roleplay(
@@ -45,6 +70,15 @@ def assess_roleplay(
             "ocr_text": transcript,
             "ocr_source": str(ocr.get("source") or ""),
             "error": str(ocr.get("error") or "Unable to read enough screenshot content."),
+        }
+    if transcript_is_keyword_stuffed(transcript):
+        return {
+            "status": "reupload_required",
+            "proficiency": None,
+            "rationale": "Transcript looks like keyword stuffing, not role-play feedback.",
+            "ocr_text": transcript,
+            "ocr_source": str(ocr.get("source") or ""),
+            "error": REJECTION_MESSAGES["invalid_evidence"],
         }
     answer = chat_json(
         SYSTEM,
