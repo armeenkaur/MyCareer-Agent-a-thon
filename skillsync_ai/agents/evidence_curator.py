@@ -8,7 +8,7 @@ from .llm import chat_json
 
 
 AGENT_NAME = "Evidence Curator Agent"
-CURATOR_VERSION = 3
+CURATOR_VERSION = 7
 
 TERMS = {
     "Communication": ["communication", "presentation", "storytelling", "writing", "verbal", "influence", "negotiation", "ppt"],
@@ -26,6 +26,8 @@ Select only candidate snippets whose PRIMARY topic is the requested competency.
 Never rate the employee, recommend a proficiency, alter an RD rating, or invent evidence.
 Never select a snippet that is mainly about a different competency, even if it shares a weak keyword.
 Keep candidate IDs unchanged. Prefer the shortest accurate excerpt.
+IMPORTANT: Labels like "Employee learning need" / employee TNA learning input mean the employee asked to develop that skill —
+they are development-need signals, NOT proof the employee is strong or proficient.
 Return JSON only:
 {"selected":[{"id":"candidate id","reason":"short relevance reason","excerpt":"exact contiguous substring from the candidate snippet that is only about this competency"}]}.
 Select at most four. If nothing is directly relevant, return {"selected":[]}.
@@ -62,7 +64,8 @@ def _candidate_snippets(data: Any, emp_code: str) -> list[dict[str, str]]:
             rows.append({"id": f"E{counter}", "source": source, "label": label, "snippet": chunk[:900]})
 
     for index, row in enumerate(data.tna.get(emp_code, []), 1):
-        add("TNA", f"Employee input {index}", row.get("Employee Input"))
+        # Employee Input = self-identified learning need / weakness, not a strength claim.
+        add("TNA", "Employee learning need", row.get("Employee Input"))
         add("TNA", f"Reporting manager input {index}", row.get("Reporting Manager Input"))
         for field in ("Standard Skill (EI)", "Skill Cluster (EI)", "Standard Skill (RM)", "Skill Cluster (RM)"):
             value = row.get(field)
@@ -76,11 +79,24 @@ def _candidate_snippets(data: Any, emp_code: str) -> list[dict[str, str]]:
         if key not in {"EMP Code", "EMP Name"}:
             # Round columns are source metadata — do not surface as labels.
             add("Interview", "", value)
-    for index, row in enumerate(data.amber.get(emp_code, []), 1):
+    for row in data.amber.get(emp_code, []):
+        question = re.sub(r"\s+", " ", str(row.get("Question") or "")).strip()
+        question_label = question[:120] + ("…" if len(question) > 120 else "")
         for field in ("Question", "Answer", "Follow-up Comments", "Driver(Element Name)", "Mood"):
             value = row.get(field)
-            if value:
-                add("Amber", f"Amber {field} {index}", value)
+            if not value:
+                continue
+            if field == "Question":
+                # Show question text as label — never "Amber Question 31".
+                add("Amber", question_label or "Question", value)
+            elif field == "Answer":
+                add("Amber", question_label or "Answer", value)
+            elif field == "Follow-up Comments":
+                add("Amber", "Follow-up" if not question_label else f"Follow-up · {question_label}", value)
+            elif field == "Driver(Element Name)":
+                add("Amber", "Driver", value)
+            else:
+                add("Amber", "Mood", value)
     return rows
 
 

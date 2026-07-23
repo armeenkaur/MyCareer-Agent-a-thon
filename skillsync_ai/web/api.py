@@ -133,6 +133,10 @@ class BackendAPI:
             elif parsed.path == "/api/admin/audit":
                 self._require_role(user, {"admin"})
                 self._send(handler, 200, {"audit": self.backend.agent_audit(int(query.get("limit", "100")))})
+            elif parsed.path == "/api/feedback":
+                self._require_role(user, {"zm", "rd", "admin"})
+                employee_code = self._required_query(query, "employee_code")
+                self._send(handler, 200, self.backend.list_journey_feedback(user, employee_code))
             else:
                 self._send(handler, 404, {"error": {"code": "not_found", "message": "API route not found."}})
         except BackendError as exc:
@@ -182,6 +186,14 @@ class BackendAPI:
             elif parsed.path == "/api/admin/phases/close":
                 self._require_role(user, {"admin"})
                 self._send(handler, 200, {"phase": self.backend.close_phase(user, str(body.get("phase") or ""))})
+            elif parsed.path == "/api/feedback":
+                self._require_role(user, {"zm"})
+                result = self.backend.submit_journey_feedback(
+                    user,
+                    str(body.get("employee_code") or ""),
+                    str(body.get("answer") or ""),
+                )
+                self._send(handler, 200, result)
             elif parsed.path == "/api/assessment":
                 self._require_role(user, {"zm", "rd"})
                 result = self.backend.save_assessment(

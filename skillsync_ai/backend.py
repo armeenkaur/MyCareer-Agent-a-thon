@@ -17,11 +17,12 @@ from .agents.course_recommendation import (
     resolve_other_source,
 )
 from .agents.evidence_curator import AGENT_NAME as EVIDENCE_AGENT, CURATOR_VERSION, curate_evidence
+from .agents.rd_suggestion import AGENT_NAME as RD_SUGGEST_AGENT, suggest_rd_rating
 from .agents.roleplay_assessment import AGENT_NAME as ROLEPLAY_AGENT, assess_roleplay
 from .core.config import PROFICIENCY_ORDER, PROFICIENCY_VALUE, UPLOAD_DIR
 from .core.logging_setup import get_logger
 from .core.utils import display_designation, is_kam_title, role_level_key, slug
-from .database import Database, PHASES, utc_now
+from .database import Database, FEEDBACK_QUESTION, PHASES, utc_now
 from .linkedin_learning import sync_learning_activity
 from .state import RuntimeState
 
@@ -182,7 +183,28 @@ class MyCareerBackend:
     def phase_progress(self, phase: str) -> dict[str, Any]:
         with self.db.connect() as connection:
             total = int(connection.execute("SELECT COUNT(*) FROM employees").fetchone()[0])
-            if phase in {"zm", "rd"}:
+            if phase == "feedback":
+                opened = connection.execute(
+                    "SELECT opened_at FROM phases WHERE phase='feedback'"
+                ).fetchone()
+                opened_at = opened["opened_at"] if opened else None
+                if opened_at:
+                    completed = int(
+                        connection.execute(
+                            """
+                            SELECT COUNT(DISTINCT employee_code) FROM journey_feedback
+                            WHERE created_at >= ?
+                            """,
+                            (opened_at,),
+                        ).fetchone()[0]
+                    )
+                else:
+                    completed = int(
+                        connection.execute(
+                            "SELECT COUNT(DISTINCT employee_code) FROM journey_feedback"
+                        ).fetchone()[0]
+                    )
+            elif phase in {"zm", "rd"}:
                 completed = int(
                     connection.execute(
                         "SELECT COUNT(*) FROM assessments WHERE assessor_role=? AND status='submitted'", (phase,)
@@ -213,7 +235,9 @@ class MyCareerBackend:
             raise BackendError("Admin access required.", "forbidden", 403)
         if phase not in PHASES:
             raise BackendError("Unknown phase.")
+        # Feedback is an independent quarterly window — no prior-phase gate, does not close others.
         previous = {"rd": "zm", "employee": "rd"}.get(phase)
+        progress = None
         if previous:
             progress = self.phase_progress(previous)
             if not progress["is_complete"] and not override:
@@ -223,7 +247,7 @@ class MyCareerBackend:
                     409,
                 )
         with self.db.transaction() as connection:
-            if previous:
+            if previous and progress is not None:
                 previous_status = "complete" if progress["is_complete"] else "closed"
                 connection.execute(
                     "UPDATE phases SET status=?, closed_at=? WHERE phase=?",
@@ -263,6 +287,7 @@ class MyCareerBackend:
 
     def employee_summaries(self, user: dict[str, Any]) -> list[dict[str, Any]]:
         """Role-scoped employee rows with workflow status for frontend tables."""
+        feedback_open = self.phase_is_open("feedback")
         output = []
         for employee in self.scoped_employees(user):
             zm = self.assessment(employee["employee_code"], "zm")
@@ -289,6 +314,13 @@ class MyCareerBackend:
                         (employee["employee_code"],),
                     ).fetchone()[0]
                 ) > 0
+                feedback_row = connection.execute(
+                    """
+                    SELECT COUNT(*) AS feedback_count, MAX(created_at) AS feedback_latest_at
+                    FROM journey_feedback WHERE employee_code=?
+                    """,
+                    (employee["employee_code"],),
+                ).fetchone()
             output.append(
                 {
                     **employee,
@@ -299,10 +331,66 @@ class MyCareerBackend:
                     "roleplays_total": len(self.competencies),
                     "aspiration": dict(choice) if choice else None,
                     "learning_locked": learning_locked,
+                    "feedback_count": int(feedback_row["feedback_count"] or 0) if feedback_row else 0,
+                    "feedback_latest_at": feedback_row["feedback_latest_at"] if feedback_row else None,
+                    "feedback_phase_open": feedback_open,
                 }
             )
         return output
 
+    def list_journey_feedback(self, user: dict[str, Any], employee_code: str) -> dict[str, Any]:
+        if user["role"] not in {"zm", "rd", "admin"}:
+            raise BackendError("Feedback logbook is available to ZM, RD, and Admin.", "forbidden", 403)
+        if user["role"] in {"zm", "rd"}:
+            self._assert_employee_scope(user, employee_code)
+        employee = self.employee(employee_code)
+        with self.db.connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT id, employee_code, zm_login_id, zm_name, question, answer, created_at
+                FROM journey_feedback
+                WHERE employee_code=?
+                ORDER BY created_at DESC, id DESC
+                """,
+                (employee_code,),
+            ).fetchall()
+        return {
+            "employee": employee,
+            "question": FEEDBACK_QUESTION,
+            "phase_open": self.phase_is_open("feedback"),
+            "can_write": user["role"] == "zm" and self.phase_is_open("feedback"),
+            "entries": [dict(row) for row in rows],
+        }
+
+    def submit_journey_feedback(self, user: dict[str, Any], employee_code: str, answer: str) -> dict[str, Any]:
+        if user.get("role") != "zm":
+            raise BackendError("Only ZMs can submit journey feedback.", "forbidden", 403)
+        if not self.phase_is_open("feedback"):
+            raise BackendError("Journey feedback phase is closed.", "phase_closed", 403)
+        self._assert_employee_scope(user, employee_code)
+        text = str(answer or "").strip()
+        if len(text) < 20:
+            raise BackendError("Please write a fuller response (at least a few sentences).")
+        if len(text) > 4000:
+            raise BackendError("Feedback is too long (max 4000 characters).")
+        now = utc_now()
+        with self.db.transaction() as connection:
+            connection.execute(
+                """
+                INSERT INTO journey_feedback(
+                    employee_code, zm_login_id, zm_name, question, answer, created_at
+                ) VALUES (?,?,?,?,?,?)
+                """,
+                (
+                    employee_code,
+                    user["login_id"],
+                    user.get("display_name") or "",
+                    FEEDBACK_QUESTION,
+                    text,
+                    now,
+                ),
+            )
+        return self.list_journey_feedback(user, employee_code)
     def profile_for_user(self, user: dict[str, Any], employee_code: str) -> dict[str, Any]:
         if user["role"] == "employee":
             if user.get("employee_code") != employee_code:
@@ -412,8 +500,19 @@ class MyCareerBackend:
             cached = self._cached_evidence(employee_code, competency)
             if cached is None and allow_curate:
                 cached = curate_evidence(self.data, employee_code, competency)
+                suggestion = suggest_rd_rating(
+                    competency,
+                    (zm_assessment.get("ratings") or {}).get(competency),
+                    (zm_assessment.get("notes") or {}).get(competency),
+                    cached.get("evidence") or [],
+                    self.data.level_definitions.get(competency, {}),
+                    employee_code,
+                )
+                cached["suggested_rating"] = suggestion.get("proficiency")
+                cached.pop("suggested_rationale", None)
                 self._save_evidence(employee_code, competency, cached)
                 self._audit(employee_code, EVIDENCE_AGENT, competency, "Workbook evidence", cached, "ok")
+                self._audit(employee_code, RD_SUGGEST_AGENT, competency, f"ZM={(zm_assessment.get('ratings') or {}).get(competency)}", {"proficiency": suggestion.get("proficiency")}, "ok")
             elif cached is None:
                 cached = {
                     "competency": competency,
@@ -422,6 +521,21 @@ class MyCareerBackend:
                     "source": "cache",
                     "curator_version": CURATOR_VERSION,
                 }
+            elif allow_curate and not cached.get("suggested_rating"):
+                suggestion = suggest_rd_rating(
+                    competency,
+                    (zm_assessment.get("ratings") or {}).get(competency),
+                    (zm_assessment.get("notes") or {}).get(competency),
+                    cached.get("evidence") or [],
+                    self.data.level_definitions.get(competency, {}),
+                    employee_code,
+                )
+                cached["suggested_rating"] = suggestion.get("proficiency")
+                cached.pop("suggested_rationale", None)
+                self._save_evidence(employee_code, competency, cached)
+                self._audit(employee_code, RD_SUGGEST_AGENT, competency, f"ZM={(zm_assessment.get('ratings') or {}).get(competency)}", {"proficiency": suggestion.get("proficiency")}, "ok")
+            if isinstance(cached, dict):
+                cached.pop("suggested_rationale", None)
             evidence[competency] = cached
         return {
             "employee": self.employee(employee_code),
@@ -565,6 +679,7 @@ class MyCareerBackend:
         paths = self._career_paths(employee)
         journey = self._career_journey(employee, paths)
         insights = self._career_insights(employee_code, employee, role, grade, paths)
+        skill_summary = self._skill_summary(employee_code)
         return {
             "unlocked": self.lattice_unlocked(employee_code),
             "current": role,
@@ -578,7 +693,37 @@ class MyCareerBackend:
             "paths": paths,
             "journey": journey,
             "insights": insights,
+            "skill_summary": skill_summary,
             "choice": dict(choice) if choice else None,
+        }
+
+    def _skill_summary(self, employee_code: str) -> dict[str, Any]:
+        """Compare final RD profile to current-role ideal: strengths vs improve list."""
+        actual = self.final_profile(employee_code)
+        if not actual:
+            return {
+                "has_profile": False,
+                "ideal_met": False,
+                "good_at": [],
+                "improve": [],
+            }
+        ideal = self.data.ideal_for_employee(employee_code)
+        good_at: list[str] = []
+        improve: list[str] = []
+        for competency in self.competencies:
+            current = PROFICIENCY_VALUE.get(actual.get(competency) or "", 0)
+            target = PROFICIENCY_VALUE.get(ideal.get(competency) or "", 0)
+            if not target:
+                continue
+            if current >= target:
+                good_at.append(competency)
+            else:
+                improve.append(competency)
+        return {
+            "has_profile": True,
+            "ideal_met": len(improve) == 0,
+            "good_at": good_at,
+            "improve": improve,
         }
 
     def _current_role_label(self, role: str, grade: str) -> str:
@@ -1358,93 +1503,84 @@ class MyCareerBackend:
         return {"status": "complete", "score": score, "band": band, "competencies": rows}
 
     def leaderboard(self, user: dict[str, Any]) -> dict[str, Any]:
-        """Severity-band cohort leaderboard + badges + manager/RD stats."""
+        """Flat leaderboard ranked by journey hours % then courses completed."""
         scoped = self.scoped_employees(user)
-        employee_cohort: int | None = None
         viewer_code = ""
         if user["role"] == "employee":
             viewer_code = str(user.get("employee_code") or "")
-            if self.final_profile(viewer_code):
-                employee_cohort = int(self.learning_target(viewer_code)["total_gap_levels"])
-                with self.db.connect() as connection:
-                    scoped = [dict(row) for row in connection.execute("SELECT * FROM employees ORDER BY employee_code")]
+            with self.db.connect() as connection:
+                scoped = [dict(row) for row in connection.execute("SELECT * FROM employees ORDER BY employee_code")]
 
+        catalog_by_id = {str(course.get("id") or ""): course for course in (self.data.courses or [])}
         rows: list[dict[str, Any]] = []
         with self.db.connect() as connection:
             for employee in scoped:
                 code = employee["employee_code"]
-                if not self.final_profile(code):
+                # Employees need a final profile for gap metadata; managers still see full roster.
+                has_profile = bool(self.final_profile(code))
+                if user["role"] == "employee" and not has_profile:
                     continue
-                target = self.learning_target(code)
-                severity = int(target["total_gap_levels"])
-                if employee_cohort is not None and severity != employee_cohort:
-                    continue
-                gaps = target.get("gaps") or []
-                focus_areas = len(gaps)
-                gap_skills = [
-                    {
-                        "competency": gap["competency"],
-                        "gap_levels": int(gap.get("gap_levels") or 0),
-                    }
-                    for gap in gaps
-                ]
+
+                metrics = self._learning_completion_metrics(code, connection, catalog_by_id)
+                gaps: list[dict[str, Any]] = []
+                focus_areas = 0
+                severity = 0
+                if has_profile:
+                    target = self.learning_target(code)
+                    severity = int(target["total_gap_levels"])
+                    gaps = [
+                        {
+                            "competency": gap["competency"],
+                            "gap_levels": int(gap.get("gap_levels") or 0),
+                        }
+                        for gap in (target.get("gaps") or [])
+                    ]
+                    focus_areas = len(gaps)
+
                 activity = connection.execute(
                     "SELECT learning_hours,completions FROM linkedin_activity WHERE employee_code=?",
                     (code,),
                 ).fetchone()
-                hours = float(activity["learning_hours"]) if activity else 0.0
-                completions = int(activity["completions"]) if activity else 0
-                linkedin_locked = int(
-                    connection.execute(
-                        "SELECT COUNT(*) FROM learning_selections WHERE employee_code=?", (code,)
-                    ).fetchone()[0]
-                )
-                linkedin_done = int(
-                    connection.execute(
-                        """
-                        SELECT COUNT(*) FROM course_progress cp
-                        JOIN learning_selections ls
-                          ON ls.employee_code=cp.employee_code AND ls.course_id=cp.course_id
-                        WHERE cp.employee_code=? AND cp.status='completed'
-                        """,
-                        (code,),
-                    ).fetchone()[0]
-                )
-                full_circuit = bool(linkedin_locked and linkedin_done >= linkedin_locked)
+                linkedin_hours = float(activity["learning_hours"]) if activity else 0.0
+                linkedin_completions = int(activity["completions"]) if activity else 0
+
                 rows.append(
                     {
                         "employee_code": code,
                         "name": employee["name"],
                         "severity_band": severity,
                         "focus_areas": focus_areas,
-                        "gaps": gap_skills,
-                        "gap_cohort": severity,  # back-compat
-                        "learning_hours": hours,
-                        "completions": completions,
-                        "journey_locked": bool(linkedin_locked),
-                        "full_circuit": full_circuit,
+                        "gaps": gaps,
+                        "gap_cohort": severity,
+                        "learning_hours": linkedin_hours,
+                        "completions": linkedin_completions,
+                        "hours_pct": metrics["hours_pct"],
+                        "completed_hours": metrics["completed_hours"],
+                        "total_hours": metrics["total_hours"],
+                        "courses_completed": metrics["courses_completed"],
+                        "courses_total": metrics["courses_total"],
+                        "journey_locked": metrics["journey_locked"],
+                        "full_circuit": metrics["full_circuit"],
                     }
                 )
 
-        # Rank within each severity band: hours desc, then completions desc; share rank on full tie.
-        for cohort in {row["severity_band"] for row in rows}:
-            group = sorted(
-                (row for row in rows if row["severity_band"] == cohort),
-                key=lambda row: (-row["learning_hours"], -row["completions"], row["name"]),
-            )
-            previous_key = None
-            rank = 0
-            for index, row in enumerate(group, 1):
-                key = (row["learning_hours"], row["completions"])
-                if previous_key is None or key != previous_key:
-                    rank = index
-                    previous_key = key
-                row["rank"] = rank
+        ranked = sorted(
+            rows,
+            key=lambda row: (-float(row["hours_pct"]), -int(row["courses_completed"]), str(row["name"] or "")),
+        )
+        previous_key = None
+        rank = 0
+        for index, row in enumerate(ranked, 1):
+            key = (float(row["hours_pct"]), int(row["courses_completed"]))
+            if previous_key is None or key != previous_key:
+                rank = index
+                previous_key = key
+            row["rank"] = rank
 
-        for row in rows:
+        for row in ranked:
             row["badges"] = self._sync_badges_for_row(row)
 
-        rows = sorted(rows, key=lambda row: (row["severity_band"], row["rank"], row["name"]))
+        rows = sorted(ranked, key=lambda row: (row["rank"], str(row["name"] or "")))
         viewer_badges = []
         viewer_row = next((row for row in rows if row["employee_code"] == viewer_code), None)
         if viewer_row:
@@ -1476,16 +1612,119 @@ class MyCareerBackend:
             "viewer": {
                 "role": user["role"],
                 "employee_code": viewer_code or None,
-                "severity_band": employee_cohort,
+                "severity_band": viewer_row["severity_band"] if viewer_row else None,
                 "focus_areas": viewer_row["focus_areas"] if viewer_row else None,
                 "rank": viewer_row["rank"] if viewer_row else None,
                 "learning_hours": viewer_row["learning_hours"] if viewer_row else None,
+                "hours_pct": viewer_row["hours_pct"] if viewer_row else None,
+                "completed_hours": viewer_row["completed_hours"] if viewer_row else None,
+                "total_hours": viewer_row["total_hours"] if viewer_row else None,
+                "courses_completed": viewer_row["courses_completed"] if viewer_row else None,
                 "completions": viewer_row["completions"] if viewer_row else None,
                 "gaps": viewer_gaps,
             },
             "badges": viewer_badges,
             "badge_catalog": BADGE_CATALOG,
             "stats": stats,
+        }
+
+    @staticmethod
+    def _duration_to_minutes(value: Any) -> int:
+        if value in (None, ""):
+            return 0
+        if isinstance(value, (int, float)):
+            return max(0, int(value))
+        text = str(value).strip().lower()
+        if not text:
+            return 0
+        if text.endswith("m") and text[:-1].replace(".", "", 1).isdigit():
+            return max(0, int(float(text[:-1])))
+        if text.endswith("h") and text[:-1].replace(".", "", 1).isdigit():
+            return max(0, int(float(text[:-1]) * 60))
+        parts = text.split(":")
+        try:
+            nums = [int(float(part)) for part in parts]
+        except ValueError:
+            return 0
+        if len(nums) == 3:
+            return max(0, nums[0] * 60 + nums[1])
+        if len(nums) == 2:
+            # LinkedIn often uses HH:MM
+            return max(0, nums[0] * 60 + nums[1])
+        if len(nums) == 1:
+            return max(0, nums[0])
+        return 0
+
+    def _learning_completion_metrics(
+        self,
+        employee_code: str,
+        connection: Any,
+        catalog_by_id: dict[str, dict[str, Any]],
+    ) -> dict[str, Any]:
+        selections = connection.execute(
+            "SELECT course_id FROM learning_selections WHERE employee_code=?",
+            (employee_code,),
+        ).fetchall()
+        external = connection.execute(
+            "SELECT resource_id, resource_json FROM external_learning WHERE employee_code=?",
+            (employee_code,),
+        ).fetchall()
+        progress_rows = connection.execute(
+            "SELECT course_id, status, progress_pct FROM course_progress WHERE employee_code=?",
+            (employee_code,),
+        ).fetchall()
+        activity = connection.execute(
+            "SELECT learning_hours FROM linkedin_activity WHERE employee_code=?",
+            (employee_code,),
+        ).fetchone()
+        progress_by_id = {str(row["course_id"]): dict(row) for row in progress_rows}
+
+        total_minutes = 0
+        completed_minutes = 0
+        courses_total = 0
+        courses_completed = 0
+
+        def accumulate(course_id: str, duration_minutes: int) -> None:
+            nonlocal total_minutes, completed_minutes, courses_total, courses_completed
+            courses_total += 1
+            prog = progress_by_id.get(str(course_id)) or {}
+            status = str(prog.get("status") or "not_started")
+            pct = 100 if status == "completed" else max(0, min(100, int(prog.get("progress_pct") or 0)))
+            if status == "completed":
+                courses_completed += 1
+            minutes = max(0, int(duration_minutes or 0))
+            if minutes:
+                total_minutes += minutes
+                completed_minutes += int(round(minutes * pct / 100))
+
+        for row in selections:
+            course_id = str(row["course_id"])
+            course = catalog_by_id.get(course_id) or {}
+            accumulate(course_id, self._duration_to_minutes(course.get("duration")))
+
+        for row in external:
+            payload = self.db.decode_json(row["resource_json"], {})
+            accumulate(str(row["resource_id"]), self._duration_to_minutes(payload.get("duration_minutes")))
+
+        linkedin_hours = float(activity["learning_hours"]) if activity else 0.0
+        if total_minutes > 0:
+            from_sync = min(total_minutes, int(round(linkedin_hours * 60)))
+            completed_minutes = max(completed_minutes, from_sync)
+            completed_minutes = min(completed_minutes, total_minutes)
+            hours_pct = round((completed_minutes / total_minutes) * 100, 1)
+        elif courses_total > 0:
+            hours_pct = round((courses_completed / courses_total) * 100, 1)
+        else:
+            hours_pct = 0.0
+
+        return {
+            "total_hours": round(total_minutes / 60, 1),
+            "completed_hours": round(completed_minutes / 60, 1),
+            "hours_pct": hours_pct,
+            "courses_completed": courses_completed,
+            "courses_total": courses_total,
+            "journey_locked": courses_total > 0,
+            "full_circuit": bool(courses_total and courses_completed >= courses_total),
         }
 
     def badges_for(self, employee_code: str) -> list[dict[str, Any]]:

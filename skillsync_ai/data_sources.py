@@ -213,7 +213,10 @@ class WorkbookData:
         return rows
 
     def _load_amber(self) -> dict[str, list[dict[str, str]]]:
-        wb = load_workbook(SOURCE_FILES["amber"], data_only=True, read_only=True)
+        path = SOURCE_FILES["amber"]
+        if not path.is_file():
+            return {}
+        wb = load_workbook(path, data_only=True, read_only=True)
         ws = wb.active
         headers = [str(v or "").strip() for v in next(ws.iter_rows(min_row=1, max_row=1, values_only=True))]
         grouped: dict[str, list[dict[str, str]]] = {}

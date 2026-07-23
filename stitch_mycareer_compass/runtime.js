@@ -108,7 +108,60 @@
   }
 
   function loading() {
-    render('<div class="py-24 text-center text-slate-500">Loading current data…</div>');
+    render(`<style>
+      @keyframes mc-walk-bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)} }
+      @keyframes mc-leg-l { 0%,100%{transform:rotate(22deg)} 50%{transform:rotate(-22deg)} }
+      @keyframes mc-leg-r { 0%,100%{transform:rotate(-22deg)} 50%{transform:rotate(22deg)} }
+      @keyframes mc-arm-l { 0%,100%{transform:rotate(-18deg)} 50%{transform:rotate(18deg)} }
+      @keyframes mc-arm-r { 0%,100%{transform:rotate(18deg)} 50%{transform:rotate(-18deg)} }
+      @keyframes mc-trek { 0%{left:4%} 100%{left:78%} }
+      @keyframes mc-flag-wave { 0%,100%{transform:rotate(-4deg)} 50%{transform:rotate(6deg)} }
+      @keyframes mc-pulse-dot { 0%,100%{opacity:.35;transform:scale(1)} 50%{opacity:1;transform:scale(1.15)} }
+      .mc-loader-trek{position:absolute;bottom:18px;width:42px;height:54px;animation:mc-trek 2.4s ease-in-out infinite alternate}
+      .mc-loader-figure{transform-origin:50% 100%;animation:mc-walk-bob .45s ease-in-out infinite}
+      .mc-loader-leg-l{transform-origin:2px 0;animation:mc-leg-l .45s ease-in-out infinite}
+      .mc-loader-leg-r{transform-origin:2px 0;animation:mc-leg-r .45s ease-in-out infinite}
+      .mc-loader-arm-l{transform-origin:2px 0;animation:mc-arm-l .45s ease-in-out infinite}
+      .mc-loader-arm-r{transform-origin:2px 0;animation:mc-arm-r .45s ease-in-out infinite}
+      .mc-loader-flag{transform-origin:2px 28px;animation:mc-flag-wave 1.2s ease-in-out infinite}
+      .mc-loader-dot{animation:mc-pulse-dot 1.2s ease-in-out infinite}
+      .mc-loader-dot:nth-child(2){animation-delay:.2s}
+      .mc-loader-dot:nth-child(3){animation-delay:.4s}
+    </style>
+    <div class="py-16 md:py-24 flex flex-col items-center justify-center text-center px-4" role="status" aria-live="polite" aria-label="Loading">
+      <div class="relative w-full max-w-md h-36 mb-6">
+        <svg class="absolute inset-0 w-full h-full" viewBox="0 0 400 140" fill="none" aria-hidden="true">
+          <path d="M20 110 H380" stroke="#e7bdb9" stroke-width="4" stroke-linecap="round"/>
+          <path d="M20 110 H380" stroke="#df162b" stroke-width="4" stroke-linecap="round" stroke-dasharray="10 14" opacity="0.35"/>
+          <circle cx="48" cy="110" r="5" fill="#e7bdb9"/>
+          <circle cx="140" cy="110" r="5" fill="#e7bdb9"/>
+          <circle cx="232" cy="110" r="5" fill="#e7bdb9"/>
+          <g transform="translate(330 42)">
+            <rect x="0" y="12" width="4" height="56" rx="2" fill="#5d3f3d"/>
+            <g class="mc-loader-flag">
+              <path d="M4 12 L48 28 L4 44 Z" fill="#df162b"/>
+            </g>
+            <circle cx="2" cy="68" r="8" fill="#ffe1df" stroke="#df162b" stroke-width="2"/>
+          </g>
+        </svg>
+        <div class="mc-loader-trek" aria-hidden="true">
+          <svg class="mc-loader-figure w-[42px] h-[54px]" viewBox="0 0 42 54" fill="none">
+            <circle cx="21" cy="8" r="6" fill="#291716"/>
+            <rect x="16" y="14" width="10" height="16" rx="4" fill="#df162b"/>
+            <rect class="mc-loader-arm-l" x="10" y="15" width="4" height="12" rx="2" fill="#291716"/>
+            <rect class="mc-loader-arm-r" x="28" y="15" width="4" height="12" rx="2" fill="#291716"/>
+            <rect class="mc-loader-leg-l" x="16" y="28" width="4" height="16" rx="2" fill="#005cab"/>
+            <rect class="mc-loader-leg-r" x="22" y="28" width="4" height="16" rx="2" fill="#005cab"/>
+          </svg>
+        </div>
+      </div>
+      <p class="text-base font-bold text-[#291716]">Heading to your next milestone…</p>
+      <div class="flex items-center justify-center gap-1.5 mt-3" aria-hidden="true">
+        <span class="mc-loader-dot w-2 h-2 rounded-full bg-[#df162b]"></span>
+        <span class="mc-loader-dot w-2 h-2 rounded-full bg-[#df162b]"></span>
+        <span class="mc-loader-dot w-2 h-2 rounded-full bg-[#df162b]"></span>
+      </div>
+    </div>`);
   }
 
   const mmtTheme = (role = session.user?.role) =>
@@ -214,6 +267,94 @@
 
   function closeOverlay(id) {
     qs(`#${id}`)?.remove();
+  }
+
+  function formatFeedbackWhen(iso) {
+    if (!iso) return "—";
+    try {
+      const date = new Date(iso);
+      if (Number.isNaN(date.getTime())) return String(iso);
+      return date.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
+    } catch {
+      return String(iso);
+    }
+  }
+
+  async function openFeedbackLogbook(employeeCode) {
+    closeOverlay("mc-feedback-modal");
+    const result = await api(`/api/feedback?employee_code=${encodeURIComponent(employeeCode)}`);
+    const employee = result.employee || {};
+    const entries = result.entries || [];
+    const canWrite = Boolean(result.can_write);
+    const question = result.question || "";
+    const node = document.createElement("div");
+    node.id = "mc-feedback-modal";
+    node.className = "fixed inset-0 z-[80] bg-black/40 flex items-center justify-center p-3 md:p-8";
+    const history = entries.length
+      ? entries.map((entry) => `<article class="border border-[#e7bdb9] rounded-xl p-4 bg-[#fff0ef]/space-y-2">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <p class="text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">${esc(formatFeedbackWhen(entry.created_at))}</p>
+            <p class="text-xs text-[#926e6c]">ZM: ${esc(entry.zm_name || entry.zm_login_id || "—")}</p>
+          </div>
+          <p class="text-sm text-[#291716] whitespace-pre-wrap leading-relaxed">${esc(entry.answer)}</p>
+        </article>`).join("")
+      : `<p class="text-sm text-[#5d3f3d] py-4 text-center">No feedback entries yet.</p>`;
+    const writeBlock = canWrite
+      ? `<div class="border border-[#e7bdb9] rounded-xl p-4 space-y-3 bg-white">
+          <p class="text-xs font-bold uppercase tracking-wider text-[#df162b]">New quarterly entry</p>
+          <p class="text-sm text-[#291716] leading-relaxed">${esc(question)}</p>
+          <textarea data-feedback-answer rows="5" maxlength="4000" class="w-full border border-[#e7bdb9] rounded-lg px-3 py-2 text-sm text-[#291716] focus:outline-none focus:ring-2 focus:ring-[#df162b]" placeholder="Describe whether they started the journey and any behaviour change you have seen…"></textarea>
+          <div class="flex justify-end gap-2">
+            <button type="button" data-submit-feedback class="px-4 py-2 bg-[#df162b] text-white rounded-lg font-bold text-sm hover:opacity-90">Save to logbook</button>
+          </div>
+        </div>`
+      : `<div class="border border-dashed border-[#e7bdb9] rounded-xl p-4 bg-white">
+          <p class="text-sm text-[#5d3f3d] leading-relaxed"><span class="font-bold text-[#291716]">Question:</span> ${esc(question)}</p>
+          ${result.phase_open ? "" : `<p class="text-xs text-[#df162b] font-semibold mt-2">Feedback phase is closed. Admin can reopen it for the next quarterly cycle.</p>`}
+        </div>`;
+    node.innerHTML = `<div class="bg-white w-full max-w-2xl max-h-[92vh] rounded-xl shadow-2xl flex flex-col overflow-hidden border border-[#e7bdb9]" role="dialog" aria-modal="true">
+      <div class="px-5 py-4 border-b border-[#e7bdb9] bg-[#fff0ef] flex items-start justify-between gap-3">
+        <div>
+          <h2 class="text-lg font-extrabold text-[#291716]">Journey feedback logbook</h2>
+          <p class="text-sm text-[#5d3f3d] mt-1">${esc(employee.name || "Employee")} · ${esc(employee.employee_code || employeeCode)}</p>
+        </div>
+        <button type="button" data-close class="text-[#5d3f3d] hover:text-[#df162b]"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div class="p-5 space-y-4 overflow-y-auto flex-1">
+        ${writeBlock}
+        <div>
+          <h3 class="text-sm font-bold text-[#291716] mb-3">Past entries (${entries.length})</h3>
+          <div class="space-y-3" data-feedback-history>${history}</div>
+        </div>
+      </div>
+    </div>`;
+    document.body.appendChild(node);
+    const dismiss = () => node.remove();
+    qs("[data-close]", node).onclick = dismiss;
+    node.addEventListener("click", (event) => {
+      if (event.target === node) dismiss();
+    });
+    const submit = qs("[data-submit-feedback]", node);
+    if (submit) {
+      submit.onclick = async () => {
+        const answer = qs("[data-feedback-answer]", node)?.value || "";
+        try {
+          submit.disabled = true;
+          await api("/api/feedback", {
+            method: "POST",
+            body: JSON.stringify({ employee_code: employeeCode, answer }),
+          });
+          toast("Feedback saved to logbook.");
+          dismiss();
+          if (session.user?.role === "zm") await renderZmDashboard();
+          else if (session.user?.role === "rd") await renderRdDashboard();
+          else if (session.user?.role === "admin") await initAdminEmployees();
+        } catch (error) {
+          toast(error.message, "error");
+          submit.disabled = false;
+        }
+      };
+    }
   }
 
   function openAccountModal() {
@@ -1001,6 +1142,8 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         const actionAttr = key === "completed"
           ? `data-view-ratings="${esc(row.employee_code)}"`
           : `data-employee="${esc(row.employee_code)}"`;
+        const fbCount = Number(row.feedback_count) || 0;
+        const feedbackBtn = `<button type="button" data-feedback="${esc(row.employee_code)}" class="px-3 py-2 border border-[#005cab] text-[#005cab] rounded-lg font-bold text-sm hover:bg-[#d5e3ff]">${fbCount ? `View entry (${fbCount})` : "View entry"}</button>`;
         return `<tr class="border-t border-[#e7bdb9] hover:bg-[#fff0ef]">
           <td class="p-4">
             <div class="flex items-center gap-3">
@@ -1013,11 +1156,12 @@ Before you begin, we encourage you to take a few minutes to understand the philo
             </div>
           </td>
           <td class="p-4">${statusBadge(row)}</td>
+          <td class="p-4">${feedbackBtn}</td>
           <td class="p-4 text-right">
             <button type="button" ${actionAttr} ${canOpen ? "" : "disabled"} class="${actionClass}">${esc(actionLabel)}</button>
           </td>
         </tr>`;
-      }).join("") || empty(filterStatus === "all" ? "No employees in your reporting scope." : "No employees match this filter.", 3);
+      }).join("") || empty(filterStatus === "all" ? "No employees in your reporting scope." : "No employees match this filter.", 4);
 
       const filterActive = filterStatus !== "all";
       const chipBase = "px-3 py-1.5 bg-white border rounded-full text-xs font-bold inline-flex items-center gap-1 cursor-pointer hover:border-[#df162b] hover:text-[#df162b] transition-colors";
@@ -1075,6 +1219,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
               <thead><tr class="border-b border-[#e7bdb9]">
                 <th class="p-4 text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Employee Name</th>
                 <th class="p-4 text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Validation Status</th>
+                <th class="p-4 text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Feedback</th>
                 <th class="p-4 text-xs font-bold uppercase tracking-wider text-[#5d3f3d] text-right">Action</th>
               </tr></thead>
               <tbody>${tableRows}</tbody>
@@ -1133,6 +1278,9 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       qsa("[data-employee]").forEach((control) => {
         if (control.disabled) return;
         control.onclick = () => go("rd/validation", `?employee=${encodeURIComponent(control.dataset.employee)}`);
+      });
+      qsa("[data-feedback]").forEach((control) => {
+        control.onclick = () => openFeedbackLogbook(control.dataset.feedback).catch((error) => toast(error.message, "error"));
       });
       qsa("[data-view-ratings]").forEach((control) => {
         control.onclick = () => openFinalProfile(control.dataset.viewRatings);
@@ -1236,6 +1384,11 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         const finalBtn = finalReady
           ? `<button type="button" data-view-ratings="${esc(row.employee_code)}" class="px-4 py-2 bg-emerald-700 text-white rounded-lg font-bold text-sm hover:opacity-90">View Final Assessment</button>`
           : "";
+        const fbCount = Number(row.feedback_count) || 0;
+        const fbOpen = Boolean(row.feedback_phase_open);
+        const feedbackBtn = fbOpen
+          ? `<button type="button" data-feedback="${esc(row.employee_code)}" class="px-3 py-2 border border-[#005cab] text-[#005cab] rounded-lg font-bold text-sm hover:bg-[#d5e3ff]">${fbCount ? `Add feedback (${fbCount})` : "Add feedback"}</button>`
+          : `<button type="button" data-feedback="${esc(row.employee_code)}" class="px-3 py-2 border border-[#e7bdb9] text-[#5d3f3d] rounded-lg font-bold text-sm hover:bg-[#fff0ef]">${fbCount ? `View entry (${fbCount})` : "View entry"}</button>`;
         return `<tr class="border-t border-[#e7bdb9] hover:bg-[#fff0ef]">
           <td class="p-4">
             <div class="flex items-center gap-3">
@@ -1248,6 +1401,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
             </div>
           </td>
           <td class="p-4">${statusBadge(row)}</td>
+          <td class="p-4">${feedbackBtn}</td>
           <td class="p-4 text-right">
             <div class="inline-flex flex-wrap justify-end gap-2">
               <button type="button" data-employee="${esc(row.employee_code)}" class="${actionClass}">${esc(actionLabel)}</button>
@@ -1255,7 +1409,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
             </div>
           </td>
         </tr>`;
-      }).join("") || empty(filterStatus === "all" ? "No employees in your reporting scope." : "No employees match this filter.", 3);
+      }).join("") || empty(filterStatus === "all" ? "No employees in your reporting scope." : "No employees match this filter.", 4);
 
       const filterActive = filterStatus !== "all";
       const chipBase = "px-3 py-1.5 bg-white border rounded-full text-xs font-bold inline-flex items-center gap-1 cursor-pointer hover:border-[#df162b] hover:text-[#df162b] transition-colors";
@@ -1309,6 +1463,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
               <thead><tr class="border-b border-[#e7bdb9]">
                 <th class="p-4 text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Employee Name</th>
                 <th class="p-4 text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Assessment Status</th>
+                <th class="p-4 text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Feedback</th>
                 <th class="p-4 text-xs font-bold uppercase tracking-wider text-[#5d3f3d] text-right">Action</th>
               </tr></thead>
               <tbody>${tableRows}</tbody>
@@ -1318,6 +1473,9 @@ Before you begin, we encourage you to take a few minutes to understand the philo
 
       qsa("[data-employee]").forEach((control) => {
         control.onclick = () => openAssessment(control.dataset.employee);
+      });
+      qsa("[data-feedback]").forEach((control) => {
+        control.onclick = () => openFeedbackLogbook(control.dataset.feedback).catch((error) => toast(error.message, "error"));
       });
       qsa("[data-view-ratings]").forEach((control) => {
         control.onclick = () => openFinalProfile(control.dataset.viewRatings);
@@ -1499,7 +1657,12 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     const src = String(source || "").trim().toLowerCase();
     if (src === "tna" && /standard\s*skill|skill\s*cluster/i.test(text)) return "";
     if (src === "interview" && /^round\s*\d+$/i.test(text)) return "";
-    return text;
+    // Hide legacy "Amber Question 31" / "Amber Answer 12" style labels.
+    if (src === "amber" && /^amber\s+(question|answer|follow-up comments|driver\(element name\)|mood)\s+\d+$/i.test(text)) {
+      return "";
+    }
+    if (/^employee\s+input\s*\d*$/i.test(text)) return "Employee learning need";
+    return text.replace(/^amber\s+/i, "").trim();
   }
 
   function renderEvidencePanel(bundle) {
@@ -1535,13 +1698,17 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     const notes = { ...(context.rd_assessment?.notes || {}) };
     const rubric = context.rubric || {};
     render(`${pageHeader(`${context.employee.name}'s Competency Profile`, `${context.employee.employee_code} · ${context.employee.designation || context.employee.role_name || "—"} · ${context.employee.grade || ""}`, button("Back", "data-back", true))}
-      <p class="mb-6 p-4 bg-[#fff0ef] border border-[#e7bdb9] rounded-lg text-sm text-[#5d3f3d]">Evidence supports review; it never determines the RD rating. Only competency-relevant excerpts are shown.</p>
       <div class="space-y-5">${Object.entries(context.evidence).map(([competency, bundle]) => `<section class="bg-white border border-[#e7bdb9] rounded-xl p-5">
         <div class="grid lg:grid-cols-2 gap-6">
           <div>
             <h2 class="text-lg font-bold text-[#291716]">${esc(competency)}</h2>
             <p class="text-sm mt-2 text-[#5d3f3d]">ZM rating: <strong class="text-[#291716]">${esc(context.zm_assessment.ratings?.[competency] || "Not rated")}</strong></p>
             <p class="text-sm text-[#926e6c] mt-1">${esc(context.zm_assessment.notes?.[competency] || "No ZM note.")}</p>
+            ${bundle.suggested_rating ? `<div class="mt-3 p-3 rounded-lg border border-[#d5e3ff] bg-[#f5f8ff]">
+              <p class="text-xs font-bold uppercase tracking-wide text-[#1464F4]">Suggested rating</p>
+              <p class="text-sm font-bold text-[#291716] mt-1">${esc(bundle.suggested_rating)}</p>
+              <p class="text-[10px] text-[#926e6c] mt-2">Advisory only — final rating is yours to decide.</p>
+            </div>` : ""}
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
               ${levels.map((level) => {
                 const selected = ratings[competency] === level;
@@ -1695,6 +1862,8 @@ Before you begin, we encourage you to take a few minutes to understand the philo
 
     const journey = state.journey || [];
     const insights = state.insights || {};
+    const skillSummary = state.skill_summary || {};
+    const idealMet = Boolean(skillSummary.ideal_met);
     const choiceId = state.choice?.aspiration_role || "";
     const byId = Object.fromEntries(journey.map((node) => [node.id, node]));
     const isKamCurrent = state.current === "KAM";
@@ -1852,13 +2021,13 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       } else if (st === "eligible") {
         shell += " border-[#1464F4]";
         glow = "box-shadow:0 0 0 4px rgba(20,100,244,.10), 0 0 28px rgba(20,100,244,.22);";
-        statusBlock = `<p class="text-xs font-bold text-[#1464F4] mt-2 uppercase tracking-wide">Eligible</p>`;
+        statusBlock = `<p class="text-xs font-bold text-[#1464F4] mt-2 uppercase tracking-wide">Career path</p>`;
       } else if (st === "prior") {
         shell += " border-[#c9c9c9] opacity-80";
         statusBlock = `<p class="text-[11px] font-bold text-[#5d3f3d] mt-1.5 uppercase tracking-wide">Prior role</p>`;
       } else {
         shell += " border-[#c9c9c9] opacity-90";
-        statusBlock = `<p class="text-[11px] font-bold text-[#5d3f3d] mt-1.5 uppercase tracking-wide">Locked</p>`;
+        statusBlock = "";
       }
 
       const pin = st === "current"
@@ -1866,24 +2035,25 @@ Before you begin, we encourage you to take a few minutes to understand the philo
             <span class="material-symbols-outlined text-white text-[14px]" style="font-variation-settings:'FILL' 1">location_on</span>
           </div>`
         : "";
-      const lockOverlay = st === "locked"
-        ? `<div class="absolute inset-0 grid place-items-center pointer-events-none">
-            <span class="material-symbols-outlined text-4xl text-[#9ca3af]/85" style="font-variation-settings:'FILL' 1">lock</span>
-          </div>`
-        : "";
+      const lockOverlay = "";
       const corner = st === "current"
         ? `<span class="absolute top-1.5 right-1.5 w-2.5 h-2.5 rounded-full border-2 border-[#df162b]"></span>`
-        : st === "locked"
-          ? `<span class="absolute top-1.5 right-1.5 text-[9px] font-bold uppercase text-[#5d3f3d] bg-[#f2f2f2] px-1 py-0.5 rounded">Locked</span>`
-          : "";
+        : "";
 
       const pathId = node.id === "current"
         ? (isKamCurrent ? "kam" : "bd")
         : node.id;
 
+      const sideTooltip = (slot === "bdfe" || slot === "category")
+        ? (idealMet
+          ? "This career aspiration is currently locked. Please reach out to your HRBP to know more about this."
+          : "This career aspiration is currently locked. Continue developing your current skills and competencies to unlock this opportunity.")
+        : "";
+
       return `<div class="absolute z-20" style="${slots[slot] || slots.bd}">
         <button type="button" data-path="${esc(pathId)}" data-label="${esc(node.label || title)}"
           ${clickable ? "" : "disabled"}
+          ${sideTooltip ? `title="${esc(sideTooltip)}"` : ""}
           class="${shell} relative w-[132px] sm:w-[148px] rounded-xl p-3 text-left transition-transform ${clickable ? "cursor-pointer hover:scale-[1.03]" : "cursor-default"}"
           style="${glow}">
           ${pin}${corner}${lockOverlay}
@@ -1948,9 +2118,9 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         </div>
         <div class="flex flex-wrap gap-5 pt-4 mt-3">
           <div class="flex items-center gap-2"><div class="w-4 h-4 rounded-full bg-[#df162b] border-2 border-white shadow-sm"></div><span class="text-xs font-semibold text-[#291716]">You are here</span></div>
-          <div class="flex items-center gap-2"><div class="w-4 h-4 rounded-full bg-[#1464F4] border-2 border-white shadow-sm"></div><span class="text-xs font-semibold text-[#291716]">Eligible</span></div>
+          <div class="flex items-center gap-2"><div class="w-4 h-4 rounded-full bg-[#1464F4] border-2 border-white shadow-sm"></div><span class="text-xs font-semibold text-[#291716]">Career path</span></div>
           <div class="flex items-center gap-2"><div class="w-4 h-4 rounded-full bg-[#16a34a] border-2 border-white shadow-sm"></div><span class="text-xs font-semibold text-[#291716]">Selected</span></div>
-          <div class="flex items-center gap-2"><div class="w-4 h-4 rounded-full bg-[#c9c9c9] border-2 border-white shadow-sm"></div><span class="text-xs font-semibold text-[#5d3f3d]">Locked</span></div>
+          <div class="flex items-center gap-2"><div class="w-4 h-4 rounded-full bg-[#c9c9c9] border-2 border-white shadow-sm"></div><span class="text-xs font-semibold text-[#5d3f3d]">Greyed</span></div>
           ${state.choice
             ? `<p class="ml-auto text-xs font-bold text-[#16a34a]">Aspiration locked</p>`
             : `<p class="ml-auto text-xs font-semibold text-[#5d3f3d]">Tap an eligible role to lock aspiration</p>`}
@@ -1960,6 +2130,29 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         <div class="flex items-center gap-2 mb-4"><span class="material-symbols-outlined text-[#1464F4]">tips_and_updates</span><h3 class="font-bold text-[#291716]">Route Guide</h3></div>
         <ul class="space-y-3 md:columns-2 md:gap-8">${tips || `<li class="text-sm text-[#5d3f3d]">No guidance yet.</li>`}</ul>
       </div>
+      ${skillSummary.has_profile
+        ? (idealMet
+          ? `<div class="bg-white border border-[#e7bdb9] rounded-xl p-5 shadow-sm">
+        <p class="text-base font-bold text-[#291716]">You're doing great in your current role.</p>
+        <p class="text-sm text-[#5d3f3d] mt-2">Explore the skills towards your aspiration role.</p>
+      </div>`
+          : `<div class="bg-white border border-[#e7bdb9] rounded-xl p-5 shadow-sm grid md:grid-cols-2 gap-6">
+        <div>
+          <h3 class="font-bold text-[#291716] mb-2">Following are the skills you are good at:</h3>
+          ${(skillSummary.good_at || []).length
+            ? `<ul class="space-y-1.5">${(skillSummary.good_at || []).map((skill) => `<li class="text-sm text-[#291716] flex items-start gap-2"><span class="material-symbols-outlined text-[#16a34a] text-[18px]">check_circle</span>${esc(skill)}</li>`).join("")}</ul>`
+            : `<p class="text-sm text-[#5d3f3d]">No strengths mapped yet against your role ideal.</p>`}
+        </div>
+        <div>
+          <h3 class="font-bold text-[#291716] mb-2">You need to improve on the following skills:</h3>
+          ${(skillSummary.improve || []).length
+            ? `<ul class="space-y-1.5">${(skillSummary.improve || []).map((skill) => `<li class="text-sm text-[#291716] flex items-start gap-2"><span class="material-symbols-outlined text-[#df162b] text-[18px]">trending_up</span>${esc(skill)}</li>`).join("")}</ul>`
+            : `<p class="text-sm text-[#5d3f3d]">No focus areas listed.</p>`}
+        </div>
+      </div>`)
+        : `<div class="bg-white border border-[#e7bdb9] rounded-xl p-5 shadow-sm">
+        <p class="text-sm text-[#5d3f3d]">Skill strengths and focus areas appear here after your RD final profile is submitted.</p>
+      </div>`}
     </div>`);
 
     qsa("[data-path]").forEach((control) => {
@@ -2374,12 +2567,21 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         : status === "in_progress"
           ? '<span class="px-2 py-0.5 bg-[#d5e3ff] text-[#004786] rounded-full text-[10px] font-bold uppercase whitespace-nowrap">In Progress</span>'
           : '<span class="px-2 py-0.5 bg-[#ffe1df] text-[#5d3f3d] rounded-full text-[10px] font-bold uppercase whitespace-nowrap">Not Started</span>';
+      const displayPct = status === "completed" ? 100 : progressPct;
+      const progressBlock = (status === "in_progress" || status === "completed")
+        ? `<div class="mb-3">
+            <div class="flex items-center justify-between gap-2 mb-1.5">
+              <span class="text-xs font-bold text-[#5d3f3d]">${displayPct}% complete</span>
+            </div>
+            <div class="w-full bg-[#ffe1df] h-2 rounded-full overflow-hidden">
+              <div class="bg-[#1464F4] h-full rounded-full transition-all" style="width:${displayPct}%"></div>
+            </div>
+          </div>`
+        : "";
       const footer = status === "completed"
         ? `<span class="text-[#5d3f3d] text-sm flex items-center gap-1"><span class="material-symbols-outlined text-base">check_circle</span> Completed</span>`
         : status === "in_progress"
-          ? (progressPct > 0
-            ? `<div class="flex-1 min-w-0"><div class="w-full bg-[#ffe1df] h-1.5 rounded-full overflow-hidden mb-1"><div class="bg-[#1464F4] h-full rounded-full" style="width:${progressPct}%"></div></div><span class="text-[#5d3f3d] text-sm">${progressPct}% through</span></div>`
-            : `<span class="text-[#5d3f3d] text-sm">In progress</span>`)
+          ? `<span class="text-[#5d3f3d] text-sm">In progress</span>`
           : `<span class="text-[#5d3f3d] text-sm">Available</span>`;
       const primaryLabel = status === "in_progress" ? "Continue" : "Start";
       const actions = status === "completed"
@@ -2402,7 +2604,8 @@ Before you begin, we encourage you to take a few minutes to understand the philo
             <h4 class="font-bold text-[#291716] leading-tight">${esc(course.title)}</h4>
             ${badge}
           </div>
-          <div class="flex items-end justify-between gap-3 mt-4">${footer}${actions}</div>
+          ${progressBlock}
+          <div class="flex items-end justify-between gap-3">${footer}${actions}</div>
         </div>
       </article>`;
     }).join("");
@@ -2525,14 +2728,14 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         <h2 class="text-4xl font-extrabold text-[#291716] mt-3 tracking-tight">${viewer.rank != null ? `Rank #${viewer.rank}` : "Unranked"}</h2>
         <p class="text-sm text-[#5d3f3d] mt-2 flex items-center gap-1">
           <span class="material-symbols-outlined text-[16px]">groups</span>
-          Competing with peers on LinkedIn hours
+          Ranked by journey hours completed %
         </p>
       </div>
       <div class="mt-6 pt-4 border-t border-[#e7bdb9] flex justify-between items-end gap-3">
-        <p class="text-sm text-[#5d3f3d]">Focus areas: <strong class="text-[#291716]">${viewer.focus_areas ?? "—"}</strong></p>
+        <p class="text-sm text-[#5d3f3d]">Progress: <strong class="text-[#291716]">${viewer.hours_pct != null ? `${Number(viewer.hours_pct).toFixed(0)}%` : "—"}</strong></p>
         <div class="text-right">
           <p class="text-[11px] font-bold uppercase text-[#5d3f3d]">Ranked by</p>
-          <p class="text-sm font-bold text-[#291716]">LinkedIn hours</p>
+          <p class="text-sm font-bold text-[#291716]">Hours % · courses</p>
         </div>
       </div>
     </div>`;
@@ -2542,8 +2745,8 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         <p class="text-[11px] font-bold uppercase tracking-wide text-[#5d3f3d] flex items-center gap-1">
           <span class="material-symbols-outlined text-[16px]">show_chart</span> Growth Pulse
         </p>
-        <h3 class="text-2xl font-extrabold text-[#291716] mt-2">${Number(viewer.learning_hours || 0).toFixed(1)}h</h3>
-        <p class="text-sm text-[#5d3f3d]">LinkedIn learning hours</p>
+        <h3 class="text-2xl font-extrabold text-[#291716] mt-2">${viewer.hours_pct != null ? `${Number(viewer.hours_pct).toFixed(0)}%` : "0%"}</h3>
+        <p class="text-sm text-[#5d3f3d]">${Number(viewer.completed_hours || 0).toFixed(1)}h / ${Number(viewer.total_hours || 0).toFixed(1)}h journey</p>
       </div>
       <svg class="w-full h-14 mt-4 overflow-visible" viewBox="0 0 100 30" aria-hidden="true">
         <path d="M0,25 Q10,20 20,22 T40,15 T60,18 T80,5 T100,2" fill="none" stroke="#005cab" stroke-width="2"></path>
@@ -2589,7 +2792,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       </div>
     </div>`;
 
-    render(`${pageHeader("Leaderboard", "Compete with peers in your cohort. Focus areas show how many skills need work.")}
+    render(`${pageHeader("Leaderboard", "Compete on journey completion %. Ties broken by courses completed.")}
       <div class="grid grid-cols-1 md:grid-cols-12 gap-4 mb-8">
         <div class="md:col-span-6">${cohortCard}</div>
         <div class="md:col-span-3">${pulseCard}</div>
@@ -2603,14 +2806,14 @@ Before you begin, we encourage you to take a few minutes to understand the philo
             <tr>
               <th class="p-4">Rank</th>
               <th class="p-4">Employee</th>
-              <th class="p-4">Focus Areas</th>
-              <th class="p-4">LinkedIn Hours</th>
-              <th class="p-4 hidden sm:table-cell">Courses</th>
+              <th class="p-4">Progress</th>
+              <th class="p-4 hidden sm:table-cell">Courses done</th>
             </tr>
           </thead>
           <tbody>
             ${rows.map((row) => {
               const mine = meCode && row.employee_code === meCode;
+              const pct = Number(row.hours_pct || 0);
               return `<tr class="border-t border-[#e7bdb9] ${mine ? "bg-[#eff6ff] border-l-4 border-l-[#005cab]" : "hover:bg-[#fff0ef]"}">
                 <td class="p-4 font-bold text-[#005cab]">#${row.rank}</td>
                 <td class="p-4">
@@ -2620,11 +2823,10 @@ Before you begin, we encourage you to take a few minutes to understand the philo
                   </div>
                   <div class="text-xs text-[#5d3f3d]">${esc(row.employee_code)}</div>
                 </td>
-                <td class="p-4 ${mine ? "font-bold" : ""}">${row.focus_areas}</td>
-                <td class="p-4 font-bold">${Number(row.learning_hours).toFixed(1)}h</td>
-                <td class="p-4 hidden sm:table-cell ${mine ? "font-bold" : ""}">${Number(row.completions || 0)}</td>
+                <td class="p-4 ${mine ? "font-bold" : ""}">${pct.toFixed(pct % 1 ? 1 : 0)}%</td>
+                <td class="p-4 hidden sm:table-cell ${mine ? "font-bold" : ""}">${Number(row.courses_completed || 0)}${row.courses_total ? `/${row.courses_total}` : ""}</td>
               </tr>`;
-            }).join("") || empty("Leaderboard empty until final profiles exist.", 5)}
+            }).join("") || empty("Leaderboard empty until final profiles exist.", 4)}
           </tbody>
         </table>
       </div>`);
@@ -2656,10 +2858,12 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           count: 0,
         }));
       const badgeEarners = badgeRows.reduce((sum, row) => sum + Number(row.count || 0), 0);
-      const gapTooltip = (row) => {
-        const gaps = row.gaps || [];
-        if (!gaps.length) return "No focus gaps";
-        return gaps.map((gap) => gap.competency).filter(Boolean).join(" · ") || "No focus gaps";
+      const gapSkillsList = (row) => {
+        const names = (row.gaps || []).map((gap) => gap.competency).filter(Boolean);
+        if (!names.length) return `<span class="text-[#926e6c]">—</span>`;
+        return `<div class="flex flex-wrap gap-1.5 max-w-[280px]">${names.map((name) =>
+          `<span class="inline-block px-2 py-0.5 rounded-md bg-[#fff0ef] border border-[#e7bdb9] text-[11px] font-semibold text-[#291716]">${esc(name)}</span>`
+        ).join("")}</div>`;
       };
 
       render(`${pageHeader("Leaderboard", `${titleScope} performance and competency calibration metrics.`)}
@@ -2728,78 +2932,57 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         </div>
         <div class="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
-            <h3 class="text-lg font-bold text-[#291716]">Team leaderboards</h3>
-            <p class="text-xs text-[#5d3f3d] mt-0.5">Separate rankings per gap-severity band · ranked by LinkedIn hours</p>
+            <h3 class="text-lg font-bold text-[#291716]">Team leaderboard</h3>
+            <p class="text-xs text-[#5d3f3d] mt-0.5">One ranking · hours completed ÷ journey hours · ties broken by courses completed</p>
           </div>
           <label class="relative block">
             <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#926e6c] text-[18px]">search</span>
             <input data-lb-search value="${esc(searchRaw)}" class="pl-10 pr-4 py-2 border border-[#e7bdb9] rounded-full text-sm w-full sm:w-64 outline-none focus:border-[#005cab]" placeholder="Search employees...">
           </label>
         </div>
-        <div class="space-y-6">
-          ${(() => {
-            const grouped = {};
-            for (const row of list) {
-              const key = row.severity_band;
-              if (!grouped[key]) grouped[key] = [];
-              grouped[key].push(row);
-            }
-            const groupKeys = Object.keys(grouped).map(Number).sort((a, b) => a - b);
-            if (!groupKeys.length) {
-              return `<div class="bg-white border border-[#e7bdb9] rounded-xl p-8 text-center text-sm text-[#5d3f3d]">No employees in scope yet.</div>`;
-            }
-            return groupKeys.map((band) => {
-              const bandRows = grouped[band].sort((a, b) => a.rank - b.rank || String(a.name).localeCompare(String(b.name)));
-              return `<section class="bg-white border border-[#e7bdb9] rounded-xl overflow-hidden">
-                <div class="p-4 bg-[#fff8f7] border-b border-[#e7bdb9] flex justify-between items-center gap-3 flex-wrap">
-                  <div>
-                    <h3 class="text-lg font-bold text-[#291716]">Severity band ${band}</h3>
-                    <p class="text-xs text-[#5d3f3d] mt-0.5">${bandRows.length} employee${bandRows.length === 1 ? "" : "s"} · ranked by LinkedIn hours</p>
-                  </div>
-                  <span class="text-xs font-bold uppercase tracking-wide text-[#df162b] bg-[#fff0ef] border border-[#e7bdb9] px-3 py-1 rounded-full">Gap severity ${band}</span>
-                </div>
-                <div class="overflow-x-auto">
-                  <table class="w-full min-w-[720px] text-sm text-left">
-                    <thead class="bg-[#fff0ef] text-[11px] uppercase tracking-wide text-[#5d3f3d]">
-                      <tr>
-                        <th class="p-4">Rank</th>
-                        <th class="p-4">Employee</th>
-                        <th class="p-4">Focus areas</th>
-                        <th class="p-4 text-right">Hours</th>
-                        <th class="p-4">Courses</th>
-                        <th class="p-4 text-center">Badges</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      ${bandRows.map((row) => `<tr class="border-t border-[#e7bdb9] hover:bg-[#fff0ef]">
-                        <td class="p-4 font-bold text-[#0075d7]">#${row.rank}</td>
-                        <td class="p-4">
-                          <div class="flex items-center gap-2">
-                            <div class="w-8 h-8 rounded-full bg-[#f4d2d0] text-[#5d3f3d] flex items-center justify-center text-xs font-bold">${esc(lbInitials(row.name))}</div>
-                            <div>
-                              <strong class="text-[#291716]">${esc(row.name)}</strong>
-                              <div class="text-xs text-[#5d3f3d]">${esc(row.employee_code)}</div>
-                            </div>
+        <div class="bg-white border border-[#e7bdb9] rounded-xl overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[920px] text-sm text-left">
+              <thead class="bg-[#fff0ef] text-[11px] uppercase tracking-wide text-[#5d3f3d]">
+                <tr>
+                  <th class="p-4">Rank</th>
+                  <th class="p-4">Employee</th>
+                  <th class="p-4">Progress</th>
+                  <th class="p-4">Courses done</th>
+                  <th class="p-4">Skills below ideal</th>
+                  <th class="p-4 text-center">Badges</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${list.length
+                  ? [...list].sort((a, b) => (a.rank - b.rank) || String(a.name || "").localeCompare(String(b.name || ""))).map((row) => {
+                    const pct = Number(row.hours_pct || 0);
+                    const doneH = Number(row.completed_hours || 0);
+                    const totalH = Number(row.total_hours || 0);
+                    return `<tr class="border-t border-[#e7bdb9] hover:bg-[#fff0ef]">
+                      <td class="p-4 font-bold text-[#0075d7]">#${row.rank}</td>
+                      <td class="p-4">
+                        <div class="flex items-center gap-2">
+                          <div class="w-8 h-8 rounded-full bg-[#f4d2d0] text-[#5d3f3d] flex items-center justify-center text-xs font-bold">${esc(lbInitials(row.name))}</div>
+                          <div>
+                            <strong class="text-[#291716]">${esc(row.name)}</strong>
+                            <div class="text-xs text-[#5d3f3d]">${esc(row.employee_code)}</div>
                           </div>
-                        </td>
-                        <td class="p-4">
-                          <span class="relative inline-flex group/focus cursor-help font-bold text-[#291716] border-b border-dotted border-[#926e6c]">
-                            ${row.focus_areas}
-                            <span class="pointer-events-none absolute left-1/2 -translate-x-1/2 bottom-full mb-2 z-20 hidden group-hover/focus:block w-56 rounded-lg bg-[#291716] text-white text-[11px] font-normal leading-snug px-3 py-2 shadow-lg">
-                              ${esc(gapTooltip(row))}
-                            </span>
-                          </span>
-                        </td>
-                        <td class="p-4 text-right font-mono font-bold">${Number(row.learning_hours).toFixed(1)}h</td>
-                        <td class="p-4">${Number(row.completions || 0)}</td>
-                        <td class="p-4 text-center">${lbBadgeIcons(row.badges, catalog)}</td>
-                      </tr>`).join("")}
-                    </tbody>
-                  </table>
-                </div>
-              </section>`;
-            }).join("");
-          })()}
+                        </div>
+                      </td>
+                      <td class="p-4 min-w-[120px]">
+                        <div class="font-bold text-[#291716]">${pct.toFixed(pct % 1 ? 1 : 0)}%</div>
+                        <div class="text-[10px] text-[#926e6c] mt-0.5">${doneH.toFixed(1)}h / ${totalH.toFixed(1)}h</div>
+                      </td>
+                      <td class="p-4 font-bold text-[#291716]">${Number(row.courses_completed || 0)}${row.courses_total ? `<span class="text-[#926e6c] font-normal">/${row.courses_total}</span>` : ""}</td>
+                      <td class="p-4">${gapSkillsList(row)}</td>
+                      <td class="p-4 text-center">${lbBadgeIcons(row.badges, catalog)}</td>
+                    </tr>`;
+                  }).join("")
+                  : empty("No employees in scope yet.", 6)}
+              </tbody>
+            </table>
+          </div>
         </div>`);
 
       qs("[data-lb-search]").oninput = (event) => {
@@ -2821,7 +3004,6 @@ Before you begin, we encourage you to take a few minutes to understand the philo
   function initAdminLeaderboard(payload) {
     const rows = payload.leaderboard || [];
     const catalog = payload.badge_catalog || [];
-    const bands = [...new Set(rows.map((row) => row.severity_band))].sort((a, b) => a - b);
     let filterBand = "all";
     let sortMode = "rank-asc";
     let filterOpen = false;
@@ -2830,47 +3012,39 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     let searchRaw = "";
 
     const filterLabel = {
-      all: "All bands",
-      ...Object.fromEntries(bands.map((band) => [`band-${band}`, `Severity ${band}`])),
+      all: "All",
       locked: "Journey locked",
       unlocked: "Journey open",
-      focus0: "0 focus areas",
-      focus1plus: "1+ focus areas",
     };
     const sortLabel = {
       "rank-asc": "Rank low→high",
       "rank-desc": "Rank high→low",
-      "hours-desc": "Hours high→low",
-      "hours-asc": "Hours low→high",
+      "pct-desc": "Progress % high→low",
+      "pct-asc": "Progress % low→high",
+      "courses-desc": "Courses done high→low",
       "name-asc": "Name A–Z",
       "name-desc": "Name Z–A",
       "code-asc": "Employee code A–Z",
       "code-desc": "Employee code Z–A",
-      "focus-desc": "Focus areas high→low",
-      "severity-asc": "Severity low→high",
     };
 
     const filtered = () => {
       let list = rows.filter((row) => {
-        if (filterBand.startsWith("band-") && String(row.severity_band) !== filterBand.slice(5)) return false;
         if (filterBand === "locked" && !row.journey_locked) return false;
         if (filterBand === "unlocked" && row.journey_locked) return false;
-        if (filterBand === "focus0" && Number(row.focus_areas) !== 0) return false;
-        if (filterBand === "focus1plus" && Number(row.focus_areas) < 1) return false;
         if (!searchTerm) return true;
         return [row.employee_code, row.name].some((value) => String(value || "").toLowerCase().includes(searchTerm));
       });
       list = [...list].sort((a, b) => {
-        if (sortMode === "rank-asc") return (a.rank - b.rank) || (a.severity_band - b.severity_band) || String(a.name).localeCompare(String(b.name));
-        if (sortMode === "rank-desc") return (b.rank - a.rank) || (a.severity_band - b.severity_band);
-        if (sortMode === "hours-desc") return b.learning_hours - a.learning_hours;
-        if (sortMode === "hours-asc") return a.learning_hours - b.learning_hours;
+        if (sortMode === "rank-asc") return (a.rank - b.rank) || String(a.name).localeCompare(String(b.name));
+        if (sortMode === "rank-desc") return (b.rank - a.rank) || String(a.name).localeCompare(String(b.name));
+        if (sortMode === "pct-desc") return (b.hours_pct - a.hours_pct) || (b.courses_completed - a.courses_completed);
+        if (sortMode === "pct-asc") return (a.hours_pct - b.hours_pct) || (a.courses_completed - b.courses_completed);
+        if (sortMode === "courses-desc") return (b.courses_completed - a.courses_completed) || (b.hours_pct - a.hours_pct);
         if (sortMode === "name-asc") return String(a.name || "").localeCompare(String(b.name || ""));
         if (sortMode === "name-desc") return String(b.name || "").localeCompare(String(a.name || ""));
         if (sortMode === "code-asc") return String(a.employee_code || "").localeCompare(String(b.employee_code || ""), undefined, { numeric: true });
         if (sortMode === "code-desc") return String(b.employee_code || "").localeCompare(String(a.employee_code || ""), undefined, { numeric: true });
-        if (sortMode === "focus-desc") return b.focus_areas - a.focus_areas;
-        if (sortMode === "severity-asc") return a.severity_band - b.severity_band || a.rank - b.rank;
         return 0;
       });
       return list;
@@ -2882,15 +3056,8 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       const chipBase = "px-3 py-1.5 bg-white border rounded-full text-xs font-bold inline-flex items-center gap-1 cursor-pointer hover:border-[#df162b] hover:text-[#df162b] transition-colors";
       const chipOn = "border-[#df162b] text-[#df162b] bg-[#fff0ef]";
       const chipOff = "border-[#e7bdb9] text-[#5d3f3d]";
-      const grouped = {};
-      for (const row of list) {
-        const key = row.severity_band;
-        if (!grouped[key]) grouped[key] = [];
-        grouped[key].push(row);
-      }
-      const groupKeys = Object.keys(grouped).map(Number).sort((a, b) => a - b);
 
-      render(`${pageHeader("Leaderboard", "All employees ranked within gap-severity cohorts. Search, filter, and sort across bands.")}
+      render(`${pageHeader("Leaderboard", "Flat ranking by journey hours completed % · ties broken by courses completed.")}
         <label class="block mb-4"><span class="sr-only">Search employees</span>
           <input data-lb-search value="${esc(searchRaw)}" class="w-full md:w-96 border border-slate-200 rounded-lg px-4 py-3" placeholder="Search code or name">
         </label>
@@ -2916,46 +3083,36 @@ Before you begin, we encourage you to take a few minutes to understand the philo
                 </div>` : ""}
               </div>
             </div>
-            <span class="text-xs text-[#5d3f3d]">Showing ${list.length} of ${rows.length} · ${groupKeys.length} band${groupKeys.length === 1 ? "" : "s"}</span>
+            <span class="text-xs text-[#5d3f3d]">Showing ${list.length} of ${rows.length}</span>
           </div>
-        </div>
-        <div class="space-y-6">
-          ${groupKeys.map((band) => {
-            const bandRows = grouped[band];
-            return `<section class="bg-white border border-[#e7bdb9] rounded-xl overflow-hidden">
-              <div class="p-4 bg-[#fff8f7] border-b border-[#e7bdb9] flex justify-between items-center gap-3 flex-wrap">
-                <div>
-                  <h3 class="text-lg font-bold text-[#291716]">Severity band ${band}</h3>
-                  <p class="text-xs text-[#5d3f3d] mt-0.5">${bandRows.length} employee${bandRows.length === 1 ? "" : "s"} · ranked by LinkedIn hours</p>
-                </div>
-                <span class="text-xs font-bold uppercase tracking-wide text-[#df162b] bg-[#fff0ef] border border-[#e7bdb9] px-3 py-1 rounded-full">Gap severity ${band}</span>
-              </div>
-              <div class="overflow-x-auto">
-                <table class="w-full min-w-[720px] text-sm text-left">
-                  <thead class="bg-[#fff0ef] text-[11px] uppercase tracking-wide text-[#5d3f3d]">
-                    <tr>
-                      <th class="p-4">Rank</th>
-                      <th class="p-4">Employee</th>
-                      <th class="p-4">Focus areas</th>
-                      <th class="p-4">Hours</th>
-                      <th class="p-4">Courses</th>
-                      <th class="p-4 text-center">Badges</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    ${bandRows.map((row) => `<tr class="border-t border-[#e7bdb9] hover:bg-[#fff0ef]">
-                      <td class="p-4 font-bold text-[#005cab]">#${row.rank}</td>
-                      <td class="p-4"><strong>${esc(row.name)}</strong><div class="text-xs text-[#5d3f3d]">${esc(row.employee_code)}</div></td>
-                      <td class="p-4 font-bold">${row.focus_areas}</td>
-                      <td class="p-4 font-bold">${Number(row.learning_hours).toFixed(1)}h</td>
-                      <td class="p-4">${Number(row.completions || 0)}</td>
-                      <td class="p-4 text-center">${lbBadgeIcons(row.badges, catalog)}</td>
-                    </tr>`).join("")}
-                  </tbody>
-                </table>
-              </div>
-            </section>`;
-          }).join("") || `<div class="bg-white border border-[#e7bdb9] rounded-xl p-8 text-center text-sm text-[#5d3f3d]">No matching employees.</div>`}
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[820px] text-sm text-left">
+              <thead class="bg-[#fff0ef] text-[11px] uppercase tracking-wide text-[#5d3f3d]">
+                <tr>
+                  <th class="p-4">Rank</th>
+                  <th class="p-4">Employee</th>
+                  <th class="p-4">Progress</th>
+                  <th class="p-4">Courses done</th>
+                  <th class="p-4 text-center">Badges</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${list.map((row) => {
+                  const pct = Number(row.hours_pct || 0);
+                  return `<tr class="border-t border-[#e7bdb9] hover:bg-[#fff0ef]">
+                    <td class="p-4 font-bold text-[#005cab]">#${row.rank}</td>
+                    <td class="p-4"><strong>${esc(row.name)}</strong><div class="text-xs text-[#5d3f3d]">${esc(row.employee_code)}</div></td>
+                    <td class="p-4">
+                      <div class="font-bold">${pct.toFixed(pct % 1 ? 1 : 0)}%</div>
+                      <div class="text-[10px] text-[#926e6c]">${Number(row.completed_hours || 0).toFixed(1)}h / ${Number(row.total_hours || 0).toFixed(1)}h</div>
+                    </td>
+                    <td class="p-4 font-bold">${Number(row.courses_completed || 0)}${row.courses_total ? `<span class="font-normal text-[#926e6c]">/${row.courses_total}</span>` : ""}</td>
+                    <td class="p-4 text-center">${lbBadgeIcons(row.badges, catalog)}</td>
+                  </tr>`;
+                }).join("") || empty("No matching employees.", 5)}
+              </tbody>
+            </table>
+          </div>
         </div>`);
 
       qs("[data-toggle-filter]")?.addEventListener("click", (event) => {
@@ -3007,7 +3164,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
   async function initAdminOverview() {
     const result = await api("/api/admin/overview");
     const insights = result.insights || {};
-    const phaseLabel = { zm: "ZM Assessment", rd: "RD Validation", employee: "Employee Experience" };
+    const phaseLabel = { zm: "ZM Assessment", rd: "RD Validation", employee: "Employee Experience", feedback: "ZM Journey Feedback" };
     const phaseBars = (result.phases || []).map((phase) => {
       const pct = Math.min(100, Number(phase.progress.percentage || 0));
       return `<div class="space-y-2">
@@ -3120,15 +3277,27 @@ Before you begin, we encourage you to take a few minutes to understand the philo
 
   async function initPhases() {
     const phases = (await api("/api/phases")).phases;
-    const names = { zm: "ZM Competency Assessment", rd: "RD Competency Validation", employee: "Employee Career & Learning" };
-    render(`${pageHeader("Phase Control", "Opening a later phase requires 100% prior completion or explicit Admin override.")}
+    const names = {
+      zm: "ZM Competency Assessment",
+      rd: "RD Competency Validation",
+      employee: "Employee Career & Learning",
+      feedback: "ZM Quarterly Journey Feedback",
+    };
+    const blurbs = {
+      zm: "Open when ZMs should rate team competencies.",
+      rd: "Open after ZM work; RDs validate final profiles.",
+      employee: "Open when employees may run roleplays, lattice, and learning.",
+      feedback: "Independent quarterly window. ZMs log whether journeys started and behaviour changed. Does not close other phases.",
+    };
+    render(`${pageHeader("Phase Control", "Assessment phases gate login and workflow. Feedback is a separate quarterly logbook toggle.")}
       <div class="space-y-4">${phases.map((phase) => {
         const open = phase.status === "open";
         return `<section class="bg-white border border-slate-200 rounded-xl p-6">
         <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <div class="flex items-center gap-3"><h2 class="text-xl font-bold">${esc(names[phase.phase])}</h2>${statusChip(phase.status)}</div>
-            <p class="text-sm text-slate-500 mt-2">${phase.progress.completed}/${phase.progress.total} complete · ${phase.progress.percentage}%${phase.override_used ? " · opened by override" : ""}</p>
+            <div class="flex items-center gap-3"><h2 class="text-xl font-bold">${esc(names[phase.phase] || phase.phase)}</h2>${statusChip(phase.status)}</div>
+            <p class="text-sm text-slate-500 mt-2">${esc(blurbs[phase.phase] || "")}</p>
+            <p class="text-sm text-slate-500 mt-1">${phase.progress.completed}/${phase.progress.total} complete · ${phase.progress.percentage}%${phase.override_used ? " · opened by override" : ""}</p>
           </div>
           <label class="inline-flex items-center gap-3 cursor-pointer select-none shrink-0">
             <span class="text-xs font-bold uppercase tracking-wide ${open ? "text-emerald-700" : "text-slate-500"}">${open ? "Open" : "Closed"}</span>
@@ -3146,11 +3315,12 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         const phase = phases.find((item) => item.phase === control.dataset.phase);
         try {
           if (phase.status === "open") {
-            if (!confirm(`Close ${names[phase.phase]}?`)) return;
+            if (!confirm(`Close ${names[phase.phase] || phase.phase}?`)) return;
             await api("/api/admin/phases/close", { method: "POST", body: JSON.stringify({ phase: phase.phase }) });
           } else {
             const previousIndex = phases.findIndex((item) => item.phase === phase.phase) - 1;
-            const previousIncomplete = previousIndex >= 0 && !phases[previousIndex].progress.is_complete;
+            const needsGate = phase.phase !== "feedback" && previousIndex >= 0;
+            const previousIncomplete = needsGate && !phases[previousIndex].progress.is_complete;
             let override = false;
             if (previousIncomplete) {
               override = confirm("Previous phase is below 100%. Open with explicit Admin override?");
@@ -3240,6 +3410,9 @@ Before you begin, we encourage you to take a few minutes to understand the philo
 
     const bindRowActions = () => {
       qsa("[data-profile]").forEach((control) => { control.onclick = () => openFinalProfile(control.dataset.profile); });
+      qsa("[data-feedback]").forEach((control) => {
+        control.onclick = () => openFeedbackLogbook(control.dataset.feedback).catch((error) => toast(error.message, "error"));
+      });
       qsa("[data-roleplay-review]").forEach((control) => {
         control.onclick = () => openAdminRoleplays(control.dataset.roleplayReview);
       });
@@ -3309,10 +3482,12 @@ Before you begin, we encourage you to take a few minutes to understand the philo
               <thead class="bg-slate-50"><tr>
                 <th class="p-4">Employee</th><th class="p-4">Role</th><th class="p-4">ZM</th><th class="p-4">RD</th>
                 <th class="p-4">Assessment status</th><th class="p-4">Assessments</th><th class="p-4">Aspiration</th>
-                <th class="p-4">Courses</th><th class="p-4">Actions</th>
+                <th class="p-4">Courses</th><th class="p-4">Feedback</th><th class="p-4">Actions</th>
               </tr></thead>
               <tbody>
-                ${list.map((row) => `<tr class="border-t border-[#e7bdb9] hover:bg-[#fff0ef]">
+                ${list.map((row) => {
+                  const fbCount = Number(row.feedback_count) || 0;
+                  return `<tr class="border-t border-[#e7bdb9] hover:bg-[#fff0ef]">
                   <td class="p-4"><strong>${esc(row.name)}</strong><div class="text-xs text-[#5d3f3d]">${esc(row.employee_code)}</div></td>
                   <td class="p-4">${esc(row.designation)}<div class="text-xs text-[#5d3f3d]">${esc(row.grade)}</div></td>
                   <td class="p-4">${esc(row.zm_name)}</td>
@@ -3321,8 +3496,10 @@ Before you begin, we encourage you to take a few minutes to understand the philo
                   <td class="p-4">${row.roleplays_completed}/${row.roleplays_total}</td>
                   <td class="p-4">${esc(row.aspiration?.aspiration_role ? String(row.aspiration.aspiration_role).toUpperCase() : "Not selected")}</td>
                   <td class="p-4">${row.learning_locked ? statusChip("locked") : statusChip("open")}</td>
+                  <td class="p-4">${button(fbCount ? `Log (${fbCount})` : "Log", `data-feedback="${row.employee_code}"`, true)}</td>
                   <td class="p-4 flex flex-wrap gap-2">${button("Profile", `data-profile="${row.employee_code}"`, true)}${button("Assessments", `data-roleplay-review="${row.employee_code}"`, true)}${row.learning_locked ? button("Reset Courses", `data-reset-courses="${row.employee_code}"`, true) : ""}${row.aspiration ? button("Reset Aspiration", `data-reset="${row.employee_code}"`, true) : ""}</td>
-                </tr>`).join("") || empty("No matching employees.", 9)}
+                </tr>`;
+                }).join("") || empty("No matching employees.", 10)}
               </tbody>
             </table>
           </div>

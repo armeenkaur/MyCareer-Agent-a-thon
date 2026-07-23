@@ -13,7 +13,13 @@ from typing import Any, Iterator
 
 ROLES = {"admin", "zm", "rd", "employee"}
 ROLE_PRIORITY = ("admin", "zm", "rd", "employee")
-PHASES = ("zm", "rd", "employee")
+PHASES = ("zm", "rd", "employee", "feedback")
+FEEDBACK_QUESTION = (
+    "Looking at this employee's assigned learning journey over the past quarter: "
+    "Have they started the recommended path? Have you observed any change in on-the-job "
+    "behaviour (skills, habits, or impact), or do things look the same as before the journey "
+    "was assigned? Please share concrete examples where you can."
+)
 
 
 def utc_now() -> str:
@@ -103,13 +109,26 @@ class Database:
                 );
 
                 CREATE TABLE IF NOT EXISTS phases (
-                    phase TEXT PRIMARY KEY CHECK(phase IN ('zm','rd','employee')),
+                    phase TEXT PRIMARY KEY CHECK(phase IN ('zm','rd','employee','feedback')),
                     status TEXT NOT NULL CHECK(status IN ('closed','open','complete')) DEFAULT 'closed',
                     opened_at TEXT,
                     closed_at TEXT,
                     opened_by TEXT,
                     override_used INTEGER NOT NULL DEFAULT 0
                 );
+
+                CREATE TABLE IF NOT EXISTS journey_feedback (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
+                    zm_login_id TEXT NOT NULL,
+                    zm_name TEXT NOT NULL DEFAULT '',
+                    question TEXT NOT NULL,
+                    answer TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_journey_feedback_employee
+                    ON journey_feedback(employee_code, created_at DESC);
 
                 CREATE TABLE IF NOT EXISTS assessments (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -245,6 +264,7 @@ class Database:
                 );
                 """
             )
+            self._migrate_phases_feedback(connection)
             for phase in PHASES:
                 connection.execute("INSERT OR IGNORE INTO phases(phase, status) VALUES (?, 'closed')", (phase,))
             connection.execute(
@@ -261,10 +281,55 @@ class Database:
                 """
             )
 
+    def _migrate_phases_feedback(self, connection: sqlite3.Connection) -> None:
+        """Widen phases CHECK to include feedback; create journey_feedback if missing."""
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS journey_feedback (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                employee_code TEXT NOT NULL REFERENCES employees(employee_code),
+                zm_login_id TEXT NOT NULL,
+                zm_name TEXT NOT NULL DEFAULT '',
+                question TEXT NOT NULL,
+                answer TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_journey_feedback_employee
+                ON journey_feedback(employee_code, created_at DESC)
+            """
+        )
+        row = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='phases'"
+        ).fetchone()
+        sql = (row["sql"] if row else "") or ""
+        if "'feedback'" in sql:
+            return
+        connection.executescript(
+            """
+            CREATE TABLE phases_new (
+                phase TEXT PRIMARY KEY CHECK(phase IN ('zm','rd','employee','feedback')),
+                status TEXT NOT NULL CHECK(status IN ('closed','open','complete')) DEFAULT 'closed',
+                opened_at TEXT,
+                closed_at TEXT,
+                opened_by TEXT,
+                override_used INTEGER NOT NULL DEFAULT 0
+            );
+            INSERT INTO phases_new(phase, status, opened_at, closed_at, opened_by, override_used)
+            SELECT phase, status, opened_at, closed_at, opened_by, override_used FROM phases;
+            DROP TABLE phases;
+            ALTER TABLE phases_new RENAME TO phases;
+            """
+        )
+
     def clear_runtime_cache(self) -> None:
-        """Clear restart-scoped sessions. Keep curated RD evidence on disk."""
+        """Clear restart-scoped sessions and curated RD evidence (forces fresh workbook pick-up)."""
         with self.transaction() as connection:
             connection.execute("DELETE FROM sessions")
+            connection.execute("DELETE FROM curated_evidence")
 
     def seed_from_workbooks(self, data: Any) -> None:
         now = utc_now()

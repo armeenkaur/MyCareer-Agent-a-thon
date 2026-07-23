@@ -310,7 +310,8 @@ class BackendWorkflowTest(unittest.TestCase):
         # Candidate rows can be empty when final profile already meets the target; no general course can enter either way.
         self.assertTrue(all("general" not in row["candidate_ids_json"] for row in rows))
 
-    def test_leaderboard_ranks_hours_then_completions_and_shares_full_ties(self) -> None:
+    def test_leaderboard_ranks_hours_pct_then_courses_completed(self) -> None:
+        now = utc_now()
         with self.db.transaction() as connection:
             for code in ("MMT1002", "MMT1004"):
                 cursor = connection.execute(
@@ -319,31 +320,77 @@ class BackendWorkflowTest(unittest.TestCase):
                         employee_code,assessor_role,assessor_login_id,status,created_at,updated_at,submitted_at
                     ) VALUES(?, 'rd', 'TEST-RD', 'submitted', ?, ?, ?)
                     """,
-                    (code, utc_now(), utc_now(), utc_now()),
+                    (code, now, now, now),
                 )
                 for competency in self.backend.competencies:
                     connection.execute(
                         "INSERT INTO assessment_ratings(assessment_id,competency,proficiency) VALUES(?,?,'Beginner')",
                         (cursor.lastrowid, competency),
                     )
-            connection.execute(
-                "INSERT INTO linkedin_activity(employee_code,learning_hours,completions,synced_at) VALUES(?,?,?,?)",
-                ("MMT1002", 3.5, 2, utc_now()),
-            )
-            connection.execute(
-                "INSERT INTO linkedin_activity(employee_code,learning_hours,completions,synced_at) VALUES(?,?,?,?)",
-                ("MMT1004", 3.5, 1, utc_now()),
-            )
+                for idx, course_id in enumerate((f"{code}-A", f"{code}-B")):
+                    connection.execute(
+                        "INSERT INTO learning_selections(employee_code,competency,course_id,selected_at) VALUES(?,?,?,?)",
+                        (code, "Communication", course_id, now),
+                    )
+                    status = "completed" if (code == "MMT1002" or idx == 0) else "not_started"
+                    pct = 100 if status == "completed" else 0
+                    connection.execute(
+                        """
+                        INSERT INTO course_progress(employee_code,course_id,status,progress_pct,launched_at,completed_at)
+                        VALUES(?,?,?,?,?,?)
+                        """,
+                        (code, course_id, status, pct, now, now if status == "completed" else None),
+                    )
+                # Same LinkedIn hours; ranking must use journey % / courses completed, not raw hours.
+                connection.execute(
+                    "INSERT INTO linkedin_activity(employee_code,learning_hours,completions,synced_at) VALUES(?,?,?,?)",
+                    (code, 3.5, 1, now),
+                )
+            # Force equal % via known catalog durations by using progress-only fallback:
+            # no catalog ids → hours_pct from courses_completed/courses_total.
+            # MMT1002: 2/2 = 100%, MMT1004: 1/2 = 50%
         payload = self.backend.leaderboard(self.admin)
         rows = [row for row in payload["leaderboard"] if row["employee_code"] in {"MMT1002", "MMT1004"}]
         self.assertEqual(len(rows), 2)
         by_code = {row["employee_code"]: row for row in rows}
+        self.assertEqual(by_code["MMT1002"]["hours_pct"], 100.0)
+        self.assertEqual(by_code["MMT1004"]["hours_pct"], 50.0)
         self.assertEqual(by_code["MMT1002"]["rank"], 1)
         self.assertEqual(by_code["MMT1004"]["rank"], 2)
-        self.assertEqual(by_code["MMT1002"]["focus_areas"], by_code["MMT1004"]["focus_areas"])
-        # Full tie on hours + completions → shared rank
+
+        # Same % → higher courses_completed ranks first
         with self.db.transaction() as connection:
-            connection.execute("UPDATE linkedin_activity SET completions=2 WHERE employee_code='MMT1004'")
+            connection.execute(
+                "UPDATE course_progress SET status='completed', progress_pct=100 WHERE employee_code='MMT1004' AND course_id='MMT1004-B'"
+            )
+            connection.execute(
+                "DELETE FROM course_progress WHERE employee_code='MMT1002' AND course_id='MMT1002-B'"
+            )
+            connection.execute(
+                "DELETE FROM learning_selections WHERE employee_code='MMT1002' AND course_id='MMT1002-B'"
+            )
+        payload = self.backend.leaderboard(self.admin)
+        rows = [row for row in payload["leaderboard"] if row["employee_code"] in {"MMT1002", "MMT1004"}]
+        by_code = {row["employee_code"]: row for row in rows}
+        self.assertEqual(by_code["MMT1002"]["hours_pct"], by_code["MMT1004"]["hours_pct"])
+        self.assertEqual(by_code["MMT1004"]["courses_completed"], 2)
+        self.assertEqual(by_code["MMT1002"]["courses_completed"], 1)
+        self.assertEqual(by_code["MMT1004"]["rank"], 1)
+        self.assertEqual(by_code["MMT1002"]["rank"], 2)
+
+        # Full tie on % + courses → shared rank
+        with self.db.transaction() as connection:
+            connection.execute(
+                "INSERT INTO learning_selections(employee_code,competency,course_id,selected_at) VALUES(?,?,?,?)",
+                ("MMT1002", "Communication", "MMT1002-B", now),
+            )
+            connection.execute(
+                """
+                INSERT INTO course_progress(employee_code,course_id,status,progress_pct,launched_at,completed_at)
+                VALUES(?,?,?,?,?,?)
+                """,
+                ("MMT1002", "MMT1002-B", "completed", 100, now, now),
+            )
         payload = self.backend.leaderboard(self.admin)
         rows = [row for row in payload["leaderboard"] if row["employee_code"] in {"MMT1002", "MMT1004"}]
         self.assertEqual({row["rank"] for row in rows}, {1})
