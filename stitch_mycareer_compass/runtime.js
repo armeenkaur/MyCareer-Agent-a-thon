@@ -16,6 +16,86 @@
     "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;",
   })[character]);
 
+  const levelBarColors = {
+    Beginner: "#df162b",
+    Intermediate: "#e89b96",
+    Proficient: "#1464F4",
+    Advanced: "#0d9488",
+  };
+
+  function renderSkillProficiencyMatrix({
+    skills,
+    employees,
+    getRatings,
+    emptyMessage,
+    compact = false,
+    embedded = false,
+  }) {
+    const skillsList = (skills || []).filter(Boolean);
+    const rated = (employees || []).filter((emp) => Object.keys(getRatings(emp) || {}).length > 0);
+    const legend = levels.map((level) => (
+      `<span class="inline-flex items-center gap-1.5 ${compact ? "text-xs" : "text-sm"} font-semibold text-[#5d3f3d]">`
+      + `<span class="${compact ? "w-2 h-2" : "w-2.5 h-2.5"} rounded-full shrink-0" style="background:${levelBarColors[level]}"></span>`
+      + `${esc(level)}</span>`
+    )).join("");
+
+    const title = "Skill Proficiency Matrix";
+    const subtitle = "Employees in each proficiency level per skill.";
+    const header = embedded
+      ? `<h3 class="text-lg font-bold text-[#291716] mb-0.5">${esc(title)}</h3>`
+        + `<p class="text-xs text-[#5d3f3d] mb-3">${esc(subtitle)}</p>`
+        + `<div class="flex flex-wrap gap-x-4 gap-y-1 mb-3">${legend}</div>`
+      : `<h2 class="${compact ? "text-lg" : "text-2xl"} font-extrabold text-[#291716]">${esc(title)}</h2>`
+        + `<p class="${compact ? "text-xs" : "text-sm"} text-[#5d3f3d] mt-1">${esc(subtitle)}</p>`
+        + `<div class="flex flex-wrap gap-x-4 gap-y-1 mt-3">${legend}</div>`;
+
+    const shell = (body) => embedded
+      ? `<div>${header}${body}</div>`
+      : `<section class="bg-white rounded-xl border border-[#e7bdb9] overflow-hidden mb-8">`
+        + `<div class="${compact ? "p-4" : "p-6 md:p-8"}">${header}${body}</div></section>`;
+
+    if (!rated.length || !skillsList.length) {
+      return shell(`<p class="text-xs text-[#5d3f3d]">${esc(emptyMessage || "No ratings yet.")}</p>`);
+    }
+
+    const barH = compact ? "h-6" : "h-10";
+    const barText = compact ? "text-[11px]" : "text-sm";
+    const minW = compact ? "1.25rem" : "2rem";
+    const labelText = compact ? "text-[10px] md:text-xs" : "text-sm md:text-base";
+    const skillRows = skillsList.map((skill) => {
+      const counts = Object.fromEntries(levels.map((level) => [level, 0]));
+      for (const emp of rated) {
+        const level = (getRatings(emp) || {})[skill];
+        if (level && counts[level] !== undefined) counts[level] += 1;
+      }
+      const total = levels.reduce((sum, level) => sum + counts[level], 0) || 1;
+      const segments = levels.map((level) => {
+        const n = counts[level];
+        if (!n) return "";
+        const pct = (n / total) * 100;
+        return `<div class="${barH} flex items-center justify-center text-white ${barText} font-bold" style="flex:${n};width:${pct}%;background:${levelBarColors[level]};min-width:${minW}">${n}</div>`;
+      }).join("");
+      const labels = levels.map((level) => {
+        const n = counts[level];
+        if (!n) return "";
+        return `<span class="text-center ${labelText} font-semibold text-[#5d3f3d]" style="flex:${n}">${esc(level)}</span>`;
+      }).join("");
+      return `<div class="${compact ? "py-2.5" : "py-5"} ${skill === skillsList[0] ? "" : "border-t border-[#e7bdb9]"}">
+        <div class="grid grid-cols-1 ${compact ? "lg:grid-cols-[150px_1fr] gap-2 lg:gap-4" : "lg:grid-cols-[220px_1fr] gap-4 lg:gap-8"} items-center">
+          <div>
+            <p class="font-bold text-[#291716] ${compact ? "text-sm" : "text-base"}">${esc(skill)}</p>
+          </div>
+          <div class="min-w-0">
+            <div class="flex w-full overflow-hidden rounded-full">${segments}</div>
+            <div class="flex w-full mt-1">${labels}</div>
+          </div>
+        </div>
+      </div>`;
+    }).join("");
+
+    return shell(`<div class="${compact ? "mt-1" : "mt-6"}">${skillRows}</div>`);
+  }
+
   const nav = {
     admin: [
       ["admin/overview", "Overview", "dashboard"],
@@ -24,6 +104,9 @@
       ["admin/leaderboard", "Leaderboard", "leaderboard"],
       ["admin/confidence", "Confidence Scores", "verified"],
       ["admin/audit", "Agent Audit", "manage_search"],
+    ],
+    lteam: [
+      ["lteam/dashboard", "L-Team Dashboard", "monitoring"],
     ],
     zm: [
       ["zm/welcome", "Home", "home"],
@@ -57,6 +140,89 @@
       throw error;
     }
     return payload;
+  }
+
+  async function apiBlob(path) {
+    const headers = {};
+    if (session.token) headers.Authorization = `Bearer ${session.token}`;
+    const response = await fetch(path, { headers });
+    if (!response.ok) {
+      const payload = await response.json().catch(() => ({}));
+      throw new Error(payload.error?.message || `Download failed (${response.status})`);
+    }
+    const blob = await response.blob();
+    const disposition = response.headers.get("Content-Disposition") || "";
+    const match = /filename="([^"]+)"/i.exec(disposition);
+    return { blob, filename: match?.[1] || "download.xlsx" };
+  }
+
+  function downloadBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  function nextIncompleteEmployee(rows, currentCode, role) {
+    const statusKey = role === "rd" ? "rd_status" : "zm_status";
+    const sorted = [...(rows || [])].sort((a, b) => String(a.name || "").localeCompare(String(b.name || "")));
+    const isIncomplete = (row) => {
+      if (row[statusKey] === "submitted") return false;
+      if (role === "rd" && row.zm_status !== "submitted") return false;
+      return true;
+    };
+    const currentIndex = sorted.findIndex((row) => row.employee_code === currentCode);
+    const start = currentIndex >= 0 ? currentIndex + 1 : 0;
+    for (let index = start; index < sorted.length; index += 1) {
+      if (isIncomplete(sorted[index])) return sorted[index];
+    }
+    return null;
+  }
+
+  async function bindAssessmentBulkActions(role) {
+    const downloadBtn = qs("[data-download-template]");
+    const uploadBtn = qs("[data-upload-template]");
+    const fileInput = qs("[data-upload-file]");
+    if (downloadBtn) {
+      downloadBtn.onclick = async () => {
+        try {
+          const { blob, filename } = await apiBlob("/api/assessment/template");
+          downloadBlob(blob, filename || `${String(role || "ratings").toUpperCase()}_ratings_template.xlsx`);
+          toast("Template downloaded.");
+        } catch (error) {
+          toast(error.message, "error");
+        }
+      };
+    }
+    if (uploadBtn && fileInput) {
+      uploadBtn.onclick = () => fileInput.click();
+      fileInput.onchange = async () => {
+        const file = fileInput.files?.[0];
+        fileInput.value = "";
+        if (!file) return;
+        try {
+          const buffer = await file.arrayBuffer();
+          const bytes = new Uint8Array(buffer);
+          let binary = "";
+          bytes.forEach((b) => { binary += String.fromCharCode(b); });
+          const content_base64 = btoa(binary);
+          const result = await api("/api/assessment/upload", {
+            method: "POST",
+            body: JSON.stringify({ filename: file.name, content_base64 }),
+          });
+          const summary = result.summary || {};
+          toast(`Applied ${summary.applied || 0}, skipped ${summary.skipped || 0}, errors ${summary.errors || 0}.`);
+          if (role === "zm") await renderZmDashboard();
+          else if (role === "rd") await renderRdDashboard();
+        } catch (error) {
+          toast(error.message, "error");
+        }
+      };
+    }
   }
 
   function go(route, query = "") {
@@ -109,53 +275,75 @@
 
   function loading() {
     render(`<style>
-      @keyframes mc-walk-bob { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-3px)} }
-      @keyframes mc-leg-l { 0%,100%{transform:rotate(22deg)} 50%{transform:rotate(-22deg)} }
-      @keyframes mc-leg-r { 0%,100%{transform:rotate(-22deg)} 50%{transform:rotate(22deg)} }
-      @keyframes mc-arm-l { 0%,100%{transform:rotate(-18deg)} 50%{transform:rotate(18deg)} }
-      @keyframes mc-arm-r { 0%,100%{transform:rotate(18deg)} 50%{transform:rotate(-18deg)} }
-      @keyframes mc-trek { 0%{left:4%} 100%{left:78%} }
-      @keyframes mc-flag-wave { 0%,100%{transform:rotate(-4deg)} 50%{transform:rotate(6deg)} }
-      @keyframes mc-pulse-dot { 0%,100%{opacity:.35;transform:scale(1)} 50%{opacity:1;transform:scale(1.15)} }
-      .mc-loader-trek{position:absolute;bottom:18px;width:42px;height:54px;animation:mc-trek 2.4s ease-in-out infinite alternate}
-      .mc-loader-figure{transform-origin:50% 100%;animation:mc-walk-bob .45s ease-in-out infinite}
-      .mc-loader-leg-l{transform-origin:2px 0;animation:mc-leg-l .45s ease-in-out infinite}
-      .mc-loader-leg-r{transform-origin:2px 0;animation:mc-leg-r .45s ease-in-out infinite}
-      .mc-loader-arm-l{transform-origin:2px 0;animation:mc-arm-l .45s ease-in-out infinite}
-      .mc-loader-arm-r{transform-origin:2px 0;animation:mc-arm-r .45s ease-in-out infinite}
-      .mc-loader-flag{transform-origin:2px 28px;animation:mc-flag-wave 1.2s ease-in-out infinite}
+      .mc-loader-wrap{max-width:40rem;margin:0 auto}
       .mc-loader-dot{animation:mc-pulse-dot 1.2s ease-in-out infinite}
       .mc-loader-dot:nth-child(2){animation-delay:.2s}
       .mc-loader-dot:nth-child(3){animation-delay:.4s}
+      @keyframes mc-pulse-dot{0%,100%{opacity:.35;transform:scale(1)}50%{opacity:1;transform:scale(1.15)}}
     </style>
-    <div class="py-16 md:py-24 flex flex-col items-center justify-center text-center px-4" role="status" aria-live="polite" aria-label="Loading">
-      <div class="relative w-full max-w-md h-36 mb-6">
-        <svg class="absolute inset-0 w-full h-full" viewBox="0 0 400 140" fill="none" aria-hidden="true">
-          <path d="M20 110 H380" stroke="#e7bdb9" stroke-width="4" stroke-linecap="round"/>
-          <path d="M20 110 H380" stroke="#df162b" stroke-width="4" stroke-linecap="round" stroke-dasharray="10 14" opacity="0.35"/>
-          <circle cx="48" cy="110" r="5" fill="#e7bdb9"/>
-          <circle cx="140" cy="110" r="5" fill="#e7bdb9"/>
-          <circle cx="232" cy="110" r="5" fill="#e7bdb9"/>
-          <g transform="translate(330 42)">
-            <rect x="0" y="12" width="4" height="56" rx="2" fill="#5d3f3d"/>
-            <g class="mc-loader-flag">
-              <path d="M4 12 L48 28 L4 44 Z" fill="#df162b"/>
+    <div class="py-12 md:py-20 flex flex-col items-center justify-center text-center px-4" role="status" aria-live="polite" aria-label="Loading">
+      <div class="mc-loader-wrap w-full" aria-hidden="true">
+        <svg class="w-full h-auto" viewBox="0 0 800 400" xmlns="http://www.w3.org/2000/svg">
+          <g opacity="0.08">
+            <circle cx="100" cy="100" fill="#df162b" r="40">
+              <animate attributeName="cy" dur="8s" repeatCount="indefinite" values="100;120;100"/>
+            </circle>
+            <rect fill="#005cab" height="60" rx="10" width="60" x="650" y="50">
+              <animateTransform attributeName="transform" dur="20s" from="0 680 80" repeatCount="indefinite" to="360 680 80" type="rotate"/>
+            </rect>
+            <circle cx="400" cy="300" fill="#df162b" r="30">
+              <animate attributeName="r" dur="10s" repeatCount="indefinite" values="30;45;30"/>
+            </circle>
+          </g>
+          <path d="M 50 320 Q 200 280 400 320 T 750 320" fill="none" stroke="#e7bdb9" stroke-dasharray="10,10" stroke-width="4">
+            <animate attributeName="stroke-dashoffset" dur="1.4s" from="20" repeatCount="indefinite" to="0"/>
+          </path>
+          <g transform="translate(650, 220)">
+            <rect fill="#5d3f3d" height="100" rx="3" width="6" x="0" y="0"/>
+            <g>
+              <path d="M 6 0 L 86 0 Q 96 25 86 50 L 6 50 Z" fill="#df162b">
+                <animate attributeName="d" dur="2s" repeatCount="indefinite" values="M 6 0 L 86 0 Q 96 25 86 50 L 6 50 Z; M 6 0 L 86 5 Q 76 30 86 55 L 6 50 Z; M 6 0 L 86 0 Q 96 25 86 50 L 6 50 Z"/>
+              </path>
+              <text fill="white" font-family="Arial, sans-serif" font-size="12" font-weight="bold" text-anchor="middle" x="43" y="32">GOAL</text>
             </g>
-            <circle cx="2" cy="68" r="8" fill="#ffe1df" stroke="#df162b" stroke-width="2"/>
+          </g>
+          <g>
+            <circle fill="#df162b" opacity="0.8" r="6">
+              <animateMotion begin="0s" dur="4.5s" path="M 650 250 Q 500 220 320 280" repeatCount="indefinite"/>
+              <animate attributeName="r" begin="0s" dur="4.5s" repeatCount="indefinite" values="0;6;0"/>
+            </circle>
+            <circle fill="#005cab" opacity="0.6" r="4">
+              <animateMotion begin="1.2s" dur="5.5s" path="M 650 250 Q 550 180 320 280" repeatCount="indefinite"/>
+              <animate attributeName="r" begin="1.2s" dur="5.5s" repeatCount="indefinite" values="0;4;0"/>
+            </circle>
+            <circle fill="#df162b" opacity="0.7" r="5">
+              <animateMotion begin="2.4s" dur="5s" path="M 650 250 Q 450 350 320 280" repeatCount="indefinite"/>
+              <animate attributeName="r" begin="2.4s" dur="5s" repeatCount="indefinite" values="0;5;0"/>
+            </circle>
+          </g>
+          <g>
+            <animateTransform attributeName="transform" type="translate" from="40 240" to="560 240" dur="14s" fill="freeze" calcMode="linear"/>
+            <g>
+              <animateTransform attributeName="transform" type="translate" values="0 0; 0 -5; 0 0" dur="1.1s" repeatCount="indefinite"/>
+              <g>
+                <path d="M 20 50 L 10 80" stroke="#2d3748" stroke-linecap="round" stroke-width="8">
+                  <animateTransform attributeName="transform" dur="1.1s" repeatCount="indefinite" type="rotate" values="-20 20 50; 20 20 50; -20 20 50"/>
+                </path>
+                <path d="M 20 50 L 30 80" stroke="#2d3748" stroke-linecap="round" stroke-width="8">
+                  <animateTransform attributeName="transform" dur="1.1s" repeatCount="indefinite" type="rotate" values="20 20 50; -20 20 50; 20 20 50"/>
+                </path>
+              </g>
+              <rect fill="#4a5568" height="40" rx="10" width="20" x="10" y="20"/>
+              <circle cx="20" cy="10" fill="#2d3748" r="10"/>
+              <g transform="translate(30, 45)">
+                <rect fill="#2d3748" height="12" rx="2" width="15" x="0" y="0"/>
+                <animateTransform attributeName="transform" dur="1.1s" repeatCount="indefinite" type="rotate" values="-5; 5; -5"/>
+              </g>
+            </g>
           </g>
         </svg>
-        <div class="mc-loader-trek" aria-hidden="true">
-          <svg class="mc-loader-figure w-[42px] h-[54px]" viewBox="0 0 42 54" fill="none">
-            <circle cx="21" cy="8" r="6" fill="#291716"/>
-            <rect x="16" y="14" width="10" height="16" rx="4" fill="#df162b"/>
-            <rect class="mc-loader-arm-l" x="10" y="15" width="4" height="12" rx="2" fill="#291716"/>
-            <rect class="mc-loader-arm-r" x="28" y="15" width="4" height="12" rx="2" fill="#291716"/>
-            <rect class="mc-loader-leg-l" x="16" y="28" width="4" height="16" rx="2" fill="#005cab"/>
-            <rect class="mc-loader-leg-r" x="22" y="28" width="4" height="16" rx="2" fill="#005cab"/>
-          </svg>
-        </div>
       </div>
-      <p class="text-base font-bold text-[#291716]">Heading to your next milestone…</p>
+      <p class="text-base font-bold text-[#291716] mt-2">Heading to your next milestone…</p>
       <div class="flex items-center justify-center gap-1.5 mt-3" aria-hidden="true">
         <span class="mc-loader-dot w-2 h-2 rounded-full bg-[#df162b]"></span>
         <span class="mc-loader-dot w-2 h-2 rounded-full bg-[#df162b]"></span>
@@ -165,7 +353,7 @@
   }
 
   const mmtTheme = (role = session.user?.role) =>
-    role === "employee" || role === "zm" || role === "rd" || role === "admin";
+    role === "employee" || role === "zm" || role === "rd" || role === "admin" || role === "lteam";
 
   function pageHeader(title, description = "", actions = "") {
     const titleClass = mmtTheme() ? "text-[#df162b]" : "text-blue-800";
@@ -412,7 +600,7 @@
         localStorage.setItem(tokenKey, result.token);
         localStorage.setItem(userKey, JSON.stringify(result.user));
         dismiss();
-        go(result.user.role === "admin" ? "admin/overview" : `${result.user.role}/welcome`);
+        go(result.user.role === "admin" ? "admin/overview" : result.user.role === "lteam" ? "lteam/dashboard" : `${result.user.role}/welcome`);
       } catch (error) {
         if (error.code === "phase_closed") {
           dismiss();
@@ -587,7 +775,7 @@
         <span>Terms of Service</span>
         <span>Support</span>
       </div>
-      <p class="text-sm text-[#5d3f3d] text-center lg:text-right">© 2024 MakeMyTrip Talent Development. All rights reserved.</p>
+      <p class="text-sm text-[#5d3f3d] text-center lg:text-right">© 2000 MakeMyTrip Talent Development. All rights reserved.</p>
     </footer>`;
   }
 
@@ -597,7 +785,7 @@
     const links = commonSideNav(user, mmt);
     const homeRoute = items[0]?.[0] || "login";
     const border = mmt ? "border-[#e7bdb9]" : "border-slate-200";
-    const managerChrome = user.role === "zm" || user.role === "rd" || user.role === "admin";
+    const managerChrome = user.role === "zm" || user.role === "rd" || user.role === "admin" || user.role === "lteam";
     document.body.className = mmt ? "bg-[#fff8f7] text-slate-900 min-h-screen" : "bg-slate-50 text-slate-900 min-h-screen";
     document.body.innerHTML = `<div class="min-h-screen flex flex-col">
       <header class="h-16 bg-white border-b ${border} px-4 md:px-7 flex items-center justify-between sticky top-0 z-40">
@@ -666,7 +854,7 @@
         localStorage.setItem(tokenKey, result.token);
         localStorage.setItem(userKey, JSON.stringify(result.user));
         const role = result.user.role;
-        go(role === "admin" ? "admin/overview" : `${role}/welcome`);
+        go(role === "admin" ? "admin/overview" : role === "lteam" ? "lteam/dashboard" : `${role}/welcome`);
       } catch (error) {
         if (error.code === "phase_closed") {
           qs("#portal-closed-card")?.classList.remove("hidden");
@@ -690,7 +878,7 @@
       localStorage.setItem(userKey, JSON.stringify(session.user));
       const expectedRole = page.split("/")[0];
       if (expectedRole !== session.user.role) {
-        go(session.user.role === "admin" ? "admin/overview" : `${session.user.role}/welcome`);
+        go(session.user.role === "admin" ? "admin/overview" : session.user.role === "lteam" ? "lteam/dashboard" : `${session.user.role}/welcome`);
         return false;
       }
       if (!options.skipShell) mountShell(session.user);
@@ -727,22 +915,23 @@
   }
 
   function welcomeCompassMark() {
-    return `<div class="absolute right-0 top-4 md:top-8 opacity-10 pointer-events-none hidden lg:block" aria-hidden="true">
-      <span class="material-symbols-outlined text-[280px] md:text-[320px] text-[#df162b] rotate-12 leading-none" style="font-variation-settings:'FILL' 0">explore</span>
+    // Keep full glyph in view (rotate + huge type otherwise clips under overflow-hidden).
+    return `<div class="absolute right-[-0.5rem] top-1/2 -translate-y-[55%] opacity-10 pointer-events-none hidden lg:block" aria-hidden="true">
+      <span class="material-symbols-outlined text-[260px] md:text-[300px] text-[#df162b] rotate-12 leading-none block" style="font-variation-settings:'FILL' 0">explore</span>
     </div>`;
   }
 
   async function initRdWelcome() {
     const cards = [
-      ["balance", "Why this validation matters", "Ensuring every leader is benchmarked against the same corporate standard to drive regional excellence."],
-      ["query_stats", "Use evidence, not assumptions", "Move beyond subjective feelings by attaching specific project outcomes and KPI data to each competency."],
-      ["military_tech", "Focus on proficiency", "Evaluate the depth of skill rather than just completion. Look for demonstrated mastery in complex scenarios."],
-      ["route", "Enable development", "Every validation identifies a 'growth gap'. Use these insights to curate specific learning paths for your team."],
+      ["balance", "Why this validation matters", "Ensuring every team member is evaluated on a common set of competencies, so their learning journey is focused, fair, and growth-oriented."],
+      ["query_stats", "Use evidence, not assumptions", "Incorporate data-backed scenarios, measurable KPIs, and project-specific examples to make competency assessments more objective and actionable."],
+      ["military_tech", "Focus on proficiency", "Each skill has defined proficiency levels. Assess each team member’s demonstrated skill before finalizing their level."],
+      ["route", "Enable development", "Every input identifies a growth opportunity which will curate specific learning path of each team member."],
     ];
     const steps = [
-      ["1", "#005cab", "Review Peer Input", "Assess how subordinates and colleagues perceive the leader's impact."],
-      ["2", "#005cab", "Calibrate Performance", "Compare self-assessments with hard business metrics and MMT standards."],
-      ["3", "#df162b", "Finalize Profile", "Cement the competency record and trigger regional development recommendations."],
+      ["1", "#005cab", "Review ZM's Input", "Assess the competency profile of the team member submitted by the ZM."],
+      ["2", "#005cab", "Calibrate Performance", "Callibrate the competency profile of the team member with the observed performance and objective data."],
+      ["3", "#df162b", "Finalize Profile", "Help the team member navigate their professional journey."],
     ];
     render(`<div class="relative overflow-hidden">
       <div class="absolute top-0 right-0 w-1/2 h-full opacity-20 pointer-events-none" style="background-image:radial-gradient(circle,#e7bdb9 1px,transparent 1px);background-size:20px 20px"></div>
@@ -755,10 +944,10 @@
             MyCareer Compass
           </div>
           <h1 class="text-3xl md:text-5xl font-black text-[#291716] mb-5 leading-tight">
-            Turn evidence into a fair and consistent <span class="text-[#df162b]">competency profile</span>
+            Turn evidence into a fair and consistent <span class="text-[#df162b]">competency profile for your team</span>
           </h1>
           <p class="text-lg text-[#5d3f3d] leading-relaxed max-w-2xl mb-8">
-            As a Regional Director, your role is to validate proficiency based on observed performance and objective data. Help our talent navigate their professional journey with clarity and rigor.
+            As a Regional Director, your role is to validate proficiencies based on observed performance and objective data. Help the talent navigate their professional journey with clarity and rigor.
           </p>
           <div class="flex flex-wrap gap-3">
             <button type="button" data-start="rd/dashboard" class="px-6 py-3 bg-[#df162b] text-white rounded-lg font-bold hover:opacity-90 transition-all inline-flex items-center gap-2">
@@ -786,12 +975,12 @@
               <span class="text-[10px] font-bold uppercase tracking-widest opacity-80">Scoring Criteria</span>
             </div>
             <h2 class="text-base md:text-lg font-bold mb-1">Your assessment shapes the final competency profile.</h2>
-            <p class="text-sm opacity-90">This profile serves as the trusted foundation for organizational planning, talent decisions and leadership placement.</p>
+            <p class="text-sm opacity-90">Your assessment will be considered as a foundation for organizational planning and talent decisions.</p>
           </div>
         </section>
         <section class="flex flex-col lg:flex-row items-center justify-between gap-10">
           <div class="hidden lg:block w-1/3 shrink-0">
-            <div class="aspect-square rounded-2xl overflow-hidden border-8 border-white shadow-xl rotate-3 bg-[#fff0ef] flex items-center justify-center">
+            <div class="aspect-square rounded-2xl overflow-hidden border-8 border-white shadow-xl bg-[#fff0ef] flex items-center justify-center">
               <div class="text-center p-6">
                 <span class="material-symbols-outlined text-[#df162b] text-[72px]" style="font-variation-settings:'FILL' 1">account_tree</span>
                 <p class="mt-3 font-bold text-[#291716]">Career destinations</p>
@@ -843,8 +1032,8 @@
           <div class="flex flex-col md:flex-row items-center gap-6">
             <div class="w-16 h-16 bg-white/60 rounded-full grid place-items-center shrink-0"><span class="material-symbols-outlined text-3xl text-[#005cab]">star_half</span></div>
             <div>
-              <h2 class="text-xl font-bold mb-1">Your rating creates the starting point</h2>
-              <p class="max-w-3xl opacity-90">The competency ratings you provide today are the foundation of the Personalized Learning Path for your team. Accuracy here ensures every employee receives the exact training they need to succeed.</p>
+              <h2 class="text-xl font-bold mb-1">Your feedback input creates the starting point</h2>
+              <p class="max-w-3xl opacity-90">The competency assessments you provide today will form the foundation of your team’s Personalized Learning Path. Accurate inputs help identify the right focus areas for each employee to hone their skills and grow with confidence.</p>
             </div>
           </div>
         </section>
@@ -865,8 +1054,8 @@
     } catch (_) {
       learning = { courses: [] };
     }
-    const completed = roleplays.roleplays.filter((item) => item.status === "completed").length;
-    const total = roleplays.roleplays.length || 7;
+    const completed = Number(roleplays.completed ?? (roleplays.sessions || []).filter((item) => item.status === "completed").length);
+    const total = Number(roleplays.total ?? (roleplays.sessions || []).length ?? 2);
     const latticeUnlocked = Boolean(roleplays.lattice_unlocked);
     const aspirationLocked = Boolean(career.choice);
     const coursesSelected = Array.isArray(learning.courses) && learning.courses.length > 0;
@@ -881,8 +1070,8 @@
         title: "Assessments",
         done: completed === total && total > 0,
         copy: completed === total && total > 0
-          ? `All ${total} competency assessments completed.`
-          : `${completed} of ${total} competency assessments completed.`,
+          ? `Both voice roleplay sessions completed.`
+          : `${completed} of ${total} voice roleplay sessions completed.`,
         action: "employee/roleplays",
         actionLabel: completed === total && total > 0 ? "Review Assessments" : "Open Assessments",
         locked: false,
@@ -894,7 +1083,7 @@
         done: latticeUnlocked,
         copy: latticeUnlocked
           ? "Career Lattice unlocked. Explore eligible paths for your role and grade."
-          : "Complete all seven assessments to unlock Career Lattice.",
+          : "Complete both voice roleplays to unlock Career Lattice.",
         action: "employee/career",
         actionLabel: latticeUnlocked ? "Open Lattice" : "Locked",
         locked: !latticeUnlocked,
@@ -905,7 +1094,7 @@
         title: "Aspiration",
         done: aspirationLocked,
         copy: aspirationLocked
-          ? `Aspiration locked: ${aspirationLabel}.`
+          ? `Aspiration Selected: ${aspirationLabel}.`
           : latticeUnlocked
             ? "Choose and confirm one career aspiration."
             : "Available after Career Lattice unlocks.",
@@ -938,7 +1127,7 @@
     const acked = hasDisclaimerAck();
 
     render(`<div>
-      <section class="relative py-10 bg-[#fff0ef] overflow-hidden" style="background-image:radial-gradient(circle at 2px 2px,#df162b22 1px,transparent 0);background-size:24px 24px">
+      <section class="relative py-12 md:py-14 bg-[#fff0ef] overflow-x-hidden" style="background-image:radial-gradient(circle at 2px 2px,#df162b22 1px,transparent 0);background-size:24px 24px">
         <div class="max-w-[1200px] mx-auto px-5 md:px-10 relative z-10">
           <div class="max-w-2xl text-left">
             <span class="inline-block px-2 py-1 bg-cyan-50 text-cyan-800 text-xs font-bold rounded-full mb-4">MyCareer Compass · Your Development Journey</span>
@@ -1085,7 +1274,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     const statusBadge = (row) => {
       const key = statusKey(row);
       if (key === "completed") {
-        return `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-cyan-50 text-cyan-800"><span class="material-symbols-outlined text-sm">check_circle</span>Validated</span>`;
+        return `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-cyan-50 text-cyan-800"><span class="material-symbols-outlined text-sm">check_circle</span>Completed</span>`;
       }
       if (key === "draft") {
         return `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-800"><span class="material-symbols-outlined text-sm">edit</span>Draft</span>`;
@@ -1093,7 +1282,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       if (key === "ready") {
         return `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-emerald-50 text-emerald-800"><span class="material-symbols-outlined text-sm">verified_user</span>Ready for RD</span>`;
       }
-      return `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-red-50 text-red-800"><span class="material-symbols-outlined text-sm">hourglass_empty</span>Awaiting ZM</span>`;
+      return `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-red-50 text-red-800"><span class="material-symbols-outlined text-sm">hourglass_empty</span>Waiting for ZM's Input</span>`;
     };
 
     const filteredSorted = () => {
@@ -1113,10 +1302,10 @@ Before you begin, we encourage you to take a few minutes to understand the philo
 
     const filterLabel = {
       all: "All",
-      pending: "Awaiting ZM",
-      ready: "Ready for RD",
+      pending: "Waiting for ZM's Input",
+      ready: "Ready for Assessment",
       draft: "Draft",
-      completed: "Validated",
+      completed: "Completed",
     };
     const sortLabel = {
       "name-asc": "Name A–Z",
@@ -1124,7 +1313,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       "code-asc": "Employee code A–Z",
       "code-desc": "Employee code Z–A",
       "status-asc": "Status: Awaiting first",
-      "status-desc": "Status: Validated first",
+      "status-desc": "Status: Completed first",
     };
 
     const draw = () => {
@@ -1133,7 +1322,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         const key = statusKey(row);
         const initialsRow = String(row.name || "E").split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() || "").join("") || "E";
         const canOpen = key !== "pending";
-        const actionLabel = key === "completed" ? "View Ratings" : key === "draft" ? "Continue Validation" : key === "ready" ? "Start Validation" : "Waiting on ZM";
+        const actionLabel = key === "completed" ? "View Assessment" : key === "draft" ? "Continue Validation" : key === "ready" ? "Start Validation" : "Waiting for ZM's Input";
         const actionClass = canOpen
           ? (key === "completed"
             ? "px-4 py-2 bg-[#005cab] text-white rounded-lg font-bold text-sm hover:opacity-90"
@@ -1168,26 +1357,37 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       const chipOn = "border-[#df162b] text-[#df162b] bg-[#fff0ef]";
       const chipOff = "border-[#e7bdb9] text-[#5d3f3d]";
 
-      render(`<div class="mb-8">
-          <h1 class="text-2xl md:text-3xl font-extrabold text-[#df162b]">Your Dashboard</h1>
-          <p class="text-[#5d3f3d] mt-1">Validate proficiency after ZM submission and publish final competency profiles.</p>
+      render(`<div class="mb-8 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+          <div>
+            <h1 class="text-2xl md:text-3xl font-extrabold text-[#df162b]">Your Dashboard</h1>
+            <p class="text-[#5d3f3d] mt-1">Validate proficiency after ZM submission and finalize competency profiles.</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" data-download-template class="px-4 py-2 border border-[#005cab] text-[#005cab] rounded-lg font-bold text-sm hover:bg-[#d5e3ff] inline-flex items-center gap-1">
+              <span class="material-symbols-outlined text-[18px]">download</span> Download template
+            </button>
+            <button type="button" data-upload-template class="px-4 py-2 bg-[#005cab] text-white rounded-lg font-bold text-sm hover:opacity-90 inline-flex items-center gap-1">
+              <span class="material-symbols-outlined text-[18px]">upload</span> Upload Excel
+            </button>
+            <input type="file" data-upload-file accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" class="hidden"/>
+          </div>
         </div>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <div class="bg-white p-5 rounded-xl border border-[#e7bdb9] flex items-center gap-4">
             <div class="w-12 h-12 rounded-full bg-[#d5e3ff] flex items-center justify-center"><span class="material-symbols-outlined text-[#005cab]">groups</span></div>
-            <div><p class="text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Assigned</p><p class="text-2xl font-bold text-[#291716]">${total}</p></div>
+            <div><p class="text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Total Assessment to Take</p><p class="text-2xl font-bold text-[#291716]">${total}</p></div>
           </div>
           <div class="bg-white p-5 rounded-xl border border-[#e7bdb9] flex items-center gap-4">
             <div class="w-12 h-12 rounded-full bg-[#c3e8ff] flex items-center justify-center"><span class="material-symbols-outlined text-[#005f81]">verified_user</span></div>
-            <div><p class="text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Ready for RD</p><p class="text-2xl font-bold text-[#005f81]">${ready}</p></div>
+            <div><p class="text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Yet to Start</p><p class="text-2xl font-bold text-[#005f81]">${ready}</p></div>
           </div>
           <div class="bg-white p-5 rounded-xl border border-[#e7bdb9] flex items-center gap-4">
             <div class="w-12 h-12 rounded-full bg-[#ffe1df] flex items-center justify-center"><span class="material-symbols-outlined text-[#df162b]">edit</span></div>
-            <div><p class="text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Drafts</p><p class="text-2xl font-bold text-[#df162b]">${drafts}</p></div>
+            <div><p class="text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">In Progress</p><p class="text-2xl font-bold text-[#df162b]">${drafts}</p></div>
           </div>
           <div class="bg-white p-5 rounded-xl border border-[#e7bdb9] flex items-center gap-4">
             <div class="w-12 h-12 rounded-full bg-emerald-50 flex items-center justify-center"><span class="material-symbols-outlined text-emerald-700">check_circle</span></div>
-            <div><p class="text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Validated</p><p class="text-2xl font-bold text-emerald-700">${validated}</p></div>
+            <div><p class="text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Completed</p><p class="text-2xl font-bold text-emerald-700">${validated}</p></div>
           </div>
         </div>
         <div class="bg-white rounded-xl border border-[#e7bdb9] overflow-hidden mb-8">
@@ -1218,61 +1418,13 @@ Before you begin, we encourage you to take a few minutes to understand the philo
             <table class="w-full min-w-[720px] text-left">
               <thead><tr class="border-b border-[#e7bdb9]">
                 <th class="p-4 text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Employee Name</th>
-                <th class="p-4 text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Validation Status</th>
+                <th class="p-4 text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Status</th>
                 <th class="p-4 text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Feedback</th>
                 <th class="p-4 text-xs font-bold uppercase tracking-wider text-[#5d3f3d] text-right">Action</th>
               </tr></thead>
               <tbody>${tableRows}</tbody>
             </table>
           </div>
-          <div class="p-4 border-t border-[#e7bdb9] text-xs text-[#5d3f3d]">Live statuses from ZM submissions and RD drafts.</div>
-        </div>
-        <div class="grid grid-cols-1 lg:grid-cols-[1.5fr_1fr] gap-5 mt-6">
-          <section class="bg-[#fff0ef] border border-[#e7bdb9] border-l-4 border-l-[#df162b] rounded-xl p-5 md:p-6 flex flex-col">
-            <div class="flex items-center gap-3 mb-4">
-              <div class="w-10 h-10 bg-[#ffe1df] text-[#df162b] rounded-lg grid place-items-center">
-                <span class="material-symbols-outlined">lightbulb</span>
-              </div>
-              <h3 class="text-lg font-bold text-[#291716]">RD Review Best Practices</h3>
-            </div>
-            <ul class="space-y-3 flex-1">
-              <li class="flex items-start gap-3">
-                <span class="material-symbols-outlined text-[#df162b] mt-0.5 text-lg">check_circle</span>
-                <p class="text-sm text-[#5d3f3d] leading-relaxed">Validate technical competency evidence before leadership traits for a structured approach.</p>
-              </li>
-              <li class="flex items-start gap-3">
-                <span class="material-symbols-outlined text-[#df162b] mt-0.5 text-lg">check_circle</span>
-                <p class="text-sm text-[#5d3f3d] leading-relaxed">Consult ZM comments if a score deviates significantly from the department average.</p>
-              </li>
-              <li class="flex items-start gap-3">
-                <span class="material-symbols-outlined text-[#df162b] mt-0.5 text-lg">check_circle</span>
-                <p class="text-sm text-[#5d3f3d] leading-relaxed">Target a 48-hour SLA to maintain organizational career growth velocity.</p>
-              </li>
-            </ul>
-            <div class="mt-4 pt-4 border-t border-[#e7bdb9]">
-              <p class="text-xs font-bold text-[#df162b] flex items-center gap-2">
-                <span class="material-symbols-outlined text-sm">checklist</span>
-                Apply on every validation review
-              </p>
-            </div>
-          </section>
-          <section class="bg-[#fff0ef] border border-[#e7bdb9] border-l-4 border-l-[#df162b] rounded-xl p-5 md:p-6 flex flex-col">
-            <div class="flex items-center gap-3 mb-4">
-              <div class="w-10 h-10 bg-[#ffe1df] text-[#df162b] rounded-lg grid place-items-center">
-                <span class="material-symbols-outlined">balance</span>
-              </div>
-              <h3 class="text-lg font-bold text-[#291716]">Calibration Requirement</h3>
-            </div>
-            <p class="text-sm text-[#5d3f3d] leading-relaxed flex-1">
-              All Regional Directors must attend the monthly calibration session. This ensures consistent scoring across divisions and aligns with MMT talent standards.
-            </p>
-            <div class="mt-4 pt-4 border-t border-[#e7bdb9]">
-              <p class="text-xs font-bold text-[#df162b] flex items-center gap-2">
-                <span class="material-symbols-outlined text-sm">event</span>
-                Next Session: confirm date with Talent Ops
-              </p>
-            </div>
-          </section>
         </div>`);
 
       qsa("[data-employee]").forEach((control) => {
@@ -1313,16 +1465,19 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           draw();
         };
       });
+      bindAssessmentBulkActions("rd");
     };
 
     draw();
   }
 
   async function renderZmDashboard() {
-    const rows = await employeeSummaries();
+    const [rows, meta] = await Promise.all([employeeSummaries(), api("/api/meta")]);
+    const competencies = (meta.competencies || []).map((item) => item.competency).filter(Boolean);
     const total = rows.length;
     const rated = rows.filter((row) => row.zm_status === "submitted").length;
-    const remaining = total - rated;
+    const draftCount = rows.filter((row) => row.zm_status === "draft").length;
+    const remaining = total - rated - draftCount;
     let filterStatus = "all";
     let sortMode = "name-asc";
     let filterOpen = false;
@@ -1343,6 +1498,17 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         return `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-blue-50 text-blue-800"><span class="material-symbols-outlined text-sm">edit</span>Draft</span>`;
       }
       return `<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-red-50 text-red-800"><span class="material-symbols-outlined text-sm">pending</span>Pending</span>`;
+    };
+
+    const levelChip = (level) => {
+      if (!level) return `<span class="text-sm text-[#926e6c]">—</span>`;
+      const colors = {
+        Beginner: "bg-red-50 text-red-800",
+        Intermediate: "bg-amber-50 text-amber-900",
+        Proficient: "bg-cyan-50 text-cyan-900",
+        Advanced: "bg-emerald-50 text-emerald-900",
+      };
+      return `<span class="inline-block px-2.5 py-1 rounded-md text-sm font-bold whitespace-nowrap ${colors[level] || "bg-slate-50 text-slate-700"}">${esc(level)}</span>`;
     };
 
     const filteredSorted = () => {
@@ -1372,15 +1538,20 @@ Before you begin, we encourage you to take a few minutes to understand the philo
 
     const draw = () => {
       const list = filteredSorted();
+      const ratedEmployees = rows.filter((row) => {
+        const ratings = row.zm_ratings || {};
+        return (row.zm_status === "draft" || row.zm_status === "submitted") && Object.keys(ratings).length > 0;
+      });
       const tableRows = list.map((row) => {
         const done = row.zm_status === "submitted";
         const draft = row.zm_status === "draft";
         const finalReady = row.rd_status === "submitted" || row.final_profile_available;
         const initialsRow = String(row.name || "E").split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() || "").join("") || "E";
-        const actionLabel = done ? "View Assessment" : draft ? "Continue Assessment" : "Start Assessment";
-        const actionClass = done
-          ? "px-4 py-2 bg-[#005cab] text-white rounded-lg font-bold text-sm hover:opacity-90"
-          : "px-4 py-2 bg-[#df162b] text-white rounded-lg font-bold text-sm hover:opacity-90";
+        const actionBtn = done
+          ? ""
+          : draft
+            ? `<button type="button" data-employee="${esc(row.employee_code)}" class="px-4 py-2 bg-[#df162b] text-white rounded-lg font-bold text-sm hover:opacity-90">Continue Assessment</button>`
+            : `<button type="button" data-employee="${esc(row.employee_code)}" class="px-4 py-2 bg-[#df162b] text-white rounded-lg font-bold text-sm hover:opacity-90">Start Assessment</button>`;
         const finalBtn = finalReady
           ? `<button type="button" data-view-ratings="${esc(row.employee_code)}" class="px-4 py-2 bg-emerald-700 text-white rounded-lg font-bold text-sm hover:opacity-90">View Final Assessment</button>`
           : "";
@@ -1404,34 +1575,74 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           <td class="p-4">${feedbackBtn}</td>
           <td class="p-4 text-right">
             <div class="inline-flex flex-wrap justify-end gap-2">
-              <button type="button" data-employee="${esc(row.employee_code)}" class="${actionClass}">${esc(actionLabel)}</button>
+              ${actionBtn}
               ${finalBtn}
             </div>
           </td>
         </tr>`;
       }).join("") || empty(filterStatus === "all" ? "No employees in your reporting scope." : "No employees match this filter.", 4);
 
+      const matrixSection = `<section class="bg-white rounded-xl border border-[#e7bdb9] overflow-hidden mb-8">
+        <div class="p-4 bg-[#fff0ef] border-b border-[#e7bdb9]">
+          <h2 class="text-lg font-extrabold text-[#291716]">Your Team's Competency Profile</h2>
+        </div>
+        ${ratedEmployees.length && competencies.length ? `<div class="overflow-x-auto">
+          <table class="w-full min-w-[880px] text-left">
+            <thead>
+              <tr class="border-b border-[#e7bdb9] bg-[#fafafa]">
+                <th class="p-3 text-xs font-bold uppercase tracking-wider text-[#5d3f3d] sticky left-0 bg-[#fafafa] z-10 min-w-[180px]">Employee</th>
+                ${competencies.map((skill) => `<th class="p-3 text-xs font-bold text-[#5d3f3d] text-center min-w-[120px]">${esc(skill)}</th>`).join("")}
+              </tr>
+            </thead>
+            <tbody>
+              ${ratedEmployees.map((row, index) => `<tr class="border-t border-[#e7bdb9] ${index % 2 ? "bg-[#f8fbff]" : "bg-white"}">
+                <td class="p-3 sticky left-0 ${index % 2 ? "bg-[#f8fbff]" : "bg-white"} z-10">
+                  <p class="text-sm font-bold text-[#291716]">${esc(row.name)}</p>
+                  <p class="text-[10px] text-[#926e6c]">${esc(row.employee_code)}</p>
+                </td>
+                ${competencies.map((skill) => `<td class="p-3 text-center">${levelChip((row.zm_ratings || {})[skill])}</td>`).join("")}
+              </tr>`).join("")}
+            </tbody>
+          </table>
+        </div>` : `<p class="p-6 text-sm text-[#5d3f3d]">No ratings yet. Start or continue an assessment to populate this matrix.</p>`}
+      </section>`;
+
       const filterActive = filterStatus !== "all";
       const chipBase = "px-3 py-1.5 bg-white border rounded-full text-xs font-bold inline-flex items-center gap-1 cursor-pointer hover:border-[#df162b] hover:text-[#df162b] transition-colors";
       const chipOn = "border-[#df162b] text-[#df162b] bg-[#fff0ef]";
       const chipOff = "border-[#e7bdb9] text-[#5d3f3d]";
 
-      render(`<div class="mb-8">
-          <h1 class="text-2xl md:text-3xl font-extrabold text-[#df162b]">Your Dashboard</h1>
-          <p class="text-[#5d3f3d] mt-1">Select an employee to rate their competencies.</p>
+      render(`<div class="mb-8 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+          <div>
+            <h1 class="text-2xl md:text-3xl font-extrabold text-[#df162b]">Your Dashboard</h1>
+            <p class="text-[#5d3f3d] mt-1">Complete skill competency assessment of your team member.</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" data-download-template class="px-4 py-2 border border-[#005cab] text-[#005cab] rounded-lg font-bold text-sm hover:bg-[#d5e3ff] inline-flex items-center gap-1">
+              <span class="material-symbols-outlined text-[18px]">download</span> Download template
+            </button>
+            <button type="button" data-upload-template class="px-4 py-2 bg-[#005cab] text-white rounded-lg font-bold text-sm hover:opacity-90 inline-flex items-center gap-1">
+              <span class="material-symbols-outlined text-[18px]">upload</span> Upload Excel
+            </button>
+            <input type="file" data-upload-file accept=".xlsx,.csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,text/csv" class="hidden"/>
+          </div>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 mb-8">
           <div class="bg-white p-5 rounded-xl border border-[#e7bdb9] flex items-center gap-4">
             <div class="w-12 h-12 rounded-full bg-[#d5e3ff] flex items-center justify-center"><span class="material-symbols-outlined text-[#005cab]">groups</span></div>
-            <div><p class="text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Total Employees</p><p class="text-2xl font-bold text-[#291716]">${total}</p></div>
+            <div><p class="text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Total Assessments to Take</p><p class="text-2xl font-bold text-[#291716]">${total}</p></div>
           </div>
           <div class="bg-white p-5 rounded-xl border border-[#e7bdb9] flex items-center gap-4">
             <div class="w-12 h-12 rounded-full bg-[#c3e8ff] flex items-center justify-center"><span class="material-symbols-outlined text-[#005f81]">verified</span></div>
-            <div><p class="text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Rated</p><p class="text-2xl font-bold text-[#005f81]">${rated}</p></div>
+            <div><p class="text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Completed</p><p class="text-2xl font-bold text-[#005f81]">${rated}</p></div>
+          </div>
+          <div class="bg-white p-5 rounded-xl border border-[#e7bdb9] flex items-center gap-4">
+            <div class="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center"><span class="material-symbols-outlined text-[#005cab]">edit</span></div>
+            <div><p class="text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">In Progress</p><p class="text-2xl font-bold text-[#005cab]">${draftCount}</p></div>
           </div>
           <div class="bg-white p-5 rounded-xl border border-[#e7bdb9] flex items-center gap-4">
             <div class="w-12 h-12 rounded-full bg-[#ffe1df] flex items-center justify-center"><span class="material-symbols-outlined text-[#df162b]">hourglass_empty</span></div>
-            <div><p class="text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Remaining</p><p class="text-2xl font-bold text-[#df162b]">${remaining}</p></div>
+            <div><p class="text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Yet to Start</p><p class="text-2xl font-bold text-[#df162b]">${remaining}</p></div>
           </div>
         </div>
         <div class="bg-white rounded-xl border border-[#e7bdb9] overflow-hidden mb-8">
@@ -1469,7 +1680,8 @@ Before you begin, we encourage you to take a few minutes to understand the philo
               <tbody>${tableRows}</tbody>
             </table>
           </div>
-        </div>`);
+        </div>
+        ${matrixSection}`);
 
       qsa("[data-employee]").forEach((control) => {
         control.onclick = () => openAssessment(control.dataset.employee);
@@ -1508,6 +1720,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           draw();
         };
       });
+      bindAssessmentBulkActions("zm");
     };
 
     draw();
@@ -1515,16 +1728,19 @@ Before you begin, we encourage you to take a few minutes to understand the philo
   }
 
   async function openAssessment(employeeCode) {
+    loading();
     try {
-      const [meta, existing, rows] = await Promise.all([
+      const [meta, existing, rows, evidenceCtx] = await Promise.all([
         api("/api/meta"),
         api(`/api/assessment?employee_code=${encodeURIComponent(employeeCode)}`),
         employeeSummaries(),
+        api(`/api/zm/evidence?employee_code=${encodeURIComponent(employeeCode)}`).catch(() => ({ evidence: {} })),
       ]);
       const employee = rows.find((row) => row.employee_code === employeeCode);
       if (!employee) throw new Error("Employee not found in your reporting scope.");
       const assessment = existing.assessment;
       const locked = assessment?.status === "submitted";
+      const evidenceBySkill = evidenceCtx.evidence || {};
       const initials = String(employee.name || "E").split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]?.toUpperCase() || "").join("") || "E";
       const designation = employee.designation || employee.role_name || "—";
       const modal = document.createElement("div");
@@ -1547,7 +1763,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         }
         .zm-assess-radio:disabled + .zm-assess-card { cursor: default; opacity: 0.95; }
       </style>
-      <div class="bg-white w-full max-w-5xl h-full max-h-[95vh] rounded-xl shadow-2xl flex flex-col overflow-hidden" role="dialog" aria-modal="true">
+      <div class="bg-white w-full max-w-6xl h-full max-h-[95vh] rounded-xl shadow-2xl flex flex-col overflow-hidden" role="dialog" aria-modal="true">
         <header class="shrink-0 sticky top-0 z-10 bg-white border-b border-gray-100 px-5 md:px-6 py-4 flex flex-wrap gap-3 justify-between items-center shadow-sm">
           <div class="flex items-center gap-3 md:gap-4 min-w-0">
             <div class="w-11 h-11 md:w-12 md:h-12 bg-[#df162b] text-white rounded-full flex items-center justify-center font-bold text-lg shrink-0">${esc(initials)}</div>
@@ -1565,33 +1781,70 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           </div>
         </header>
         <main class="flex-grow overflow-y-auto zm-assess-scroll p-5 md:p-6 space-y-6 md:space-y-8 bg-gray-50/50">
-          ${meta.competencies.map((item) => `<section class="bg-white rounded-xl border border-gray-200 p-5 md:p-6 shadow-sm">
-            <div class="mb-5 md:mb-6">
-              <h2 class="text-lg font-bold text-gray-900">${esc(item.competency)}</h2>
-              <p class="text-sm text-gray-600 mt-1 italic">${esc(item.definition)}</p>
-            </div>
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-3 md:gap-4 mb-5 md:mb-6">
-              ${levels.map((level) => {
-                const checked = assessment?.ratings?.[item.competency] === level;
-                const rubric = meta.rubric[item.competency]?.[level] || "";
-                return `<label class="relative ${locked ? "cursor-default" : "cursor-pointer"} group">
-                  <input class="sr-only zm-assess-radio" type="radio" name="rating-${esc(item.competency)}" value="${level}" ${checked ? "checked" : ""} ${locked ? "disabled" : ""}/>
-                  <div class="zm-assess-card h-full p-4 border border-gray-200 rounded-lg hover:border-[#df162b]/40 transition-all">
-                    <div class="flex items-start gap-3">
-                      <div class="zm-assess-dot mt-1 w-4 h-4 rounded-full border-2 border-gray-300 flex items-center justify-center shrink-0">
-                        <div class="zm-assess-dot-inner w-2 h-2 rounded-full transform scale-0 transition-transform duration-200"></div>
+          ${meta.competencies.map((item) => {
+            const bundle = evidenceBySkill[item.competency] || {};
+            return `<section class="bg-white rounded-xl border border-gray-200 p-5 md:p-6 shadow-sm">
+            <div class="grid lg:grid-cols-2 gap-6">
+              <div>
+                <div class="mb-5 md:mb-6">
+                  <h2 class="text-lg font-bold text-gray-900">${esc(item.competency)}</h2>
+                  <p class="text-sm text-gray-600 mt-1 italic">${esc(item.definition)}</p>
+                </div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 mb-5 md:mb-6">
+                  ${levels.map((level) => {
+                    const checked = assessment?.ratings?.[item.competency] === level;
+                    const rubric = meta.rubric[item.competency]?.[level] || "";
+                    return `<label class="relative ${locked ? "cursor-default" : "cursor-pointer"} group">
+                      <input class="sr-only zm-assess-radio" type="radio" name="rating-${esc(item.competency)}" value="${level}" ${checked ? "checked" : ""} ${locked ? "disabled" : ""}/>
+                      <div class="zm-assess-card h-full p-4 border border-gray-200 rounded-lg hover:border-[#df162b]/40 transition-all">
+                        <div class="flex items-start gap-3">
+                          <div class="zm-assess-dot mt-1 w-4 h-4 rounded-full border-2 border-gray-300 flex items-center justify-center shrink-0">
+                            <div class="zm-assess-dot-inner w-2 h-2 rounded-full transform scale-0 transition-transform duration-200"></div>
+                          </div>
+                          <div>
+                            <span class="block font-bold text-sm text-gray-900 mb-1">${esc(level)}</span>
+                            <span class="text-xs text-gray-500 leading-relaxed">${esc(rubric)}</span>
+                          </div>
+                        </div>
                       </div>
-                      <div>
-                        <span class="block font-bold text-sm text-gray-900 mb-1">${esc(level)}</span>
-                        <span class="text-xs text-gray-500 leading-relaxed">${esc(rubric)}</span>
+                    </label>`;
+                  }).join("")}
+                </div>
+                <textarea data-note="${esc(item.competency)}" ${locked ? "disabled" : ""} rows="3" class="w-full border border-gray-200 rounded-lg text-sm p-3 focus:ring-[#df162b] focus:border-[#df162b] placeholder:text-gray-400 placeholder:italic disabled:bg-gray-50" placeholder="Add optional evidence notes here...">${esc(assessment?.notes?.[item.competency] || "")}</textarea>
+              </div>
+              <div>
+                <h3 class="font-bold text-sm text-[#291716]">Supporting Evidence</h3>
+                ${renderEvidencePanel(bundle)}
+              </div>
+            </div>
+          </section>`;
+          }).join("")}
+          ${(() => {
+            const careerMove = evidenceCtx.career_move || {};
+            const options = careerMove.options || [];
+            const selected = assessment?.career_recommendation || "";
+            if (!options.length) return "";
+            return `<section class="bg-white rounded-xl border border-gray-200 p-5 md:p-6 shadow-sm">
+              <h2 class="text-lg font-bold text-gray-900">${esc(careerMove.question || "What career move do you recommend for the employee?")}</h2>
+              <p class="text-sm text-gray-500 mt-1">Required before submit. Your choice is private to Admin.</p>
+              <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
+                ${options.map((opt) => {
+                  const checked = selected === opt.id;
+                  return `<label class="relative ${locked ? "cursor-default" : "cursor-pointer"}">
+                    <input class="sr-only zm-assess-radio" type="radio" name="career-move" value="${esc(opt.id)}" ${checked ? "checked" : ""} ${locked ? "disabled" : ""}/>
+                    <div class="zm-assess-card h-full p-4 border border-gray-200 rounded-lg hover:border-[#df162b]/40 transition-all">
+                      <div class="flex items-center gap-3">
+                        <div class="zm-assess-dot w-4 h-4 rounded-full border-2 border-gray-300 flex items-center justify-center shrink-0">
+                          <div class="zm-assess-dot-inner w-2 h-2 rounded-full transform scale-0 transition-transform duration-200"></div>
+                        </div>
+                        <span class="font-bold text-sm text-gray-900">${esc(opt.label)}</span>
                       </div>
                     </div>
-                  </div>
-                </label>`;
-              }).join("")}
-            </div>
-            <textarea data-note="${esc(item.competency)}" ${locked ? "disabled" : ""} rows="3" class="w-full border border-gray-200 rounded-lg text-sm p-3 focus:ring-[#df162b] focus:border-[#df162b] placeholder:text-gray-400 placeholder:italic disabled:bg-gray-50" placeholder="Add optional evidence notes here...">${esc(assessment?.notes?.[item.competency] || "")}</textarea>
-          </section>`).join("")}
+                  </label>`;
+                }).join("")}
+              </div>
+            </section>`;
+          })()}
           <footer class="py-6 flex flex-col items-center justify-center space-y-3">
             <div class="flex items-center gap-2">
               <img src="/stitch/common/my-logo.png" alt="my" class="w-8 h-8 rounded-lg object-cover"/>
@@ -1603,9 +1856,13 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         </main>
       </div>`;
       document.body.appendChild(modal);
-      qs("[data-close]", modal).onclick = () => modal.remove();
+      const closeAssessment = () => {
+        modal.remove();
+        renderZmDashboard().catch((err) => toast(err.message, "error"));
+      };
+      qs("[data-close]", modal).onclick = () => closeAssessment();
       modal.addEventListener("click", (event) => {
-        if (event.target === modal) modal.remove();
+        if (event.target === modal) closeAssessment();
       });
       const save = async (submit) => {
         const ratings = {};
@@ -1617,12 +1874,56 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           toast("Rate all seven competencies before submission.", "error");
           return;
         }
+        const careerPick = qs('input[name="career-move"]:checked', modal);
+        if (submit && !careerPick) {
+          toast("Select a career move recommendation before submission.", "error");
+          return;
+        }
         if (submit && !confirm("Submit and lock this assessment?")) return;
         const notes = Object.fromEntries(qsa("[data-note]", modal).map((node) => [node.dataset.note, node.value]));
-        await api("/api/assessment", { method: "POST", body: JSON.stringify({ employee_code: employeeCode, ratings, notes, submit }) });
+        await api("/api/assessment", {
+          method: "POST",
+          body: JSON.stringify({
+            employee_code: employeeCode,
+            ratings,
+            notes,
+            submit,
+            career_recommendation: careerPick ? careerPick.value : (assessment?.career_recommendation || ""),
+          }),
+        });
+        if (!submit) {
+          toast("Draft saved.");
+          return;
+        }
         modal.remove();
-        toast(submit ? "Assessment submitted." : "Draft saved.");
-        await renderZmDashboard();
+        toast("Assessment submitted.");
+        const refreshed = await employeeSummaries();
+        const next = nextIncompleteEmployee(refreshed, employeeCode, "zm");
+        if (!next) {
+          toast("All eligible employees assessed.");
+          await renderZmDashboard();
+          return;
+        }
+        const nextModal = document.createElement("div");
+        nextModal.className = "fixed inset-0 z-[80] bg-black/40 flex items-center justify-center p-4";
+        nextModal.innerHTML = `<div class="bg-white rounded-xl shadow-2xl border border-[#e7bdb9] w-full max-w-md p-6">
+          <h2 class="text-lg font-extrabold text-[#291716]">Assessment submitted</h2>
+          <p class="text-sm text-[#5d3f3d] mt-2">Continue with <strong>${esc(next.name)}</strong> (${esc(next.employee_code)})?</p>
+          <div class="mt-5 flex flex-wrap justify-end gap-2">
+            <button type="button" data-back-dash class="px-4 py-2 border border-[#e7bdb9] rounded-lg font-bold text-sm text-[#5d3f3d]">Back to dashboard</button>
+            <button type="button" data-next-emp class="px-4 py-2 bg-[#df162b] text-white rounded-lg font-bold text-sm">Next employee</button>
+          </div>
+        </div>`;
+        document.body.appendChild(nextModal);
+        qs("[data-back-dash]", nextModal).onclick = async () => {
+          nextModal.remove();
+          await renderZmDashboard();
+        };
+        qs("[data-next-emp]", nextModal).onclick = async () => {
+          nextModal.remove();
+          await renderZmDashboard();
+          openAssessment(next.employee_code);
+        };
       };
       if (!locked) {
         qs("[data-save]", modal).onclick = () => save(false).catch((error) => toast(error.message, "error"));
@@ -1630,6 +1931,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       }
     } catch (error) {
       toast(error.message, "error");
+      await renderZmDashboard();
     }
   }
 
@@ -1697,6 +1999,23 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     const ratings = { ...(context.rd_assessment?.ratings || {}) };
     const notes = { ...(context.rd_assessment?.notes || {}) };
     const rubric = context.rubric || {};
+    const careerMove = context.career_move || {};
+    const careerOptions = careerMove.options || [];
+    let careerRecommendation = context.rd_assessment?.career_recommendation || "";
+    const careerMoveHtml = careerOptions.length
+      ? `<section class="bg-white border border-[#e7bdb9] rounded-xl p-5">
+        <h2 class="text-lg font-bold text-[#291716]">${esc(careerMove.question || "What career move do you recommend for the employee?")}</h2>
+        <p class="text-sm text-[#5d3f3d] mt-1">Required before submit. Your choice is private to Admin.</p>
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mt-4">
+          ${careerOptions.map((opt) => {
+            const selected = careerRecommendation === opt.id;
+            return `<button type="button" data-career-move="${esc(opt.id)}" ${locked ? "disabled" : ""} class="text-left p-3 border rounded-lg transition-colors ${
+              selected ? "bg-[#df162b] text-white border-[#df162b]" : "border-[#e7bdb9] bg-white hover:border-[#df162b]/50"
+            }"><strong class="block text-sm">${esc(opt.label)}</strong></button>`;
+          }).join("")}
+        </div>
+      </section>`
+      : "";
     render(`${pageHeader(`${context.employee.name}'s Competency Profile`, `${context.employee.employee_code} · ${context.employee.designation || context.employee.role_name || "—"} · ${context.employee.grade || ""}`, button("Back", "data-back", true))}
       <div class="space-y-5">${Object.entries(context.evidence).map(([competency, bundle]) => `<section class="bg-white border border-[#e7bdb9] rounded-xl p-5">
         <div class="grid lg:grid-cols-2 gap-6">
@@ -1728,10 +2047,21 @@ Before you begin, we encourage you to take a few minutes to understand the philo
             ${renderEvidencePanel(bundle)}
           </div>
         </div>
-      </section>`).join("")}</div>
+      </section>`).join("")}${careerMoveHtml}</div>
       <div class="mt-6 flex justify-end gap-3">${locked ? '<strong class="text-emerald-700">Final profile submitted and locked</strong>' : `${button("Save Draft", "data-draft", true)}${button("Submit Final Profile", "data-final")}`}</div>`);
     qs("[data-back]").onclick = () => go("rd/dashboard");
     if (locked) return;
+    qsa("[data-career-move]").forEach((control) => {
+      control.onclick = () => {
+        careerRecommendation = control.dataset.careerMove;
+        qsa("[data-career-move]").forEach((item) => {
+          const active = item.dataset.careerMove === careerRecommendation;
+          item.className = `text-left p-3 border rounded-lg transition-colors ${
+            active ? "bg-[#df162b] text-white border-[#df162b]" : "border-[#e7bdb9] bg-white hover:border-[#df162b]/50"
+          }`;
+        });
+      };
+    });
     qsa("[data-rating]").forEach((control) => {
       control.onclick = () => {
         ratings[control.dataset.rating] = control.dataset.level;
@@ -1750,11 +2080,53 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         toast("Rate all seven competencies before submission.", "error");
         return;
       }
+      if (submit && !careerRecommendation) {
+        toast("Select a career move recommendation before submission.", "error");
+        return;
+      }
       if (submit && !confirm("Submit and lock final RD profile?")) return;
       qsa("[data-rd-note]").forEach((node) => { notes[node.dataset.rdNote] = node.value; });
-      await api("/api/assessment", { method: "POST", body: JSON.stringify({ employee_code: code, ratings, notes, submit }) });
-      toast(submit ? "Final profile submitted." : "Draft saved.");
-      if (submit) go("rd/dashboard");
+      await api("/api/assessment", {
+        method: "POST",
+        body: JSON.stringify({
+          employee_code: code,
+          ratings,
+          notes,
+          submit,
+          career_recommendation: careerRecommendation,
+        }),
+      });
+      if (!submit) {
+        toast("Draft saved.");
+        return;
+      }
+      toast("Final profile submitted.");
+      const refreshed = await employeeSummaries();
+      const next = nextIncompleteEmployee(refreshed, code, "rd");
+      if (!next) {
+        toast("All eligible validations complete.");
+        go("rd/dashboard");
+        return;
+      }
+      const nextModal = document.createElement("div");
+      nextModal.className = "fixed inset-0 z-[80] bg-black/40 flex items-center justify-center p-4";
+      nextModal.innerHTML = `<div class="bg-white rounded-xl shadow-2xl border border-[#e7bdb9] w-full max-w-md p-6">
+        <h2 class="text-lg font-extrabold text-[#291716]">Profile submitted</h2>
+        <p class="text-sm text-[#5d3f3d] mt-2">Continue with <strong>${esc(next.name)}</strong> (${esc(next.employee_code)})?</p>
+        <div class="mt-5 flex flex-wrap justify-end gap-2">
+          <button type="button" data-back-dash class="px-4 py-2 border border-[#e7bdb9] rounded-lg font-bold text-sm text-[#5d3f3d]">Back to dashboard</button>
+          <button type="button" data-next-emp class="px-4 py-2 bg-[#df162b] text-white rounded-lg font-bold text-sm">Next employee</button>
+        </div>
+      </div>`;
+      document.body.appendChild(nextModal);
+      qs("[data-back-dash]", nextModal).onclick = () => {
+        nextModal.remove();
+        go("rd/dashboard");
+      };
+      qs("[data-next-emp]", nextModal).onclick = () => {
+        nextModal.remove();
+        go("rd/validation", `?employee=${encodeURIComponent(next.employee_code)}`);
+      };
     };
     qs("[data-draft]").onclick = () => save(false).catch((error) => toast(error.message, "error"));
     qs("[data-final]").onclick = () => save(true).catch((error) => toast(error.message, "error"));
@@ -1762,23 +2134,48 @@ Before you begin, we encourage you to take a few minutes to understand the philo
 
   async function initRoleplays() {
     const result = await api("/api/employee/roleplays");
-    const total = result.roleplays.length || 7;
-    const completed = result.roleplays.filter((row) => row.status === "completed").length;
+    const sessions = result.sessions || [];
+    const total = result.total || 2;
+    const completed = result.completed || 0;
     const pct = total ? Math.round((completed / total) * 100) : 0;
-    const icons = {
-      Communication: "chat_bubble",
-      "Stakeholder Management": "handshake",
-      "Ownership & Accountability": "task_alt",
-      "Team Management": "groups",
-      "Executive Presence": "person_pin",
-      "Consultative Selling": "local_offer",
-      "Data Analytics": "bar_chart",
+    const meName = session.user?.display_name || session.user?.name || "You";
+    const meRole = session.user?.designation || session.user?.role_name || "Business Development Manager";
+    const meAvatar = loadAvatar(session.user);
+    const briefings = {
+      functional: {
+        title: "Winning a Strategic Partner Conversation",
+        about: "You are meeting a key hotel / travel partner who is reviewing performance, asking for data-backed recommendations, and deciding whether to deepen the partnership. Practice consultative discovery, using insights, and aligning stakeholders on next steps.",
+        success: [
+          "Uncover the partner’s real priorities before pitching.",
+          "Use clear data or trends to support your recommendation.",
+          "Handle objections without becoming defensive.",
+          "Align on ownership, timelines, and a concrete next step.",
+          "Keep the tone commercial, credible, and relationship-focused.",
+        ],
+        aiName: "Priya Nair",
+        aiRole: "Regional Partnerships Lead",
+        aiPersona: "Direct, commercially sharp, and data-driven. She challenges vague claims, asks for proof, and expects clear ownership of actions. She stays professional and rewards structured, consultative thinking.",
+      },
+      behavioural: {
+        title: "Leading a Cross-Functional Strategic Project",
+        about: "You are the Business Development Manager leading a high-visibility kick-off for a key enterprise customer. Scope, ownership, and dependencies are unclear. Product and Engineering are stretched, and the customer expects regular updates. Lead the meeting without formal authority.",
+        success: [
+          "Clarify the objective, scope, timeline, and success metrics.",
+          "Define your role, decision rights, and escalation path.",
+          "Surface risks, dependencies, and points of friction early.",
+          "Set a realistic communication cadence and change process.",
+          "Summarise next steps and leave with clear alignment.",
+        ],
+        aiName: "Sarah Patel",
+        aiRole: "Senior Product Manager",
+        aiPersona: "Collaborative and customer-focused, but cautious. She pushes back on unrealistic timelines, unclear ownership, and scope creep. She wants the project to succeed only if expectations are realistic for her already-loaded teams.",
+      },
     };
     const banner = `<div class="bg-white border border-[#e7bdb9] rounded-xl p-6 mb-7 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
       <div class="absolute top-0 left-0 w-1.5 h-full bg-[#1464F4]"></div>
       <div class="flex flex-col md:flex-row md:items-center gap-6">
         <div><p class="uppercase tracking-widest text-xs font-bold text-[#5d3f3d] mb-1">Completed</p>
-          <div class="flex items-baseline gap-2"><span class="text-4xl font-extrabold text-[#df162b] leading-none">${completed}/${total}</span><span class="text-lg font-bold text-[#5d3f3d]">Roles</span></div>
+          <div class="flex items-baseline gap-2"><span class="text-4xl font-extrabold text-[#df162b] leading-none">${completed}/${total}</span><span class="text-lg font-bold text-[#5d3f3d]">Sessions</span></div>
         </div>
         <div class="hidden md:block h-14 w-px bg-[#e7bdb9]"></div>
         <div>
@@ -1786,8 +2183,8 @@ Before you begin, we encourage you to take a few minutes to understand the philo
             ? '<span class="material-symbols-outlined" style="font-variation-settings:\'FILL\' 1">verified</span> Career lattice unlocked'
             : '<span class="material-symbols-outlined">lock</span> Career lattice locked'}</div>
           <p class="text-sm text-[#5d3f3d] mt-1">${result.lattice_unlocked
-            ? "You have successfully completed all required competency assessments."
-            : "Complete all competency assessments to unlock Career Lattice."}</p>
+            ? "Both voice roleplay sessions are complete."
+            : "Complete Functional and Behavioural voice roleplays to unlock Career Lattice."}</p>
         </div>
       </div>
       <div class="flex items-center gap-4">
@@ -1795,56 +2192,274 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         ${result.lattice_unlocked ? button("View Lattice", "data-career") : ""}
       </div>
     </div>`;
-    const cards = result.roleplays.map((row) => {
+    const cards = sessions.map((row) => {
       const done = row.status === "completed";
-      return `<section class="bg-white border border-[#e7bdb9] rounded-xl p-5 flex flex-col min-h-[220px]">
-        <div class="flex justify-between items-start mb-4">
-          <div class="p-2 bg-[#fff0ef] text-[#df162b] rounded-lg"><span class="material-symbols-outlined">${icons[row.competency] || "assignment"}</span></div>
-          <span class="px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${done ? "bg-green-100 text-green-700" : "bg-[#ffe1df] text-[#5d3f3d]"}">${esc(String(row.status || "pending").replaceAll("_", " "))}</span>
+      const brief = briefings[row.kind] || {};
+      const skills = (row.competencies || []).map((c) =>
+        `<span class="inline-flex px-2 py-0.5 rounded-md bg-[#fff0ef] text-[11px] font-semibold text-[#5d3f3d]">${esc(c)}</span>`
+      ).join("");
+      const successList = (brief.success || []).map((item) =>
+        `<li class="text-sm text-[#5d3f3d] leading-snug">${esc(item)}</li>`
+      ).join("");
+      const avatarHtml = meAvatar
+        ? `<img src="${meAvatar}" alt="" class="w-10 h-10 rounded-full object-cover border border-[#e7bdb9]">`
+        : `<div class="w-10 h-10 rounded-full bg-[#ffe1df] text-[#df162b] grid place-items-center text-sm font-bold">${esc((meName || "Y").split(/\s+/).map((p) => p[0]).slice(0, 2).join("").toUpperCase() || "ME")}</div>`;
+      return `<section class="bg-white border border-[#e7bdb9] rounded-xl p-5 flex flex-col shadow-sm" data-voice-card="${esc(row.kind)}">
+        <div class="flex justify-between items-start gap-3 mb-3">
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-[#5d3f3d] mb-1">
+              <span class="material-symbols-outlined text-base text-[#df162b]">apartment</span>
+              MakeMyTrip · ${esc(row.label || row.kind)}
+            </div>
+            <h2 class="font-bold text-xl text-[#291716] leading-tight">${esc(brief.title || row.label || row.kind)}</h2>
+          </div>
+          <span class="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${done ? "bg-green-100 text-green-700" : "bg-[#ffe1df] text-[#5d3f3d]"}">${esc(String(row.status || "not_started").replaceAll("_", " "))}</span>
         </div>
-        <h2 class="font-bold text-lg text-[#291716] mb-4">${esc(row.competency)}</h2>
+        <div class="flex flex-wrap gap-1.5 mb-4">${skills}</div>
+        <div class="space-y-4 mb-4">
+          <div>
+            <h3 class="text-sm font-bold text-[#291716] mb-1">What this conversation is about</h3>
+            <p class="text-sm text-[#5d3f3d] leading-relaxed">${esc(brief.about || "")}</p>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-[#291716] mb-1">What makes it successful</h3>
+            <ul class="list-disc pl-5 space-y-1">${successList}</ul>
+          </div>
+          <div>
+            <h3 class="text-sm font-bold text-[#291716] mb-2">Who the conversation is between</h3>
+            <div class="rounded-xl border border-[#e7bdb9] divide-y divide-[#e7bdb9] overflow-hidden">
+              <div class="flex items-start gap-3 p-3 bg-[#fffaf9]">
+                ${avatarHtml}
+                <div class="min-w-0">
+                  <div class="flex items-center gap-2 flex-wrap">
+                    <p class="font-bold text-[#291716] text-sm">${esc(meName)}</p>
+                    <span class="text-[10px] font-bold uppercase tracking-wide px-1.5 py-0.5 rounded bg-slate-200 text-slate-600">Me</span>
+                  </div>
+                  <p class="text-xs text-[#5d3f3d] mt-0.5">${esc(meRole)}</p>
+                </div>
+              </div>
+              <div class="flex items-start gap-3 p-3">
+                <div class="w-10 h-10 rounded-full bg-[#e8f1ff] text-[#1464F4] grid place-items-center shrink-0">
+                  <span class="material-symbols-outlined text-[22px]">auto_awesome</span>
+                </div>
+                <div class="min-w-0">
+                  <p class="font-bold text-[#291716] text-sm">${esc(brief.aiName || "AI counterpart")}</p>
+                  <p class="text-xs text-[#5d3f3d] mt-0.5">${esc(brief.aiRole || "")}</p>
+                  <p class="text-xs text-[#5d3f3d] mt-2 leading-relaxed">${esc(brief.aiPersona || "")}</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
         ${row.error ? `<p class="text-sm text-[#df162b] mb-3">${esc(row.error)}</p>` : ""}
-        <div class="mt-auto flex flex-col gap-2">${row.roleplay_url ? `<a class="w-full text-center px-3 py-2.5 border-2 border-[#1464F4] text-[#1464F4] rounded-lg font-bold text-sm hover:bg-[#1464F4]/5" href="${esc(row.roleplay_url)}" target="_blank" rel="noopener">Open Assessment</a>` : ""}
-        <label class="w-full text-center px-3 py-2.5 bg-[#1464F4] text-white rounded-lg font-bold text-sm cursor-pointer hover:opacity-90">Upload Screenshot<input data-upload="${esc(row.competency)}" class="hidden" type="file" accept="image/png,image/jpeg,image/webp"></label></div>
+        <p class="text-xs text-[#5d3f3d] mb-3" data-voice-status="${esc(row.kind)}">Ready when you are.</p>
+        <div class="mt-auto flex flex-col gap-2">
+          ${done ? '<p class="text-sm font-bold text-emerald-700">Session complete</p>' : `
+          <button type="button" data-voice-start="${esc(row.kind)}" class="w-full px-3 py-2.5 bg-[#1464F4] text-white rounded-lg font-bold text-sm hover:opacity-90">Start mic session</button>
+          <button type="button" data-voice-end="${esc(row.kind)}" disabled class="w-full px-3 py-2.5 border border-[#e7bdb9] text-[#5d3f3d] rounded-lg font-bold text-sm disabled:opacity-40">End &amp; score</button>`}
+        </div>
       </section>`;
     }).join("");
-    const proTip = `<aside class="md:col-span-1 bg-[#df162b] text-white rounded-xl p-6 flex items-center min-h-[220px]">
-      <div class="w-full">
-        <span class="bg-white/20 px-2.5 py-1 rounded text-[10px] font-bold uppercase tracking-widest mb-3 inline-block">Pro Tip</span>
-        <p class="text-sm leading-relaxed border border-white/40 rounded-lg p-3 bg-black/10">Approach the role-play as you would in a real work scenario. Your responses will shape your personalized development journey. The more authentically you engage with each scenario, the more relevant and impactful your learning recommendations will be.</p>
-      </div>
-    </aside>`;
-    render(`${pageHeader("Competency Assessments", "Only successfully assessed screenshots count as completed.")}
+    render(`${pageHeader("Competency Assessments", "Two in-app voice roleplays unlock the career lattice.")}
       ${banner}
-      <div class="grid md:grid-cols-2 xl:grid-cols-3 gap-4">${cards}${proTip}</div>`);
-    qsa("[data-upload]").forEach((input) => {
-      input.onchange = () => uploadRoleplay(input.dataset.upload, input.files[0]);
-    });
+      <div class="grid lg:grid-cols-2 gap-5">${cards}</div>`);
     if (qs("[data-career]")) qs("[data-career]").onclick = () => go("employee/career");
-  }
-
-  function fileBase64(file) {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(String(reader.result).split(",")[1]);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
+    qsa("[data-voice-start]").forEach((btn) => {
+      btn.onclick = () => startVoiceRoleplay(btn.dataset.voiceStart).catch((err) => toast(err.message, "error"));
+    });
+    qsa("[data-voice-end]").forEach((btn) => {
+      btn.onclick = () => endVoiceRoleplay(btn.dataset.voiceEnd);
     });
   }
 
-  async function uploadRoleplay(competency, file) {
-    if (!file) return;
-    try {
-      toast(`Uploading ${competency} screenshot…`);
-      const result = await api("/api/employee/roleplays", {
-        method: "POST",
-        body: JSON.stringify({ competency, filename: file.name, content_base64: await fileBase64(file) }),
-      });
-      toast(result.status === "completed" ? "Screenshot assessed." : (result.error || "Screenshot requires re-upload"), result.status === "completed" ? "info" : "error");
-      await initRoleplays();
-    } catch (error) {
-      toast(error.message, "error");
+  const voiceRuntime = {
+    kind: null,
+    ws: null,
+    capture: null,
+    playCtx: null,
+    nextPlay: 0,
+    sources: [],
+    acceptAudio: false,
+  };
+
+  function floatTo16BitPCM(float32) {
+    const out = new Int16Array(float32.length);
+    for (let i = 0; i < float32.length; i += 1) {
+      const s = Math.max(-1, Math.min(1, float32[i]));
+      out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
     }
+    return out;
+  }
+
+  function downsampleTo16k(float32, inputRate) {
+    if (inputRate === 16000) return float32;
+    const ratio = inputRate / 16000;
+    const newLen = Math.max(1, Math.floor(float32.length / ratio));
+    const result = new Float32Array(newLen);
+    for (let i = 0; i < newLen; i += 1) {
+      const idx = Math.floor(i * ratio);
+      result[i] = float32[idx] || 0;
+    }
+    return result;
+  }
+
+  function pcm16ToBase64(pcm) {
+    const bytes = new Uint8Array(pcm.buffer, pcm.byteOffset, pcm.byteLength);
+    let binary = "";
+    const chunk = 0x8000;
+    for (let i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
+    }
+    return btoa(binary);
+  }
+
+  function stopBotPlayback() {
+    voiceRuntime.acceptAudio = false;
+    (voiceRuntime.sources || []).forEach((src) => {
+      try { src.stop(0); } catch {}
+      try { src.disconnect(); } catch {}
+    });
+    voiceRuntime.sources = [];
+    voiceRuntime.nextPlay = 0;
+    if (voiceRuntime.playCtx) {
+      try { voiceRuntime.playCtx.close(); } catch {}
+      voiceRuntime.playCtx = null;
+    }
+  }
+
+  function stopMicCapture() {
+    const capture = voiceRuntime.capture;
+    if (!capture) return;
+    try { capture.processor.disconnect(); } catch {}
+    try { capture.source.disconnect(); } catch {}
+    try { capture.stream.getTracks().forEach((t) => t.stop()); } catch {}
+    try { capture.audioCtx.close(); } catch {}
+    voiceRuntime.capture = null;
+  }
+
+  function playPcm16Base64(b64) {
+    if (!voiceRuntime.acceptAudio) return;
+    if (!voiceRuntime.playCtx) {
+      voiceRuntime.playCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+      voiceRuntime.nextPlay = 0;
+      voiceRuntime.sources = [];
+    }
+    const ctx = voiceRuntime.playCtx;
+    const binary = atob(b64);
+    const bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i);
+    const pcm = new Int16Array(bytes.buffer);
+    const float32 = new Float32Array(pcm.length);
+    for (let i = 0; i < pcm.length; i += 1) float32[i] = pcm[i] / 32768;
+    const buffer = ctx.createBuffer(1, float32.length, 16000);
+    buffer.copyToChannel(float32, 0);
+    const src = ctx.createBufferSource();
+    src.buffer = buffer;
+    src.connect(ctx.destination);
+    const startAt = Math.max(ctx.currentTime, voiceRuntime.nextPlay);
+    src.start(startAt);
+    voiceRuntime.nextPlay = startAt + buffer.duration;
+    voiceRuntime.sources.push(src);
+    src.onended = () => {
+      voiceRuntime.sources = (voiceRuntime.sources || []).filter((item) => item !== src);
+    };
+  }
+
+  function setVoiceStatus(kind, text) {
+    const node = qs(`[data-voice-status="${CSS.escape(kind)}"]`);
+    if (node) node.textContent = text;
+  }
+
+  async function startVoiceRoleplay(kind) {
+    if (voiceRuntime.ws) {
+      toast("End the current session first.", "error");
+      return;
+    }
+    setVoiceStatus(kind, "Starting session…");
+    const started = await api("/api/employee/voice-roleplay/start", {
+      method: "POST",
+      body: JSON.stringify({ kind }),
+    });
+    const proto = location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${proto}//${location.host}${started.ws_path}&token=${encodeURIComponent(session.token)}`;
+    const ws = new WebSocket(wsUrl);
+    voiceRuntime.kind = kind;
+    voiceRuntime.ws = ws;
+    voiceRuntime.acceptAudio = true;
+    const startBtn = qs(`[data-voice-start="${CSS.escape(kind)}"]`);
+    const endBtn = qs(`[data-voice-end="${CSS.escape(kind)}"]`);
+    if (startBtn) startBtn.disabled = true;
+    if (endBtn) endBtn.disabled = false;
+
+    ws.onmessage = (event) => {
+      let msg;
+      try { msg = JSON.parse(event.data); } catch { return; }
+      if (msg.type === "ready") setVoiceStatus(kind, "Connected — speak when ready.");
+      else if (msg.type === "audio" && msg.data) playPcm16Base64(msg.data);
+      else if (msg.type === "status") setVoiceStatus(kind, msg.message || "");
+      else if (msg.type === "complete") {
+        toast("Roleplay session complete.");
+        cleanupVoiceRuntime();
+        initRoleplays().catch((err) => toast(err.message, "error"));
+      } else if (msg.type === "error") {
+        toast(msg.message || "Voice session error", "error");
+        setVoiceStatus(kind, msg.message || "Error");
+        cleanupVoiceRuntime();
+        initRoleplays().catch(() => {});
+      }
+    };
+    ws.onerror = () => {
+      toast("Voice WebSocket failed.", "error");
+      cleanupVoiceRuntime();
+    };
+    ws.onclose = () => {
+      if (voiceRuntime.ws === ws) cleanupVoiceRuntime();
+    };
+
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioCtx.createMediaStreamSource(stream);
+    const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+    processor.onaudioprocess = (e) => {
+      if (!voiceRuntime.ws || voiceRuntime.ws.readyState !== WebSocket.OPEN) return;
+      if (!voiceRuntime.acceptAudio) return;
+      const input = e.inputBuffer.getChannelData(0);
+      const down = downsampleTo16k(input, audioCtx.sampleRate);
+      const pcm = floatTo16BitPCM(down);
+      voiceRuntime.ws.send(JSON.stringify({ type: "audio", data: pcm16ToBase64(pcm) }));
+    };
+    source.connect(processor);
+    const mute = audioCtx.createGain();
+    mute.gain.value = 0;
+    processor.connect(mute);
+    mute.connect(audioCtx.destination);
+    voiceRuntime.capture = { stream, audioCtx, source, processor };
+    setVoiceStatus(kind, "Mic live — waiting for assessor…");
+  }
+
+  function endVoiceRoleplay(kind) {
+    if (!voiceRuntime.ws || voiceRuntime.kind !== kind) return;
+    setVoiceStatus(kind, "Ending and scoring…");
+    stopMicCapture();
+    stopBotPlayback();
+    try {
+      voiceRuntime.ws.send(JSON.stringify({ type: "end" }));
+    } catch {
+      cleanupVoiceRuntime();
+    }
+    const endBtn = qs(`[data-voice-end="${CSS.escape(kind)}"]`);
+    if (endBtn) endBtn.disabled = true;
+  }
+
+  function cleanupVoiceRuntime() {
+    stopMicCapture();
+    stopBotPlayback();
+    if (voiceRuntime.ws && voiceRuntime.ws.readyState <= 1) {
+      try { voiceRuntime.ws.close(); } catch {}
+    }
+    voiceRuntime.ws = null;
+    voiceRuntime.kind = null;
+    voiceRuntime.acceptAudio = false;
   }
 
   async function initCareer() {
@@ -1853,7 +2468,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       render(`${pageHeader("Career Lattice", "Available paths derive from your current role, grade, and completed assessments.")}
         <div class="bg-white border border-[#e7bdb9] rounded-xl p-8 text-center">
           <h2 class="text-xl font-bold text-[#291716]">Career lattice locked</h2>
-          <p class="text-[#5d3f3d] mt-2">Complete all seven assessments first.</p>
+          <p class="text-[#5d3f3d] mt-2">Complete both voice roleplay sessions first.</p>
           <div class="mt-5">${button("Open Assessments", "data-roleplays")}</div>
         </div>`);
       qs("[data-roleplays]").onclick = () => go("employee/roleplays");
@@ -1861,7 +2476,6 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     }
 
     const journey = state.journey || [];
-    const insights = state.insights || {};
     const skillSummary = state.skill_summary || {};
     const idealMet = Boolean(skillSummary.ideal_met);
     const choiceId = state.choice?.aspiration_role || "";
@@ -1947,13 +2561,33 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       return byId[id];
     };
 
+    // Green only on the route from current seat → locked aspiration.
+    const currentSeat = isKamCurrent ? "kam" : "bd";
+    const greenEdges = (() => {
+      if (!choiceId) return new Set();
+      const routes = {
+        kam: currentSeat === "bd" ? [["bd", "kam"]] : [],
+        zm: currentSeat === "bd" ? [["bd", "zm"]] : currentSeat === "kam" ? [["kam", "zm"]] : [],
+        rd: currentSeat === "bd"
+          ? [["bd", "zm"], ["zm", "rd"]]
+          : currentSeat === "kam"
+            ? [["kam", "zm"], ["zm", "rd"]]
+            : [["zm", "rd"]],
+        bdfe: currentSeat === "bd" ? [["bd", "bdfe"]] : [],
+        category: currentSeat === "bd" ? [["bd", "category"]] : [],
+      };
+      return new Set((routes[choiceId] || []).map(([from, to]) => `${from}|${to}`));
+    })();
+
     const pathStroke = (fromId, toId) => {
-      const from = resolveNode(fromId);
       const to = resolveNode(toId);
       if (!to) return { base: "#cfcfcf", glow: "transparent", lit: false };
+      if (greenEdges.has(`${fromId}|${toId}`)) {
+        return { base: "#16a34a", glow: "#16a34a", lit: true };
+      }
+      const from = resolveNode(fromId);
       const st = nodeStatus(to);
-      if (st === "selected") return { base: "#16a34a", glow: "#16a34a", lit: true };
-      if (st === "eligible" || (from && nodeStatus(from) === "current" && to.enabled)) {
+      if (st === "selected" || st === "eligible" || (from && nodeStatus(from) === "current" && to.enabled)) {
         return { base: "#1464F4", glow: "#1464F4", lit: true };
       }
       return { base: "#c5c5c5", glow: "transparent", lit: false };
@@ -1967,7 +2601,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         ${lit ? `<path d="${d}" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-dasharray="6 10" opacity="0.7"/>` : ""}`;
     };
 
-    // viewBox 1200×640 — KAM nests in BD fork (above blue spine, at end of green).
+    // viewBox 1200×640 — KAM nests in BD fork (above blue spine).
     // Grey paths approach BDFE/Category from the left so tips point into the cards.
     const bdKam = pathStroke("bd", "kam");
     const bdZm = pathStroke("bd", "zm");
@@ -2017,7 +2651,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       } else if (st === "selected") {
         shell += " border-[#16a34a] ring-2 ring-[#16a34a]/25";
         glow = "box-shadow:0 0 0 4px rgba(22,163,74,.12), 0 0 28px rgba(22,163,74,.25);";
-        statusBlock = `<p class="text-xs font-bold text-[#16a34a] mt-2 uppercase tracking-wide">Selected</p>`;
+        statusBlock = `<p class="text-xs font-bold text-[#16a34a] mt-2 uppercase tracking-wide">Career path</p>`;
       } else if (st === "eligible") {
         shell += " border-[#1464F4]";
         glow = "box-shadow:0 0 0 4px rgba(20,100,244,.10), 0 0 28px rgba(20,100,244,.22);";
@@ -2064,13 +2698,6 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       </div>`;
     };
 
-    const tips = (insights.tips || []).map((tip) => `<li class="flex items-start gap-2 break-inside-avoid">
-      <div class="w-6 h-6 rounded-full bg-[#d5e3ff] grid place-items-center shrink-0 mt-0.5">
-        <span class="material-symbols-outlined text-[#1464F4] text-[16px]">info</span>
-      </div>
-      <p class="text-sm text-[#291716]">${esc(tip)}</p>
-    </li>`).join("");
-
     const cards = [
       cardHtml(bdNode, "bd"),
       cardHtml(kamNode, "kam"),
@@ -2109,6 +2736,29 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       </div>
     </section>
     <div class="space-y-6">
+      ${skillSummary.has_profile
+        ? (idealMet
+          ? `<div class="bg-white border border-[#e7bdb9] rounded-xl p-5 shadow-sm">
+        <p class="text-base font-bold text-[#291716]">You're doing great in your current role.</p>
+        <p class="text-sm text-[#5d3f3d] mt-2">Explore the skills towards your aspiration role.</p>
+      </div>`
+          : `<div class="bg-white border border-[#e7bdb9] rounded-xl p-5 shadow-sm grid md:grid-cols-2 gap-6">
+        <div>
+          <h3 class="font-bold text-[#291716] mb-2">You're doing great in the below mentioned skills:</h3>
+          ${(skillSummary.good_at || []).length
+            ? `<ul class="space-y-1.5">${(skillSummary.good_at || []).map((skill) => `<li class="text-sm text-[#291716] flex items-start gap-2"><span class="material-symbols-outlined text-[#16a34a] text-[18px]">check_circle</span>${esc(skill)}</li>`).join("")}</ul>`
+            : `<p class="text-sm text-[#5d3f3d]">No strengths mapped yet against your role ideal.</p>`}
+        </div>
+        <div>
+          <h3 class="font-bold text-[#291716] mb-2">You need to hone your skills in the following areas:</h3>
+          ${(skillSummary.improve || []).length
+            ? `<ul class="space-y-1.5">${(skillSummary.improve || []).map((skill) => `<li class="text-sm text-[#291716] flex items-start gap-2"><span class="material-symbols-outlined text-[#df162b] text-[18px]">trending_up</span>${esc(skill)}</li>`).join("")}</ul>`
+            : `<p class="text-sm text-[#5d3f3d]">No focus areas listed.</p>`}
+        </div>
+      </div>`)
+        : `<div class="bg-white border border-[#e7bdb9] rounded-xl p-5 shadow-sm">
+        <p class="text-sm text-[#5d3f3d]">Skill strengths and focus areas appear here after your RD final profile is submitted.</p>
+      </div>`}
       <div>
         <div class="lattice-stage border border-[#e0e0e0] shadow-sm">
           <svg class="absolute inset-0 w-full h-full" viewBox="0 0 1200 640" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
@@ -2119,40 +2769,13 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         <div class="flex flex-wrap gap-5 pt-4 mt-3">
           <div class="flex items-center gap-2"><div class="w-4 h-4 rounded-full bg-[#df162b] border-2 border-white shadow-sm"></div><span class="text-xs font-semibold text-[#291716]">You are here</span></div>
           <div class="flex items-center gap-2"><div class="w-4 h-4 rounded-full bg-[#1464F4] border-2 border-white shadow-sm"></div><span class="text-xs font-semibold text-[#291716]">Career path</span></div>
-          <div class="flex items-center gap-2"><div class="w-4 h-4 rounded-full bg-[#16a34a] border-2 border-white shadow-sm"></div><span class="text-xs font-semibold text-[#291716]">Selected</span></div>
-          <div class="flex items-center gap-2"><div class="w-4 h-4 rounded-full bg-[#c9c9c9] border-2 border-white shadow-sm"></div><span class="text-xs font-semibold text-[#5d3f3d]">Greyed</span></div>
+          <div class="flex items-center gap-2"><div class="w-4 h-4 rounded-full bg-[#16a34a] border-2 border-white shadow-sm"></div><span class="text-xs font-semibold text-[#291716]">Selected aspiration</span></div>
+          <div class="flex items-center gap-2"><div class="w-4 h-4 rounded-full bg-[#c9c9c9] border-2 border-white shadow-sm"></div><span class="text-xs font-semibold text-[#5d3f3d]">Future aspiration</span></div>
           ${state.choice
-            ? `<p class="ml-auto text-xs font-bold text-[#16a34a]">Aspiration locked</p>`
+            ? `<p class="ml-auto text-xs font-bold text-[#16a34a]">Aspiration Selected</p>`
             : `<p class="ml-auto text-xs font-semibold text-[#5d3f3d]">Tap an eligible role to lock aspiration</p>`}
         </div>
       </div>
-      <div class="bg-white border border-[#e7bdb9] rounded-xl p-5 shadow-sm">
-        <div class="flex items-center gap-2 mb-4"><span class="material-symbols-outlined text-[#1464F4]">tips_and_updates</span><h3 class="font-bold text-[#291716]">Route Guide</h3></div>
-        <ul class="space-y-3 md:columns-2 md:gap-8">${tips || `<li class="text-sm text-[#5d3f3d]">No guidance yet.</li>`}</ul>
-      </div>
-      ${skillSummary.has_profile
-        ? (idealMet
-          ? `<div class="bg-white border border-[#e7bdb9] rounded-xl p-5 shadow-sm">
-        <p class="text-base font-bold text-[#291716]">You're doing great in your current role.</p>
-        <p class="text-sm text-[#5d3f3d] mt-2">Explore the skills towards your aspiration role.</p>
-      </div>`
-          : `<div class="bg-white border border-[#e7bdb9] rounded-xl p-5 shadow-sm grid md:grid-cols-2 gap-6">
-        <div>
-          <h3 class="font-bold text-[#291716] mb-2">Following are the skills you are good at:</h3>
-          ${(skillSummary.good_at || []).length
-            ? `<ul class="space-y-1.5">${(skillSummary.good_at || []).map((skill) => `<li class="text-sm text-[#291716] flex items-start gap-2"><span class="material-symbols-outlined text-[#16a34a] text-[18px]">check_circle</span>${esc(skill)}</li>`).join("")}</ul>`
-            : `<p class="text-sm text-[#5d3f3d]">No strengths mapped yet against your role ideal.</p>`}
-        </div>
-        <div>
-          <h3 class="font-bold text-[#291716] mb-2">You need to improve on the following skills:</h3>
-          ${(skillSummary.improve || []).length
-            ? `<ul class="space-y-1.5">${(skillSummary.improve || []).map((skill) => `<li class="text-sm text-[#291716] flex items-start gap-2"><span class="material-symbols-outlined text-[#df162b] text-[18px]">trending_up</span>${esc(skill)}</li>`).join("")}</ul>`
-            : `<p class="text-sm text-[#5d3f3d]">No focus areas listed.</p>`}
-        </div>
-      </div>`)
-        : `<div class="bg-white border border-[#e7bdb9] rounded-xl p-5 shadow-sm">
-        <p class="text-sm text-[#5d3f3d]">Skill strengths and focus areas appear here after your RD final profile is submitted.</p>
-      </div>`}
     </div>`);
 
     qsa("[data-path]").forEach((control) => {
@@ -2161,7 +2784,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         if (!confirm(`Lock aspiration: ${control.dataset.label}? Only Admin can reset it.`)) return;
         try {
           await api("/api/employee/career", { method: "POST", body: JSON.stringify({ aspiration_role: control.dataset.path }) });
-          toast("Aspiration locked.");
+          toast("Aspiration Selected.");
           go("employee/courses");
         } catch (error) {
           toast(error.message, "error");
@@ -2172,6 +2795,12 @@ Before you begin, we encourage you to take a few minutes to understand the philo
 
   let basket = new Map();
   let curatedOtherSources = {};
+  /** Persists across admin employee table reloads (reset actions, etc.). */
+  const adminEmployeesView = {
+    sortMode: "code-asc",
+    filterStatus: "all",
+    searchRaw: "",
+  };
 
   function parseDurationSeconds(value) {
     const text = String(value || "").trim();
@@ -2317,6 +2946,37 @@ Before you begin, we encourage you to take a few minutes to understand the philo
   }
 
   async function initCourses() {
+    const [career, roleplays] = await Promise.all([
+      api("/api/employee/career"),
+      api("/api/employee/roleplays"),
+    ]);
+    const latticeUnlocked = Boolean(roleplays.lattice_unlocked);
+    const aspirationLocked = Boolean(career.choice);
+    if (!latticeUnlocked || !aspirationLocked) {
+      const needAssessments = !latticeUnlocked;
+      render(`${pageHeader("Select Your Courses", "Complete earlier steps before shopping courses.")}
+        <div class="bg-white border border-[#e7bdb9] rounded-xl p-8 max-w-2xl">
+          <div class="flex items-start gap-4">
+            <span class="material-symbols-outlined text-[#df162b] text-4xl" style="font-variation-settings:'FILL' 1">lock</span>
+            <div>
+              <h2 class="text-xl font-bold text-[#291716]">Courses locked</h2>
+              <p class="text-sm text-[#5d3f3d] mt-2">${needAssessments
+                ? "Finish both voice roleplay assessments, unlock Career Lattice, then lock an aspiration."
+                : "Choose and lock a career aspiration on the Career Lattice first."}</p>
+              <div class="mt-5 flex flex-wrap gap-2">
+                ${needAssessments
+                  ? button("Open Assessments", "data-open-prior")
+                  : button("Open Career Lattice", "data-open-prior")}
+              </div>
+            </div>
+          </div>
+        </div>`);
+      qs("[data-open-prior]")?.addEventListener("click", () => {
+        go(needAssessments ? "employee/roleplays" : "employee/career");
+      });
+      return;
+    }
+
     const [result, learning] = await Promise.all([
       api("/api/employee/courses"),
       api("/api/employee/learning").catch(() => ({ courses: [], locked: false })),
@@ -2328,15 +2988,14 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       const otherCount = lockedCourses.length - linkedInCount;
       render(`<div class="mb-6">
           <h1 class="text-2xl md:text-3xl font-extrabold text-[#df162b]">Select Your Courses</h1>
-          <p class="text-[#5d3f3d] mt-1">Your learning journey is locked. Course selection can no longer be changed.</p>
+          <p class="text-[#5d3f3d] mt-1">Your learning journey is already selected. Course selection can no longer be changed.</p>
         </div>
         <div class="bg-white border border-[#e7bdb9] rounded-xl p-8 max-w-2xl">
           <div class="flex items-start gap-4">
             <span class="material-symbols-outlined text-[#df162b] text-4xl" style="font-variation-settings:'FILL' 1">lock</span>
             <div>
-              <h2 class="text-xl font-bold text-[#291716]">Journey locked</h2>
+              <h2 class="text-xl font-bold text-[#291716]">Journey Already Selected</h2>
               <p class="text-sm text-[#5d3f3d] mt-2">${linkedInCount} LinkedIn course${linkedInCount === 1 ? "" : "s"}${otherCount ? ` · ${otherCount} other source${otherCount === 1 ? "" : "s"}` : ""} locked in your learning journey.</p>
-              <p class="text-sm text-[#5d3f3d] mt-2">Ask Admin to reset courses if you need to shop again.</p>
               <div class="mt-5 flex flex-wrap gap-2">
                 ${button("Open Learning Journey", "data-open-learning")}
               </div>
@@ -2503,8 +3162,8 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         });
         basket = new Map();
         toast(otherSources.length
-          ? `Journey locked with ${courseIds.length} LinkedIn + ${otherSources.length} other source(s).`
-          : "Journey locked. LinkedIn courses saved.");
+          ? `Journey Already Selected with ${courseIds.length} LinkedIn + ${otherSources.length} other source(s).`
+          : "Journey Already Selected. LinkedIn courses saved.");
         go("employee/learning");
       } catch (error) {
         toast(error.message, "error");
@@ -2516,16 +3175,35 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     const result = await api("/api/employee/learning");
     const courses = result.courses || [];
     if (!courses.length) {
+      const [career, roleplays] = await Promise.all([
+        api("/api/employee/career").catch(() => ({ choice: null })),
+        api("/api/employee/roleplays").catch(() => ({ lattice_unlocked: false })),
+      ]);
+      const latticeUnlocked = Boolean(roleplays.lattice_unlocked);
+      const aspirationLocked = Boolean(career.choice);
+      const needAssessments = !latticeUnlocked;
+      const needAspiration = latticeUnlocked && !aspirationLocked;
       render(`<div class="mb-6">
           <h1 class="text-2xl md:text-3xl font-extrabold text-[#df162b]">Your Learning Journey</h1>
           <p class="text-[#5d3f3d] mt-1">Track your progress across your identified gaps and unlock your full potential.</p>
         </div>
-        <div class="bg-white border border-[#e7bdb9] rounded-xl p-8 text-center">
-          <span class="material-symbols-outlined text-5xl text-[#e7bdb9]">menu_book</span>
-          <h2 class="text-xl font-bold text-[#291716] mt-3">No courses locked yet</h2>
-          <p class="text-sm text-[#5d3f3d] mt-2">Shop recommended courses and checkout to lock your learning journey.</p>
-          <div class="mt-5">${button("Open Course Shop", "data-open-courses")}</div>
+        <div class="bg-white border border-[#e7bdb9] rounded-xl p-8 text-center max-w-2xl mx-auto">
+          <span class="material-symbols-outlined text-5xl text-[#e7bdb9]">${needAssessments || needAspiration ? "lock" : "menu_book"}</span>
+          <h2 class="text-xl font-bold text-[#291716] mt-3">${needAssessments || needAspiration ? "Learning journey locked" : "No courses locked yet"}</h2>
+          <p class="text-sm text-[#5d3f3d] mt-2">${needAssessments
+            ? "Complete both voice roleplays, unlock Career Lattice, and lock an aspiration first."
+            : needAspiration
+              ? "Lock a career aspiration on the Career Lattice before selecting courses."
+              : "Shop recommended courses and checkout to lock your learning journey."}</p>
+          <div class="mt-5">${needAssessments
+            ? button("Open Assessments", "data-open-prior")
+            : needAspiration
+              ? button("Open Career Lattice", "data-open-prior")
+              : button("Open Course Shop", "data-open-courses")}</div>
         </div>`);
+      qs("[data-open-prior]")?.addEventListener("click", () => {
+        go(needAssessments ? "employee/roleplays" : "employee/career");
+      });
       qs("[data-open-courses]")?.addEventListener("click", () => go("employee/courses"));
       return;
     }
@@ -2662,7 +3340,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         </div>
       </section>
       <section>${sections}</section>
-      <p class="text-center text-xs text-[#926e6c] mt-8">Journey locked after checkout</p>`);
+      <p class="text-center text-xs text-[#926e6c] mt-8">Journey already Selected after checkout</p>`);
 
     qsa("[data-progress-action]").forEach((control) => {
       control.onclick = async () => {
@@ -2706,7 +3384,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     const payload = await api("/api/leaderboard");
     const role = session.user?.role;
     if (role === "admin") return initAdminLeaderboard(payload);
-    if (role === "zm" || role === "rd") return initManagerLeaderboard(payload, role);
+    if (role === "zm" || role === "rd") return await initManagerLeaderboard(payload, role);
     return initEmployeeLeaderboard(payload);
   }
 
@@ -2718,10 +3396,8 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     const earnedIds = new Set(badges.map((badge) => badge.id));
     const meCode = viewer.employee_code || session.user?.employee_code || "";
     const gaps = viewer.gaps || [];
-    const intensityWidth = { High: 75, Med: 45, Low: 20 };
-    const intensityColor = { High: "bg-[#df162b]", Med: "bg-[#005cab]", Low: "bg-[#926e6c]" };
 
-    const cohortCard = `<div class="bg-white border border-[#e7bdb9] rounded-xl p-5 relative overflow-hidden flex flex-col justify-between">
+    const cohortCard = `<div class="bg-white border border-[#e7bdb9] rounded-xl p-5 relative overflow-hidden flex flex-col justify-between w-full h-full min-w-0">
       <div class="absolute top-0 right-0 w-28 h-28 bg-[#fddbd8] rounded-bl-full opacity-30 -mr-8 -mt-8 pointer-events-none"></div>
       <div>
         <p class="text-[11px] font-bold uppercase tracking-wide text-[#005cab]">Your Cohort</p>
@@ -2735,42 +3411,103 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         <p class="text-sm text-[#5d3f3d]">Progress: <strong class="text-[#291716]">${viewer.hours_pct != null ? `${Number(viewer.hours_pct).toFixed(0)}%` : "—"}</strong></p>
         <div class="text-right">
           <p class="text-[11px] font-bold uppercase text-[#5d3f3d]">Ranked by</p>
-          <p class="text-sm font-bold text-[#291716]">Hours % · courses</p>
+          <p class="text-sm font-bold text-[#291716]">Hours · Courses</p>
         </div>
       </div>
     </div>`;
 
-    const pulseCard = `<div class="bg-white border border-[#e7bdb9] rounded-xl p-5 flex flex-col justify-between">
+    const hoursPct = Math.max(0, Math.min(100, Number(viewer.hours_pct) || 0));
+    const pulseSvg = (() => {
+      const W = 120;
+      const H = 36;
+      const samples = 56;
+      const pointAt = (t) => {
+        const x = t * W;
+        // Upward journey: start low-left, finish high-right, with soft waves.
+        const climb = 30 - t * 22;
+        const wave = Math.sin(t * Math.PI * 3.4) * (2.8 + t * 1.4);
+        const settle = Math.sin(t * Math.PI * 1.1) * 1.2;
+        return [x, Math.max(3, Math.min(H - 3, climb + wave + settle))];
+      };
+      const all = [];
+      for (let i = 0; i <= samples; i += 1) all.push(pointAt(i / samples));
+      const toPath = (pts) => {
+        if (!pts.length) return "";
+        if (pts.length === 1) return `M ${pts[0][0].toFixed(2)} ${pts[0][1].toFixed(2)}`;
+        let d = `M ${pts[0][0].toFixed(2)} ${pts[0][1].toFixed(2)}`;
+        for (let i = 1; i < pts.length; i += 1) {
+          const [x0, y0] = pts[i - 1];
+          const [x1, y1] = pts[i];
+          const mx = (x0 + x1) / 2;
+          const my = (y0 + y1) / 2;
+          d += ` Q ${x0.toFixed(2)} ${y0.toFixed(2)} ${mx.toFixed(2)} ${my.toFixed(2)}`;
+          if (i === pts.length - 1) d += ` L ${x1.toFixed(2)} ${y1.toFixed(2)}`;
+        }
+        return d;
+      };
+      const progN = hoursPct <= 0 ? 0 : Math.max(1, Math.round((hoursPct / 100) * samples));
+      const prog = all.slice(0, progN + 1);
+      const tip = prog[prog.length - 1] || all[0];
+      const ghostD = toPath(all);
+      const progD = toPath(prog);
+      const areaD = prog.length > 1
+        ? `${progD} L ${tip[0].toFixed(2)} ${H} L ${prog[0][0].toFixed(2)} ${H} Z`
+        : "";
+      const tipLeft = (tip[0] / W) * 100;
+      const tipTop = (tip[1] / H) * 100;
+      const finish = all[all.length - 1];
+      const flagLeft = (finish[0] / W) * 100;
+      const flagTop = (finish[1] / H) * 100;
+      const uid = `pulse-${String(meCode || "me").replace(/[^a-zA-Z0-9_-]/g, "")}`;
+      return `<div class="relative w-full h-16 mt-3">
+        <svg class="absolute inset-0 w-full h-full overflow-visible" viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" aria-hidden="true">
+          <defs>
+            <linearGradient id="${uid}-fill" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="#005cab" stop-opacity="0.28"/>
+              <stop offset="100%" stop-color="#005cab" stop-opacity="0.02"/>
+            </linearGradient>
+            <linearGradient id="${uid}-stroke" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stop-color="#5ba3e0"/>
+              <stop offset="100%" stop-color="#005cab"/>
+            </linearGradient>
+          </defs>
+          <path d="${ghostD}" fill="none" stroke="#d5e3ff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+          ${areaD ? `<path d="${areaD}" fill="url(#${uid}-fill)" stroke="none"/>` : ""}
+          ${prog.length > 1 ? `<path d="${progD}" fill="none" stroke="url(#${uid}-stroke)" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>` : ""}
+        </svg>
+        <span class="absolute w-3 h-3 rounded-full bg-[#005cab] ring-2 ring-white shadow-sm pointer-events-none"
+          style="left:${tipLeft.toFixed(2)}%; top:${tipTop.toFixed(2)}%; transform:translate(-50%,-50%)"></span>
+        <span class="absolute pointer-events-none text-[#df162b] leading-none"
+          style="left:${flagLeft.toFixed(2)}%; top:${flagTop.toFixed(2)}%; transform:translate(-20%,-95%)"
+          title="Journey goal">
+          <span class="material-symbols-outlined text-[26px]" style="font-variation-settings:'FILL' 1">flag</span>
+        </span>
+      </div>`;
+    })();
+
+    const pulseCard = `<div class="bg-white border border-[#e7bdb9] rounded-xl p-5 flex flex-col justify-between w-full h-full min-w-0">
       <div>
         <p class="text-[11px] font-bold uppercase tracking-wide text-[#5d3f3d] flex items-center gap-1">
           <span class="material-symbols-outlined text-[16px]">show_chart</span> Growth Pulse
         </p>
-        <h3 class="text-2xl font-extrabold text-[#291716] mt-2">${viewer.hours_pct != null ? `${Number(viewer.hours_pct).toFixed(0)}%` : "0%"}</h3>
+        <h3 class="text-2xl font-extrabold text-[#291716] mt-2">${hoursPct.toFixed(0)}%</h3>
         <p class="text-sm text-[#5d3f3d]">${Number(viewer.completed_hours || 0).toFixed(1)}h / ${Number(viewer.total_hours || 0).toFixed(1)}h journey</p>
       </div>
-      <svg class="w-full h-14 mt-4 overflow-visible" viewBox="0 0 100 30" aria-hidden="true">
-        <path d="M0,25 Q10,20 20,22 T40,15 T60,18 T80,5 T100,2" fill="none" stroke="#005cab" stroke-width="2"></path>
-        <circle cx="100" cy="2" fill="#005cab" r="3"></circle>
-      </svg>
+      ${pulseSvg}
     </div>`;
 
-    const weakSkills = `<div class="bg-white border border-[#e7bdb9] rounded-xl p-5 flex flex-col">
+    const focusList = gaps.length
+      ? gaps.slice(0, 3).map((gap, index) => `<li class="flex items-start gap-2.5">
+          <span class="mt-0.5 w-6 h-6 rounded-full bg-[#fff0ef] text-[#df162b] text-xs font-extrabold grid place-items-center shrink-0">${index + 1}</span>
+          <span class="text-[15px] font-bold text-[#291716] leading-snug break-words">${esc(gap.competency)}</span>
+        </li>`).join("")
+      : `<li class="text-sm text-[#5d3f3d] leading-relaxed">No focus gaps — keep stacking hours.</li>`;
+
+    const weakSkills = `<div class="bg-white border border-[#e7bdb9] rounded-xl p-5 flex flex-col w-full h-full min-w-0">
       <p class="text-[11px] font-bold uppercase tracking-wide text-[#5d3f3d] flex items-center gap-1">
         <span class="material-symbols-outlined text-[16px]">track_changes</span> Focus Areas
       </p>
-      <div class="mt-4 space-y-3 flex-1 flex flex-col justify-end">
-        ${gaps.length
-          ? gaps.slice(0, 3).map((gap) => {
-            const intensity = gap.intensity || "Low";
-            return `<div>
-              <div class="text-[11px] font-semibold mb-1 text-[#291716]">${esc(gap.competency)}</div>
-              <div class="w-full bg-[#ffe1df] rounded-full h-1.5 overflow-hidden">
-                <div class="${intensityColor[intensity] || intensityColor.Low} h-1.5 rounded-full" style="width:${intensityWidth[intensity] || 20}%"></div>
-              </div>
-            </div>`;
-          }).join("")
-          : `<p class="text-sm text-[#5d3f3d]">No focus gaps — keep stacking hours.</p>`}
-      </div>
+      <ul class="mt-6 space-y-3.5 min-w-0">${focusList}</ul>
     </div>`;
 
     const badgeShelf = `<div class="mb-8">
@@ -2792,13 +3529,31 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       </div>
     </div>`;
 
-    render(`${pageHeader("Leaderboard", "Compete on journey completion %. Ties broken by courses completed.")}
-      <div class="grid grid-cols-1 md:grid-cols-12 gap-4 mb-8">
-        <div class="md:col-span-6">${cohortCard}</div>
-        <div class="md:col-span-3">${pulseCard}</div>
-        <div class="md:col-span-3">${weakSkills}</div>
+    render(`${pageHeader("Leaderboard", "Your learning journey completion decides your ranking.")}
+      <div class="flex flex-col md:flex-row gap-4 mb-8">
+        <div class="md:flex-1 md:basis-0 min-w-0">${cohortCard}</div>
+        <div class="md:flex-1 md:basis-0 min-w-0">${pulseCard}</div>
+        <div class="md:flex-1 md:basis-0 min-w-0">${weakSkills}</div>
       </div>
       ${badgeShelf}
+      ${(() => {
+        const kudos = viewer.kudos || [];
+        if (!kudos.length) return "";
+        return `<div class="mb-8">
+          <h3 class="text-lg font-bold text-[#291716] mb-3">Recognition from Abhishek Logani</h3>
+          <div class="space-y-2">
+            ${kudos.map((entry) => `<article class="bg-white border border-[#e7bdb9] rounded-xl p-4 flex items-start gap-3">
+              <div class="w-9 h-9 rounded-full bg-[#fff0ef] text-[#df162b] flex items-center justify-center shrink-0">
+                <span class="material-symbols-outlined text-[20px]" style="font-variation-settings:'FILL' 1">celebration</span>
+              </div>
+              <div class="min-w-0">
+                <p class="text-sm font-semibold text-[#291716]">${esc(entry.message)}</p>
+                <p class="text-xs text-[#5d3f3d] mt-1">From ${esc(entry.from_name || "L-Team")} · ${esc(formatFeedbackWhen(entry.created_at))}</p>
+              </div>
+            </article>`).join("")}
+          </div>
+        </div>`;
+      })()}
       <h3 class="text-lg font-bold text-[#291716] mb-3">Peer Rankings</h3>
       <div class="overflow-x-auto bg-white border border-[#e7bdb9] rounded-xl">
         <table class="w-full min-w-[640px] text-sm text-left">
@@ -2832,11 +3587,12 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       </div>`);
   }
 
-  function initManagerLeaderboard(payload, role) {
+  async function initManagerLeaderboard(payload, role) {
     const rows = payload.leaderboard || [];
     const stats = payload.stats || {};
     const catalog = payload.badge_catalog || [];
-    const titleScope = role === "rd" ? "Regional" : "Zonal";
+    const [summaries, meta] = await Promise.all([employeeSummaries(), api("/api/meta")]);
+    const competencies = (meta.competencies || []).map((item) => item.competency).filter(Boolean);
     let searchTerm = "";
     let searchRaw = "";
 
@@ -2845,8 +3601,6 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         if (!searchTerm) return true;
         return [row.employee_code, row.name].some((value) => String(value || "").toLowerCase().includes(searchTerm));
       });
-      const skillGaps = stats.skill_gap_distribution || [];
-      const skillMax = Math.max(1, ...skillGaps.map((row) => row.count), 0);
       const hoursMax = Math.max(1, ...(stats.hours_buckets || []).map((row) => row.count), 0);
       const badgeRows = stats.badge_distribution?.length
         ? stats.badge_distribution
@@ -2865,18 +3619,34 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           `<span class="inline-block px-2 py-0.5 rounded-md bg-[#fff0ef] border border-[#e7bdb9] text-[11px] font-semibold text-[#291716]">${esc(name)}</span>`
         ).join("")}</div>`;
       };
+      const matrixHtml = renderSkillProficiencyMatrix({
+        skills: competencies,
+        employees: summaries,
+        getRatings: (row) => {
+          if (role === "rd") {
+            const rdRatings = row.rd_ratings || {};
+            if (Object.keys(rdRatings).length) return rdRatings;
+            if (row.zm_status === "submitted") return row.zm_ratings || {};
+            return {};
+          }
+          return row.zm_ratings || {};
+        },
+        emptyMessage: "No ratings yet. Matrix fills as assessments are saved.",
+        compact: true,
+        embedded: true,
+      });
 
-      render(`${pageHeader("Leaderboard", `${titleScope} performance and competency calibration metrics.`)}
+      render(`${pageHeader("Leaderboard", `Learning Journey Completion Status.`)}
         <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-6">
           <div class="lg:col-span-7 bg-white border border-[#e7bdb9] rounded-xl p-5">
             <div class="flex justify-between items-end gap-3 mb-4 flex-wrap">
               <div>
-                <h3 class="text-lg font-bold text-[#291716]">${titleScope} Learning Pulse</h3>
+                <h3 class="text-lg font-bold text-[#291716]">Learning Pulse</h3>
                 <p class="text-sm text-[#5d3f3d] mt-1">LinkedIn hours mix across your team</p>
               </div>
               <div class="text-right">
                 <p class="text-3xl font-extrabold text-[#005cab]">${Number(stats.total_hours || 0).toFixed(0)}</p>
-                <p class="text-xs text-[#5d3f3d]">Total hours · ${stats.team_size || 0} people</p>
+                <p class="text-xs text-[#5d3f3d]">Total hours · ${stats.team_size || 0} ${(stats.team_size || 0) === 1 ? "person" : "people"}</p>
               </div>
             </div>
             <div class="flex items-end gap-2 h-40">
@@ -2893,7 +3663,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           </div>
           <div class="lg:col-span-5 bg-white border border-[#e7bdb9] rounded-xl p-5 flex flex-col">
             <h3 class="text-lg font-bold text-[#291716]">Team badges</h3>
-            <p class="text-sm text-[#5d3f3d] mb-4">All badges available to earn · ${badgeEarners} earned on roster</p>
+            <p class="text-sm text-[#5d3f3d] mb-4">All badges available to earn · ${badgeEarners} earned</p>
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1 content-start">
               ${badgeRows.map((row) => {
                 const earned = Number(row.count || 0) > 0;
@@ -2912,28 +3682,13 @@ Before you begin, we encourage you to take a few minutes to understand the philo
               }).join("")}
             </div>
           </div>
-          <div class="lg:col-span-12 bg-white border border-[#e7bdb9] rounded-xl p-5">
-            <h3 class="text-lg font-bold text-[#291716] mb-1">Skill gap distribution</h3>
-            <p class="text-sm text-[#5d3f3d] mb-4">People with a gap in each competency</p>
-            <div class="flex items-end gap-2 h-44 overflow-x-auto pb-1">
-              ${skillGaps.length
-                ? skillGaps.map((row) => {
-                  const height = Math.max(10, Math.round((row.count / skillMax) * 100));
-                  return `<div class="flex-1 min-w-[72px] flex flex-col items-center gap-2 h-full justify-end">
-                    <span class="text-xs font-bold text-[#005cab]">${row.count}</span>
-                    <div class="w-full max-w-[56px] bg-[#a6c8ff] hover:bg-[#0075d7] rounded-t transition-colors" style="height:${height}%" title="${esc(row.competency)}: ${row.count}"></div>
-                    <span class="text-[10px] text-[#5d3f3d] text-center leading-tight line-clamp-2 min-h-[2.5rem]">${esc(row.competency)}</span>
-                  </div>`;
-                }).join("")
-                : `<p class="text-sm text-[#5d3f3d]">No skill gaps in scope yet.</p>`}
-            </div>
-            <p class="text-xs text-[#5d3f3d] mt-4">${stats.journey_locked_pct || 0}% journeys locked · avg ${Number(stats.avg_hours || 0).toFixed(1)}h</p>
+          <div class="lg:col-span-12 bg-white border border-[#e7bdb9] rounded-xl p-4">
+            ${matrixHtml}
           </div>
         </div>
         <div class="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
           <div>
             <h3 class="text-lg font-bold text-[#291716]">Team leaderboard</h3>
-            <p class="text-xs text-[#5d3f3d] mt-0.5">One ranking · hours completed ÷ journey hours · ties broken by courses completed</p>
           </div>
           <label class="relative block">
             <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#926e6c] text-[18px]">search</span>
@@ -2949,7 +3704,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
                   <th class="p-4">Employee</th>
                   <th class="p-4">Progress</th>
                   <th class="p-4">Courses done</th>
-                  <th class="p-4">Skills below ideal</th>
+                  <th class="p-4">Focus Areas</th>
                   <th class="p-4 text-center">Badges</th>
                 </tr>
               </thead>
@@ -3001,6 +3756,200 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     draw();
   }
 
+  async function initLteamDashboard() {
+    const KUDOS_TEXT = "Kudos, you're learning curve is going good.";
+    const [payload, summaryPayload] = await Promise.all([
+      api("/api/leaderboard"),
+      api("/api/employee-summaries"),
+    ]);
+    const stats = payload.stats || {};
+    const catalog = payload.badge_catalog || [];
+    const lbByCode = Object.fromEntries((payload.leaderboard || []).map((row) => [row.employee_code, row]));
+    const rows = (summaryPayload.employees || []).map((row) => ({
+      ...row,
+      ...(lbByCode[row.employee_code] || {}),
+    }));
+    let searchTerm = "";
+    let searchRaw = "";
+
+    const draw = () => {
+      const list = rows.filter((row) => {
+        if (!searchTerm) return true;
+        return [row.employee_code, row.name, row.zm_name, row.rd_name]
+          .some((value) => String(value || "").toLowerCase().includes(searchTerm));
+      });
+      const skillGaps = stats.skill_gap_distribution || [];
+      const skillMax = Math.max(1, ...skillGaps.map((row) => row.count), 0);
+      const hoursMax = Math.max(1, ...(stats.hours_buckets || []).map((row) => row.count), 0);
+      const badgeRows = stats.badge_distribution?.length
+        ? stats.badge_distribution
+        : catalog.map((badge) => ({
+          id: badge.id,
+          name: badge.title,
+          rule: badge.rule,
+          icon: badge.icon,
+          count: 0,
+        }));
+      const badgeEarners = badgeRows.reduce((sum, row) => sum + Number(row.count || 0), 0);
+      const gapSkillsList = (row) => {
+        const names = (row.gaps || []).map((gap) => gap.competency).filter(Boolean);
+        if (!names.length) return `<span class="text-[#926e6c]">—</span>`;
+        return `<div class="flex flex-wrap gap-1.5 max-w-[240px]">${names.map((name) =>
+          `<span class="inline-block px-2 py-0.5 rounded-md bg-[#fff0ef] border border-[#e7bdb9] text-[11px] font-semibold text-[#291716]">${esc(name)}</span>`
+        ).join("")}</div>`;
+      };
+
+      render(`${pageHeader("L-Team Dashboard", "Org-wide learning pulse and journey visibility for every employee.")}
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 mb-6">
+          <div class="lg:col-span-7 bg-white border border-[#e7bdb9] rounded-xl p-5">
+            <div class="flex justify-between items-end gap-3 mb-4 flex-wrap">
+              <div>
+                <h3 class="text-lg font-bold text-[#291716]">Learning Pulse</h3>
+                <p class="text-sm text-[#5d3f3d] mt-1">LinkedIn hours mix across all employees</p>
+              </div>
+              <div class="text-right">
+                <p class="text-3xl font-extrabold text-[#005cab]">${Number(stats.total_hours || 0).toFixed(0)}</p>
+                <p class="text-xs text-[#5d3f3d]">Total hours · ${stats.team_size || rows.length} ${(Number(stats.team_size || rows.length) === 1) ? "person" : "people"}</p>
+              </div>
+            </div>
+            <div class="flex items-end gap-2 h-40">
+              ${(stats.hours_buckets || []).map((bucket) => {
+                const height = Math.max(8, Math.round((bucket.count / hoursMax) * 100));
+                return `<div class="flex-1 flex flex-col items-center gap-2 h-full justify-end">
+                  <div class="w-full max-w-[48px] bg-[#a6c8ff] hover:bg-[#0075d7] rounded-t transition-colors relative group" style="height:${height}%">
+                    <span class="absolute -top-7 left-1/2 -translate-x-1/2 text-[10px] font-bold text-[#291716] opacity-0 group-hover:opacity-100 whitespace-nowrap">${bucket.count}</span>
+                  </div>
+                  <span class="text-[10px] text-[#926e6c]">${esc(bucket.label)}</span>
+                </div>`;
+              }).join("") || `<p class="text-sm text-[#5d3f3d]">No learning activity yet.</p>`}
+            </div>
+          </div>
+          <div class="lg:col-span-5 bg-white border border-[#e7bdb9] rounded-xl p-5 flex flex-col">
+            <h3 class="text-lg font-bold text-[#291716]">Team badges</h3>
+            <p class="text-sm text-[#5d3f3d] mb-4">All badges available · ${badgeEarners} earned</p>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 flex-1 content-start">
+              ${badgeRows.map((row) => {
+                const earned = Number(row.count || 0) > 0;
+                return `<div class="rounded-lg border p-2.5 flex items-start gap-2 ${earned ? "border-[#005cab] bg-[#eff6ff]" : "border-[#e7bdb9] bg-white"}">
+                  <div class="w-8 h-8 rounded-full shrink-0 ${earned ? "bg-[#0075d7] text-white" : "bg-[#ffe1df] text-[#5d3f3d]"} flex items-center justify-center">
+                    <span class="material-symbols-outlined text-[16px]" style="font-variation-settings:'FILL' ${earned ? 1 : 0}">${esc(row.icon || "military_tech")}</span>
+                  </div>
+                  <div class="min-w-0 flex-1">
+                    <div class="flex items-center justify-between gap-2">
+                      <strong class="text-xs text-[#291716] truncate">${esc(row.name)}</strong>
+                      <span class="text-[10px] font-bold ${earned ? "text-[#005cab]" : "text-[#926e6c]"} shrink-0">${earned ? `${row.count} earned` : "Available"}</span>
+                    </div>
+                    <p class="text-[10px] text-[#5d3f3d] mt-0.5 leading-snug">${esc(row.rule || "")}</p>
+                  </div>
+                </div>`;
+              }).join("")}
+            </div>
+          </div>
+          <div class="lg:col-span-12 bg-white border border-[#e7bdb9] rounded-xl p-5">
+            <h3 class="text-lg font-bold text-[#291716] mb-1">Skill gap distribution</h3>
+            <p class="text-sm text-[#5d3f3d] mb-4">People with a gap in each competency</p>
+            <div class="flex items-end gap-2 h-44 overflow-x-auto pb-1">
+              ${skillGaps.length
+                ? skillGaps.map((row) => {
+                  const height = Math.max(10, Math.round((row.count / skillMax) * 100));
+                  return `<div class="flex-1 min-w-[72px] flex flex-col items-center gap-2 h-full justify-end">
+                    <span class="text-xs font-bold text-[#005cab]">${row.count}</span>
+                    <div class="w-full max-w-[56px] bg-[#a6c8ff] hover:bg-[#0075d7] rounded-t transition-colors" style="height:${height}%" title="${esc(row.competency)}: ${row.count}"></div>
+                    <span class="text-[10px] text-[#5d3f3d] text-center leading-tight line-clamp-2 min-h-[2.5rem]">${esc(row.competency)}</span>
+                  </div>`;
+                }).join("")
+                : `<p class="text-sm text-[#5d3f3d]">No skill gaps yet.</p>`}
+            </div>
+          </div>
+        </div>
+        <div class="mb-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <div>
+            <h3 class="text-lg font-bold text-[#291716]">All employees</h3>
+            <p class="text-xs text-[#5d3f3d] mt-0.5">Journey status · send preset kudos</p>
+          </div>
+          <label class="relative block">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#926e6c] text-[18px]">search</span>
+            <input data-lb-search value="${esc(searchRaw)}" class="pl-10 pr-4 py-2 border border-[#e7bdb9] rounded-full text-sm w-full sm:w-64 outline-none focus:border-[#005cab]" placeholder="Search employees...">
+          </label>
+        </div>
+        <div class="bg-white border border-[#e7bdb9] rounded-xl overflow-hidden">
+          <div class="overflow-x-auto">
+            <table class="w-full min-w-[980px] text-sm text-left">
+              <thead class="bg-[#fff0ef] text-[11px] uppercase tracking-wide text-[#5d3f3d]">
+                <tr>
+                  <th class="p-4">Employee</th>
+                  <th class="p-4">Journey</th>
+                  <th class="p-4">Progress</th>
+                  <th class="p-4">Focus Areas</th>
+                  <th class="p-4 text-right">Kudos</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${list.map((row) => {
+                  const pct = Number(row.hours_pct || 0);
+                  const locked = Boolean(row.journey_locked || row.learning_locked);
+                  const aspiration = row.aspiration?.aspiration_role
+                    ? String(row.aspiration.aspiration_role).toUpperCase()
+                    : "Not selected";
+                  return `<tr class="border-t border-[#e7bdb9] hover:bg-[#fff0ef]">
+                    <td class="p-4">
+                      <strong class="text-[#291716]">${esc(row.name)}</strong>
+                      <div class="text-xs text-[#5d3f3d]">${esc(row.employee_code)} · ${esc(row.designation || "—")}</div>
+                      <div class="text-[11px] text-[#926e6c]">ZM ${esc(row.zm_name || "—")} · RD ${esc(row.rd_name || "—")}</div>
+                    </td>
+                    <td class="p-4">
+                      <div class="text-sm font-semibold text-[#291716]">${locked ? "Locked" : "Open"}</div>
+                      <div class="text-xs text-[#5d3f3d]">Aspiration: ${esc(aspiration)}</div>
+                      <div class="text-xs text-[#5d3f3d]">${Number(row.courses_completed || 0)}/${Number(row.courses_total || 0)} courses done</div>
+                    </td>
+                    <td class="p-4">
+                      <div class="font-bold text-[#291716]">${pct.toFixed(pct % 1 ? 1 : 0)}%</div>
+                      <div class="text-[10px] text-[#926e6c]">${Number(row.completed_hours || 0).toFixed(1)}h / ${Number(row.total_hours || 0).toFixed(1)}h</div>
+                    </td>
+                    <td class="p-4">${gapSkillsList(row)}</td>
+                    <td class="p-4 text-right">
+                      <button type="button" data-kudos="${esc(row.employee_code)}" class="px-3 py-2 bg-[#df162b] text-white rounded-lg font-bold text-xs hover:opacity-90">Send kudos</button>
+                    </td>
+                  </tr>`;
+                }).join("") || empty("No employees found.", 5)}
+              </tbody>
+            </table>
+          </div>
+        </div>`);
+
+      qs("[data-lb-search]").oninput = (event) => {
+        searchRaw = event.target.value;
+        searchTerm = searchRaw.trim().toLowerCase();
+        draw();
+        const input = qs("[data-lb-search]");
+        if (input) {
+          input.focus();
+          const end = input.value.length;
+          input.setSelectionRange(end, end);
+        }
+      };
+      qsa("[data-kudos]").forEach((control) => {
+        control.onclick = async () => {
+          if (!confirm(`Send to this employee?\n\n"${KUDOS_TEXT}"`)) return;
+          try {
+            control.disabled = true;
+            await api("/api/kudos", {
+              method: "POST",
+              body: JSON.stringify({ employee_code: control.dataset.kudos }),
+            });
+            toast("Kudos sent.");
+          } catch (error) {
+            toast(error.message, "error");
+          } finally {
+            control.disabled = false;
+          }
+        };
+      });
+    };
+
+    draw();
+  }
+
   function initAdminLeaderboard(payload) {
     const rows = payload.leaderboard || [];
     const catalog = payload.badge_catalog || [];
@@ -3013,7 +3962,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
 
     const filterLabel = {
       all: "All",
-      locked: "Journey locked",
+      locked: "Journey Already Selected",
       unlocked: "Journey open",
     };
     const sortLabel = {
@@ -3057,7 +4006,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       const chipOn = "border-[#df162b] text-[#df162b] bg-[#fff0ef]";
       const chipOff = "border-[#e7bdb9] text-[#5d3f3d]";
 
-      render(`${pageHeader("Leaderboard", "Flat ranking by journey hours completed % · ties broken by courses completed.")}
+      render(`${pageHeader("Leaderboard", "Flat ranking by journey hours completed %")}
         <label class="block mb-4"><span class="sr-only">Search employees</span>
           <input data-lb-search value="${esc(searchRaw)}" class="w-full md:w-96 border border-slate-200 rounded-lg px-4 py-3" placeholder="Search code or name">
         </label>
@@ -3340,12 +4289,12 @@ Before you begin, we encourage you to take a few minutes to understand the philo
   async function initAdminEmployees() {
     const rows = await employeeSummaries();
     const total = rows.length;
-    let filterStatus = "all";
-    let sortMode = "name-asc";
+    let filterStatus = adminEmployeesView.filterStatus || "all";
+    let sortMode = adminEmployeesView.sortMode || "code-asc";
     let filterOpen = false;
     let sortOpen = false;
-    let searchTerm = "";
-    let searchRaw = "";
+    let searchRaw = adminEmployeesView.searchRaw || "";
+    let searchTerm = searchRaw.trim().toLowerCase();
 
     const filterLabel = {
       all: "All",
@@ -3355,19 +4304,25 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       rd_pending: "RD pending",
       rd_draft: "RD draft",
       rd_submitted: "RD validated",
-      aspiration: "Aspiration locked",
+      aspiration: "Aspiration Selected",
     };
     const sortLabel = {
-      "name-asc": "Name A–Z",
-      "name-desc": "Name Z–A",
       "code-asc": "Employee code A–Z",
       "code-desc": "Employee code Z–A",
+      "name-asc": "Name A–Z",
+      "name-desc": "Name Z–A",
       "zm-asc": "ZM status",
       "rd-asc": "RD status",
       "assessments-desc": "Assessments high→low",
       "assessments-asc": "Assessments low→high",
     };
     const statusRank = { not_started: 0, pending: 0, draft: 1, submitted: 2 };
+
+    const persistView = () => {
+      adminEmployeesView.sortMode = sortMode;
+      adminEmployeesView.filterStatus = filterStatus;
+      adminEmployeesView.searchRaw = searchRaw;
+    };
 
     const matchesFilter = (row) => {
       if (filterStatus === "all") return true;
@@ -3415,6 +4370,21 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       });
       qsa("[data-roleplay-review]").forEach((control) => {
         control.onclick = () => openAdminRoleplays(control.dataset.roleplayReview);
+      });
+      qsa("[data-reset-assessments]").forEach((control) => {
+        control.onclick = async () => {
+          if (!confirm("Reset this employee's BDM voice assessments (Functional + Behavioural)? They can retake both sessions. Scores will be cleared.")) return;
+          try {
+            await api("/api/admin/roleplays/reset", {
+              method: "POST",
+              body: JSON.stringify({ employee_code: control.dataset.resetAssessments }),
+            });
+            toast("BDM assessments reset.");
+            await initAdminEmployees();
+          } catch (error) {
+            toast(error.message, "error");
+          }
+        };
       });
       qsa("[data-reset-courses]").forEach((control) => {
         control.onclick = async () => {
@@ -3466,7 +4436,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
                 </div>` : ""}
               </div>
               <div class="relative">
-                <button type="button" data-toggle-sort class="${chipBase} ${sortMode !== "name-asc" || sortOpen ? chipOn : chipOff}">
+                <button type="button" data-toggle-sort class="${chipBase} ${sortMode !== "code-asc" || sortOpen ? chipOn : chipOff}">
                   <span class="material-symbols-outlined text-[16px]">sort</span>
                   Sort: ${esc(sortLabel[sortMode])}
                 </button>
@@ -3481,25 +4451,34 @@ Before you begin, we encourage you to take a few minutes to understand the philo
             <table class="w-full min-w-[1000px] text-sm text-left">
               <thead class="bg-slate-50"><tr>
                 <th class="p-4">Employee</th><th class="p-4">Role</th><th class="p-4">ZM</th><th class="p-4">RD</th>
-                <th class="p-4">Assessment status</th><th class="p-4">Assessments</th><th class="p-4">Aspiration</th>
+                <th class="p-4">Assessment status</th><th class="p-4">ZM career move</th><th class="p-4">RD career move</th>
+                <th class="p-4">Assessments</th><th class="p-4">Aspiration</th>
                 <th class="p-4">Courses</th><th class="p-4">Feedback</th><th class="p-4">Actions</th>
               </tr></thead>
               <tbody>
                 ${list.map((row) => {
                   const fbCount = Number(row.feedback_count) || 0;
+                  const zmMove = {
+                    kam: "KAM", zm: "ZM", bdfe: "BDFE", category: "Category", continue: "Continue in Current Profile",
+                  }[row.zm_career_recommendation] || row.zm_career_recommendation || "—";
+                  const rdMove = {
+                    kam: "KAM", zm: "ZM", bdfe: "BDFE", category: "Category", continue: "Continue in Current Profile",
+                  }[row.rd_career_recommendation] || row.rd_career_recommendation || "—";
                   return `<tr class="border-t border-[#e7bdb9] hover:bg-[#fff0ef]">
                   <td class="p-4"><strong>${esc(row.name)}</strong><div class="text-xs text-[#5d3f3d]">${esc(row.employee_code)}</div></td>
                   <td class="p-4">${esc(row.designation)}<div class="text-xs text-[#5d3f3d]">${esc(row.grade)}</div></td>
                   <td class="p-4">${esc(row.zm_name)}</td>
                   <td class="p-4">${esc(row.rd_name)}</td>
                   <td class="p-4">${statusChip(row.zm_status)} ${statusChip(row.rd_status)}</td>
+                  <td class="p-4 text-xs font-semibold text-[#291716]">${esc(zmMove)}</td>
+                  <td class="p-4 text-xs font-semibold text-[#291716]">${esc(rdMove)}</td>
                   <td class="p-4">${row.roleplays_completed}/${row.roleplays_total}</td>
                   <td class="p-4">${esc(row.aspiration?.aspiration_role ? String(row.aspiration.aspiration_role).toUpperCase() : "Not selected")}</td>
                   <td class="p-4">${row.learning_locked ? statusChip("locked") : statusChip("open")}</td>
                   <td class="p-4">${button(fbCount ? `Log (${fbCount})` : "Log", `data-feedback="${row.employee_code}"`, true)}</td>
-                  <td class="p-4 flex flex-wrap gap-2">${button("Profile", `data-profile="${row.employee_code}"`, true)}${button("Assessments", `data-roleplay-review="${row.employee_code}"`, true)}${row.learning_locked ? button("Reset Courses", `data-reset-courses="${row.employee_code}"`, true) : ""}${row.aspiration ? button("Reset Aspiration", `data-reset="${row.employee_code}"`, true) : ""}</td>
+                  <td class="p-4 flex flex-wrap gap-2">${button("Profile", `data-profile="${row.employee_code}"`, true)}${button("Assessments", `data-roleplay-review="${row.employee_code}"`, true)}${(row.roleplays_completed || 0) > 0 ? button("Reset Assessments", `data-reset-assessments="${row.employee_code}"`, true) : ""}${row.learning_locked ? button("Reset Courses", `data-reset-courses="${row.employee_code}"`, true) : ""}${row.aspiration ? button("Reset Aspiration", `data-reset="${row.employee_code}"`, true) : ""}</td>
                 </tr>`;
-                }).join("") || empty("No matching employees.", 10)}
+                }).join("") || empty("No matching employees.", 12)}
               </tbody>
             </table>
           </div>
@@ -3525,6 +4504,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           event.stopPropagation();
           filterStatus = control.dataset.filter;
           filterOpen = false;
+          persistView();
           draw();
         };
       });
@@ -3533,6 +4513,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           event.stopPropagation();
           sortMode = control.dataset.sort;
           sortOpen = false;
+          persistView();
           draw();
         };
       });
@@ -3541,6 +4522,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         searchTerm = searchRaw.trim().toLowerCase();
         filterOpen = false;
         sortOpen = false;
+        persistView();
         draw();
         const input = qs("[data-search]");
         if (input) {
@@ -3589,6 +4571,16 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           <button type="button" data-close class="material-symbols-outlined text-[#5d3f3d] hover:text-[#df162b]">close</button>
         </div>
         <div class="mt-5">${ratingRows}</div>
+        ${isAdmin ? `<div class="mt-6 pt-4 border-t border-[#e7bdb9] grid sm:grid-cols-2 gap-4">
+          <div>
+            <p class="text-[11px] font-bold uppercase tracking-wider text-[#5d3f3d]">ZM career move</p>
+            <p class="text-sm font-bold text-[#291716] mt-1">${esc(result.zm_career_recommendation_label || result.zm_career_recommendation || "—")}</p>
+          </div>
+          <div>
+            <p class="text-[11px] font-bold uppercase tracking-wider text-[#5d3f3d]">RD career move</p>
+            <p class="text-sm font-bold text-[#291716] mt-1">${esc(result.rd_career_recommendation_label || result.rd_career_recommendation || "—")}</p>
+          </div>
+        </div>` : ""}
       </section>`;
       document.body.appendChild(modal);
       qs("[data-close]", modal).onclick = () => modal.remove();
@@ -3603,12 +4595,39 @@ Before you begin, we encourage you to take a few minutes to understand the philo
   async function openAdminRoleplays(employeeCode) {
     try {
       const result = await api(`/api/admin/roleplays?employee_code=${encodeURIComponent(employeeCode)}`);
+      const sessions = result.sessions || [];
+      const sessionBlock = sessions.length
+        ? `<div class="grid md:grid-cols-2 gap-4 mt-6">${sessions.map((row) => {
+          const scores = row.scores || {};
+          const scoreLines = Object.keys(scores).length
+            ? Object.entries(scores).map(([k, v]) => `<p class="text-sm text-slate-700"><strong>${esc(k)}:</strong> ${esc(v)}</p>`).join("")
+            : '<p class="text-sm text-slate-500">No scores yet.</p>';
+          return `<article class="border border-slate-200 rounded-xl p-5 bg-slate-50">
+            <div class="flex justify-between gap-3"><h3 class="font-bold">${esc(row.label || row.kind)}</h3>${statusChip(row.status)}</div>
+            <div class="mt-3 space-y-1">${scoreLines}</div>
+          </article>`;
+        }).join("")}</div>`
+        : "";
       const modal = document.createElement("div");
       modal.className = "fixed inset-0 z-[80] bg-slate-900/50 p-4 overflow-y-auto";
       modal.innerHTML = `<section class="bg-white rounded-xl p-6 max-w-5xl mx-auto my-6">
-        <div class="flex justify-between gap-4"><div><h2 class="text-2xl font-bold">${esc(result.employee.name)} · Assessments</h2><p class="text-sm text-slate-500">${esc(result.employee.employee_code)} · Admin-only assessment evidence</p></div><button data-close class="material-symbols-outlined">close</button></div>
+        <div class="flex justify-between gap-4 flex-wrap">
+          <div>
+            <h2 class="text-2xl font-bold">${esc(result.employee.name)} · Assessments</h2>
+            <p class="text-sm text-slate-500">${esc(result.employee.employee_code)} · Admin-only scores (hidden from employee)</p>
+          </div>
+          <div class="flex items-start gap-2">
+            ${(sessions.some((s) => s.status === "completed" || Object.keys(s.scores || {}).length) || (result.roleplays || []).some((r) => r.status === "completed"))
+              ? button("Reset Assessments", `data-reset-assessments-modal="${esc(employeeCode)}"`, true)
+              : ""}
+            <button data-close class="material-symbols-outlined">close</button>
+          </div>
+        </div>
+        <h3 class="font-bold text-lg mt-6">Voice sessions</h3>
+        ${sessionBlock || '<p class="text-sm text-slate-500 mt-2">No voice sessions yet.</p>'}
         <div data-screenshot-preview class="hidden mt-6"></div>
-        <div class="grid md:grid-cols-2 gap-4 mt-6">${result.roleplays.map((row) => `<article class="border border-slate-200 rounded-xl p-5">
+        <h3 class="font-bold text-lg mt-8">Competency scores</h3>
+        <div class="grid md:grid-cols-2 gap-4 mt-4">${result.roleplays.map((row) => `<article class="border border-slate-200 rounded-xl p-5">
           <div class="flex justify-between gap-3"><h3 class="font-bold">${esc(row.competency)}</h3>${statusChip(row.status)}</div>
           <p class="text-sm mt-3">Assessed level: <strong>${esc(row.ai_proficiency || "Pending")}</strong></p>
           <p class="text-sm text-slate-600 mt-2">${esc(row.rationale || "No assessed behavior available.")}</p>
@@ -3618,6 +4637,23 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       </section>`;
       document.body.appendChild(modal);
       qs("[data-close]", modal).onclick = () => modal.remove();
+      const resetBtn = qs("[data-reset-assessments-modal]", modal);
+      if (resetBtn) {
+        resetBtn.onclick = async () => {
+          if (!confirm("Reset this employee's BDM voice assessments? They can retake both sessions.")) return;
+          try {
+            await api("/api/admin/roleplays/reset", {
+              method: "POST",
+              body: JSON.stringify({ employee_code: employeeCode }),
+            });
+            toast("BDM assessments reset.");
+            modal.remove();
+            if (typeof initAdminEmployees === "function") await initAdminEmployees();
+          } catch (error) {
+            toast(error.message, "error");
+          }
+        };
+      }
       qsa("[data-view-screenshot]", modal).forEach((control) => {
         control.onclick = async () => {
           try {
@@ -3818,6 +4854,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       "admin/leaderboard": initLeaderboard,
       "admin/confidence": initConfidence,
       "admin/audit": initAudit,
+      "lteam/dashboard": initLteamDashboard,
     };
     try {
       await handlers[page]();

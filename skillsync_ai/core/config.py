@@ -51,3 +51,29 @@ LINKEDIN_LEARNING_CLIENT_ID = os.environ.get("LINKEDIN_LEARNING_CLIENT_ID", "").
 LINKEDIN_LEARNING_CLIENT_SECRET = os.environ.get("LINKEDIN_LEARNING_CLIENT_SECRET", "").strip()
 LINKEDIN_TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken"
 LINKEDIN_REPORT_URL = "https://api.linkedin.com/v2/learningActivityReports"
+
+# Azure Voice Live (in-house roleplay) — key from .env only, never log the value.
+AZURE_OPENAI_API_KEY = os.environ.get("AZURE_OPENAI_API_KEY", "").strip()
+AZURE_VOICE_LIVE_URL = os.environ.get(
+    "AZURE_VOICE_LIVE_URL",
+    "wss://centralindia.api.cognitive.microsoft.com/voice-live/realtime"
+    "?api-version=2025-05-01-preview&model=gpt-realtime-2025-08-28",
+).strip()
+# Hotels-VoiceBot female HD (Diya). Wait for session.updated before greeting so alloy
+# (male default) is not used. Override with OpenAI shimmer if preferred.
+AZURE_VOICE_LIVE_VOICE = os.environ.get(
+    "AZURE_VOICE_LIVE_VOICE",
+    "en-IN-Diya:DragonHDLatestNeural",
+).strip()
+AZURE_VOICE_LIVE_VOICE_TYPE = os.environ.get(
+    "AZURE_VOICE_LIVE_VOICE_TYPE",
+    "azure-standard",
+).strip() or "azure-standard"
+AZURE_VOICE_LIVE_VOICE_FALLBACK = os.environ.get(
+    "AZURE_VOICE_LIVE_VOICE_FALLBACK",
+    "en-US-AvaNeural",
+).strip()
+AZURE_VOICE_LIVE_VOICE_FALLBACK_TYPE = os.environ.get(
+    "AZURE_VOICE_LIVE_VOICE_FALLBACK_TYPE",
+    "azure-standard",
+).strip() or "azure-standard"

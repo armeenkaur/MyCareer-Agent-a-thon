@@ -43,6 +43,7 @@ STITCH_PAGES = {
     "admin/leaderboard": "rd_learning_leaderboard_1",
     "admin/confidence": "admin_confidence_scores",
     "admin/audit": "admin_agent_audit",
+    "lteam/dashboard": "rd_learning_leaderboard_1",
 }
 
 
@@ -73,6 +74,11 @@ class MyCareerServer:
         class Handler(BaseHTTPRequestHandler):
             def do_GET(self) -> None:
                 path = urlparse(self.path).path
+                if path.startswith("/ws/voice-roleplay"):
+                    from ..voice_live.ws_bridge import handle_voice_roleplay_ws
+
+                    handle_voice_roleplay_ws(self, app.backend)
+                    return
                 if path.startswith("/api/"):
                     app.api.handle_get(self)
                 elif path == "/app" or path == "/app/":

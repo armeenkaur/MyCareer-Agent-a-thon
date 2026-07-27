@@ -6,7 +6,21 @@ from typing import Any
 from openpyxl import load_workbook
 
 from .core.config import SOURCE_FILES
-from .core.utils import clean, role_level_key
+from .core.utils import clean, is_kam_title, role_level_key
+
+
+CAREER_MOVE_ALWAYS = (
+    {"id": "bdfe", "label": "BDFE"},
+    {"id": "category", "label": "Category"},
+    {"id": "continue", "label": "Continue in Current Profile"},
+)
+CAREER_MOVE_LABELS = {
+    "kam": "KAM",
+    "zm": "ZM",
+    "bdfe": "BDFE",
+    "category": "Category",
+    "continue": "Continue in Current Profile",
+}
 
 
 class WorkbookData:
@@ -23,6 +37,7 @@ class WorkbookData:
         self.interview = self._load_interview()
         self.amber = self._load_amber()
         self.courses = self._load_courses()
+        self.career_suggestions = self._load_career_suggestions()
 
     def manager_accounts(self) -> list[dict[str, str]]:
         accounts: dict[str, dict[str, str]] = {}
@@ -54,6 +69,70 @@ class WorkbookData:
         for row in self.competencies:
             ideal[row["skill"]] = row["ideals"].get(key) or row["ideals"].get("BDM (RL2-3)") or "Intermediate"
         return ideal
+
+    def career_suggestion_flags(self, employee: dict[str, Any]) -> dict[str, str]:
+        """Table 2 flags for KAM/ZM: yes | grey | hide."""
+        role = (
+            "KAM"
+            if is_kam_title(
+                employee.get("role_name", ""),
+                employee.get("role", ""),
+                employee.get("designation", ""),
+            )
+            else "BDM"
+        )
+        grade = clean(employee.get("grade") or employee.get("level") or "")
+        key = f"{role} ({grade})" if grade else role
+        return dict(self.career_suggestions.get(key) or {"kam": "hide", "zm": "hide"})
+
+    def manager_career_move_options(self, employee: dict[str, Any]) -> list[dict[str, str]]:
+        """Options for ZM/RD career-move question (Table 2 + always-on paths)."""
+        flags = self.career_suggestion_flags(employee)
+        options: list[dict[str, str]] = []
+        for move_id in ("kam", "zm"):
+            flag = flags.get(move_id) or "hide"
+            if flag in {"yes", "grey"}:
+                options.append({"id": move_id, "label": CAREER_MOVE_LABELS[move_id]})
+        options.extend(dict(row) for row in CAREER_MOVE_ALWAYS)
+        return options
+
+    def _load_career_suggestions(self) -> dict[str, dict[str, str]]:
+        """Probable Career Paths Table 2 — Suggestion on Employee Portal."""
+        wb = load_workbook(SOURCE_FILES["competency"], data_only=True, read_only=True)
+        if "Probable Career Paths" not in wb.sheetnames:
+            return {}
+        ws = wb["Probable Career Paths"]
+        suggestions: dict[str, dict[str, str]] = {}
+        in_table2 = False
+        for cells in ws.iter_rows(values_only=True):
+            first = clean(cells[0] if cells else "")
+            second = clean(cells[1] if cells and len(cells) > 1 else "")
+            if first == "Table 2" or "Suggestion on Employee Portal" in first:
+                in_table2 = True
+                continue
+            if not in_table2:
+                continue
+            if not second or second.lower() == "role & grades":
+                continue
+            if not (second.startswith("BDM") or second.startswith("KAM") or second.startswith("ZM") or second.startswith("RD")):
+                continue
+            # cols: Role & Grades, C%XZA, KAM, ZM, RD
+            suggestions[second] = {
+                "kam": self._normalize_suggestion_flag(cells[3] if len(cells) > 3 else ""),
+                "zm": self._normalize_suggestion_flag(cells[4] if len(cells) > 4 else ""),
+            }
+        return suggestions
+
+    @staticmethod
+    def _normalize_suggestion_flag(value: Any) -> str:
+        text = clean(value).lower()
+        if text == "yes":
+            return "yes"
+        if "not to be suggested" in text:
+            return "hide"
+        if "grey" in text or "locked" in text:
+            return "grey"
+        return "hide"
 
     def _load_competencies(self) -> list[dict[str, Any]]:
         wb = load_workbook(SOURCE_FILES["competency"], data_only=True, read_only=True)

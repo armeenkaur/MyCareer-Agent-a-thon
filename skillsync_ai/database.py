@@ -11,8 +11,10 @@ import sqlite3
 from typing import Any, Iterator
 
 
-ROLES = {"admin", "zm", "rd", "employee"}
-ROLE_PRIORITY = ("admin", "zm", "rd", "employee")
+ROLES = {"admin", "zm", "rd", "employee", "lteam"}
+ROLE_PRIORITY = ("admin", "lteam", "zm", "rd", "employee")
+KUDOS_PRESET = "Kudos, you're learning curve is going good."
+PHASE_FREE_ROLES = frozenset({"admin", "lteam"})
 PHASES = ("zm", "rd", "employee", "feedback")
 FEEDBACK_QUESTION = (
     "Looking at this employee's assigned learning journey over the past quarter: "
@@ -24,6 +26,14 @@ FEEDBACK_QUESTION = (
 
 def utc_now() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+
+
+IST = timezone(timedelta(hours=5, minutes=30))
+
+
+def ist_today() -> str:
+    """Current calendar date in Asia/Kolkata (IST), YYYY-MM-DD."""
+    return datetime.now(IST).date().isoformat()
 
 
 def generated_password(display_name: str) -> str:
@@ -90,7 +100,7 @@ class Database:
                 CREATE TABLE IF NOT EXISTS users (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     login_id TEXT NOT NULL,
-                    role TEXT NOT NULL CHECK(role IN ('admin','zm','rd','employee')),
+                    role TEXT NOT NULL CHECK(role IN ('admin','zm','rd','employee','lteam')),
                     display_name TEXT NOT NULL,
                     employee_code TEXT,
                     password_salt TEXT NOT NULL,
@@ -129,6 +139,18 @@ class Database:
 
                 CREATE INDEX IF NOT EXISTS idx_journey_feedback_employee
                     ON journey_feedback(employee_code, created_at DESC);
+
+                CREATE TABLE IF NOT EXISTS learning_kudos (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
+                    from_login_id TEXT NOT NULL,
+                    from_name TEXT NOT NULL DEFAULT '',
+                    message TEXT NOT NULL,
+                    created_at TEXT NOT NULL
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_learning_kudos_employee
+                    ON learning_kudos(employee_code, created_at DESC);
 
                 CREATE TABLE IF NOT EXISTS assessments (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -265,6 +287,10 @@ class Database:
                 """
             )
             self._migrate_phases_feedback(connection)
+            self._migrate_users_lteam(connection)
+            self._migrate_voice_roleplay_sessions(connection)
+            self._migrate_assessment_career_recommendation(connection)
+            self._migrate_leaderboard_snapshots(connection)
             for phase in PHASES:
                 connection.execute("INSERT OR IGNORE INTO phases(phase, status) VALUES (?, 'closed')", (phase,))
             connection.execute(
@@ -280,6 +306,42 @@ class Database:
                 )
                 """
             )
+
+    def _migrate_assessment_career_recommendation(self, connection: sqlite3.Connection) -> None:
+        columns = {row["name"] for row in connection.execute("PRAGMA table_info(assessments)").fetchall()}
+        if "career_recommendation" not in columns:
+            connection.execute(
+                "ALTER TABLE assessments ADD COLUMN career_recommendation TEXT NOT NULL DEFAULT ''"
+            )
+
+    def _migrate_leaderboard_snapshots(self, connection: sqlite3.Connection) -> None:
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS leaderboard_snapshots (
+                cache_key TEXT NOT NULL,
+                snapshot_date TEXT NOT NULL,
+                payload_json TEXT NOT NULL,
+                computed_at TEXT NOT NULL,
+                PRIMARY KEY(cache_key, snapshot_date)
+            )
+            """
+        )
+
+    def _migrate_voice_roleplay_sessions(self, connection: sqlite3.Connection) -> None:
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS voice_roleplay_sessions (
+                employee_code TEXT NOT NULL REFERENCES employees(employee_code),
+                kind TEXT NOT NULL CHECK(kind IN ('functional','behavioural')),
+                status TEXT NOT NULL CHECK(status IN ('not_started','in_progress','completed','failed'))
+                    DEFAULT 'not_started',
+                scores_json TEXT NOT NULL DEFAULT '{}',
+                error TEXT NOT NULL DEFAULT '',
+                updated_at TEXT NOT NULL,
+                PRIMARY KEY(employee_code, kind)
+            )
+            """
+        )
 
     def _migrate_phases_feedback(self, connection: sqlite3.Connection) -> None:
         """Widen phases CHECK to include feedback; create journey_feedback if missing."""
@@ -325,6 +387,61 @@ class Database:
             """
         )
 
+    def _migrate_users_lteam(self, connection: sqlite3.Connection) -> None:
+        """Widen users CHECK for lteam; ensure learning_kudos exists."""
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS learning_kudos (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                employee_code TEXT NOT NULL REFERENCES employees(employee_code),
+                from_login_id TEXT NOT NULL,
+                from_name TEXT NOT NULL DEFAULT '',
+                message TEXT NOT NULL,
+                created_at TEXT NOT NULL
+            )
+            """
+        )
+        connection.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_learning_kudos_employee
+                ON learning_kudos(employee_code, created_at DESC)
+            """
+        )
+        row = connection.execute(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='users'"
+        ).fetchone()
+        sql = (row["sql"] if row else "") or ""
+        if "'lteam'" in sql:
+            return
+        connection.executescript(
+            """
+            PRAGMA foreign_keys = OFF;
+            CREATE TABLE users_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                login_id TEXT NOT NULL,
+                role TEXT NOT NULL CHECK(role IN ('admin','zm','rd','employee','lteam')),
+                display_name TEXT NOT NULL,
+                employee_code TEXT,
+                password_salt TEXT NOT NULL,
+                password_hash TEXT NOT NULL,
+                active INTEGER NOT NULL DEFAULT 1,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                UNIQUE(login_id, role)
+            );
+            INSERT INTO users_new(
+                id, login_id, role, display_name, employee_code,
+                password_salt, password_hash, active, created_at, updated_at
+            )
+            SELECT id, login_id, role, display_name, employee_code,
+                password_salt, password_hash, active, created_at, updated_at
+            FROM users;
+            DROP TABLE users;
+            ALTER TABLE users_new RENAME TO users;
+            PRAGMA foreign_keys = ON;
+            """
+        )
+
     def clear_runtime_cache(self) -> None:
         """Clear restart-scoped sessions and curated RD evidence (forces fresh workbook pick-up)."""
         with self.transaction() as connection:
@@ -360,6 +477,24 @@ class Database:
             for rd in data.rd_accounts():
                 self._upsert_user(connection, rd["code"], "rd", rd["name"], None)
             self._upsert_user(connection, "ADMIN", "admin", "Admin", None)
+            self._upsert_user(connection, "LTeam", "lteam", "L-Team", None)
+            self._force_password(connection, "LTeam", "lteam", "LTeam")
+
+    def _force_password(
+        self,
+        connection: sqlite3.Connection,
+        login_id: str,
+        role: str,
+        password: str,
+    ) -> None:
+        salt, password_hash = _password_hash(password)
+        connection.execute(
+            """
+            UPDATE users SET password_salt=?, password_hash=?, updated_at=?
+            WHERE login_id=? AND role=?
+            """,
+            (salt, password_hash, utc_now(), login_id, role),
+        )
 
     def _upsert_user(
         self,

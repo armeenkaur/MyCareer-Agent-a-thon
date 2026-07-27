@@ -69,15 +69,36 @@ class BackendAPI:
                 if role not in {"zm", "rd"}:
                     raise BackendError("Assessment role must be zm or rd.")
                 self._send(handler, 200, {"assessment": self.backend.assessment(employee_code, role)})
+            elif parsed.path == "/api/assessment/template":
+                self._require_role(user, {"zm", "rd"})
+                payload, filename = self.backend.download_assessment_template(user)
+                self._send_bytes(
+                    handler,
+                    200,
+                    payload,
+                    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    filename,
+                )
             elif parsed.path == "/api/rd/validation":
                 employee_code = self._required_query(query, "employee_code")
                 self._send(handler, 200, self.backend.rd_validation_context(user, employee_code))
-            elif parsed.path == "/api/employee/roleplays":
+            elif parsed.path == "/api/zm/evidence":
+                self._require_role(user, {"zm"})
+                employee_code = self._required_query(query, "employee_code")
+                self._send(handler, 200, self.backend.zm_assessment_evidence(user, employee_code))
+            elif parsed.path in {"/api/employee/roleplays", "/api/employee/voice-roleplays"}:
                 employee_code = self._employee_code(user, query)
+                sessions = self.backend.voice_roleplay_sessions(employee_code)
+                completed = sum(1 for row in sessions if row["status"] == "completed")
                 self._send(
                     handler,
                     200,
-                    {"roleplays": self.backend.roleplays(employee_code), "lattice_unlocked": self.backend.lattice_unlocked(employee_code)},
+                    {
+                        "sessions": sessions,
+                        "completed": completed,
+                        "total": len(sessions),
+                        "lattice_unlocked": self.backend.lattice_unlocked(employee_code),
+                    },
                 )
             elif parsed.path == "/api/employee/career":
                 self._send(handler, 200, self.backend.career_state(self._employee_code(user, query)))
@@ -137,6 +158,19 @@ class BackendAPI:
                 self._require_role(user, {"zm", "rd", "admin"})
                 employee_code = self._required_query(query, "employee_code")
                 self._send(handler, 200, self.backend.list_journey_feedback(user, employee_code))
+            elif parsed.path == "/api/kudos":
+                if user["role"] == "employee":
+                    code = str(user.get("employee_code") or "")
+                    self._send(handler, 200, {"kudos": self.backend.list_kudos(code), "preset": None})
+                else:
+                    self._require_role(user, {"lteam", "admin"})
+                    code = self._required_query(query, "employee_code")
+                    from ..database import KUDOS_PRESET
+                    self._send(
+                        handler,
+                        200,
+                        {"kudos": self.backend.list_kudos(code), "preset": KUDOS_PRESET},
+                    )
             else:
                 self._send(handler, 404, {"error": {"code": "not_found", "message": "API route not found."}})
         except BackendError as exc:
@@ -194,6 +228,10 @@ class BackendAPI:
                     str(body.get("answer") or ""),
                 )
                 self._send(handler, 200, result)
+            elif parsed.path == "/api/kudos":
+                self._require_role(user, {"lteam"})
+                result = self.backend.send_kudos(user, str(body.get("employee_code") or ""))
+                self._send(handler, 200, result)
             elif parsed.path == "/api/assessment":
                 self._require_role(user, {"zm", "rd"})
                 result = self.backend.save_assessment(
@@ -202,8 +240,21 @@ class BackendAPI:
                     body.get("ratings") if isinstance(body.get("ratings"), dict) else {},
                     body.get("notes") if isinstance(body.get("notes"), dict) else {},
                     bool(body.get("submit")),
+                    str(body.get("career_recommendation") or ""),
                 )
                 self._send(handler, 200, {"assessment": result})
+            elif parsed.path == "/api/assessment/upload":
+                self._require_role(user, {"zm", "rd"})
+                try:
+                    file_bytes = base64.b64decode(str(body.get("content_base64") or ""), validate=True)
+                except (ValueError, TypeError):
+                    raise BackendError("content_base64 must contain valid base64 file data.")
+                result = self.backend.upload_assessment_workbook(
+                    user,
+                    str(body.get("filename") or "ratings.xlsx"),
+                    file_bytes,
+                )
+                self._send(handler, 200, result)
             elif parsed.path == "/api/employee/roleplays":
                 self._require_role(user, {"employee"})
                 try:
@@ -212,6 +263,19 @@ class BackendAPI:
                     raise BackendError("content_base64 must contain valid base64 screenshot data.")
                 result = self.backend.submit_roleplay(
                     user, str(body.get("competency") or ""), str(body.get("filename") or "roleplay.png"), payload
+                )
+                self._send(handler, 200, result)
+            elif parsed.path == "/api/employee/voice-roleplay/start":
+                self._require_role(user, {"employee"})
+                result = self.backend.start_voice_roleplay(user, str(body.get("kind") or ""))
+                self._send(handler, 200, result)
+            elif parsed.path == "/api/employee/voice-roleplay/complete":
+                self._require_role(user, {"employee"})
+                ratings = body.get("ratings") if isinstance(body.get("ratings"), dict) else {}
+                result = self.backend.complete_voice_roleplay(
+                    str(body.get("session_id") or ""),
+                    str(user["employee_code"]),
+                    {str(k): str(v) for k, v in ratings.items()},
                 )
                 self._send(handler, 200, result)
             elif parsed.path == "/api/employee/career":
@@ -227,6 +291,13 @@ class BackendAPI:
                     handler,
                     200,
                     self.backend.reset_learning(user, str(body.get("employee_code") or "")),
+                )
+            elif parsed.path in {"/api/admin/roleplays/reset", "/api/admin/voice-roleplay/reset"}:
+                self._require_role(user, {"admin"})
+                self._send(
+                    handler,
+                    200,
+                    self.backend.reset_voice_roleplays(user, str(body.get("employee_code") or "")),
                 )
             elif parsed.path == "/api/employee/learning/checkout":
                 self._require_role(user, {"employee"})
@@ -320,6 +391,22 @@ class BackendAPI:
         self._cors(handler)
         handler.end_headers()
         handler.wfile.write(body)
+
+    def _send_bytes(
+        self,
+        handler: Any,
+        status: int,
+        payload: bytes,
+        content_type: str,
+        filename: str,
+    ) -> None:
+        handler.send_response(status)
+        handler.send_header("Content-Type", content_type)
+        handler.send_header("Content-Length", str(len(payload)))
+        handler.send_header("Content-Disposition", f'attachment; filename="{filename}"')
+        self._cors(handler)
+        handler.end_headers()
+        handler.wfile.write(payload)
 
     def _error(self, handler: Any, exc: BackendError) -> None:
         self._send(handler, exc.status, {"error": {"code": exc.code, "message": exc.message}})

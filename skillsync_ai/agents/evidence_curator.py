@@ -12,7 +12,7 @@ CURATOR_VERSION = 7
 
 TERMS = {
     "Communication": ["communication", "presentation", "storytelling", "writing", "verbal", "influence", "negotiation", "ppt"],
-    "Stakeholder Management": ["stakeholder", "partner", "relationship", "collaboration", "cross-functional", "conflict", "expectation", "coordination"],
+    "Stakeholder Relationship": ["stakeholder", "partner", "relationship", "collaboration", "cross-functional", "conflict", "expectation", "coordination"],
     "Ownership & Accountability": ["ownership", "accountability", "execution", "initiative", "responsibility", "follow-up", "delivery", "kra"],
     "Team Management": ["team management", "people management", "leadership", "coach", "mentor", "delegate", "performance management", "team member"],
     "Executive Presence": ["confidence", "composure", "executive", "senior leader", "credibility", "presence", "judgment"],

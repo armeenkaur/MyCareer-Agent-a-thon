@@ -174,41 +174,65 @@ class BackendWorkflowTest(unittest.TestCase):
         self.assertEqual(error.exception.code, "zm_assessment_required")
         self.assertEqual(self.backend.agent_audit(), [])
 
-    @patch("skillsync_ai.backend._rank_all_with_agent", return_value=({}, "test ranker"))
+    @patch("skillsync_ai.backend.learning._rank_all_with_agent", return_value=({}, "test ranker"))
     def test_zm_then_rd_submission_makes_rd_profile_final(self, ranker) -> None:
         employee = self.data.employees["MMT1001"]
         self.backend.open_phase(self.admin, "zm")
         zm = self.db.authenticate(employee["manager_code"], "zm", generated_password(employee["manager"]))
         assert zm is not None
         zm_ratings = {competency: "Beginner" for competency in self.backend.competencies}
-        result = self.backend.save_assessment(zm, "MMT1001", zm_ratings, submit=True)
+        result = self.backend.save_assessment(zm, "MMT1001", zm_ratings, submit=True, career_recommendation="continue")
         self.assertEqual(result["status"], "submitted")
 
         self.backend.open_phase(self.admin, "rd", override=True)
         rd = self.db.authenticate(employee["rd_code"], "rd", generated_password(employee["rd"]))
         assert rd is not None
         rd_ratings = {competency: "Intermediate" for competency in self.backend.competencies}
-        result = self.backend.save_assessment(rd, "MMT1001", rd_ratings, submit=True)
+        result = self.backend.save_assessment(rd, "MMT1001", rd_ratings, submit=True, career_recommendation="continue")
         self.assertEqual(result["status"], "submitted")
         self.assertEqual(self.backend.final_profile("MMT1001"), rd_ratings)
         expected_agent_runs = sum(
             bool(target["gaps"]) for target in self.backend.recommendation_targets("MMT1001")
         )
         self.assertEqual(ranker.call_count, expected_agent_runs)
+        with self.db.transaction() as connection:
+            for kind in ("functional", "behavioural"):
+                connection.execute(
+                    """
+                    INSERT INTO voice_roleplay_sessions(
+                        employee_code,kind,status,scores_json,error,updated_at
+                    ) VALUES(?,?, 'completed','{}','',?)
+                    """,
+                    ("MMT1001", kind, utc_now()),
+                )
+            connection.execute(
+                """
+                INSERT INTO career_choices(employee_code,aspiration_role,target_key,locked_at)
+                VALUES(?,?,?,?)
+                """,
+                ("MMT1001", "kam", "KAM (RL4)", utc_now()),
+            )
         self.assertTrue(self.backend.recommendations("MMT1001")["ready"])
 
-    @patch("skillsync_ai.backend._rank_all_with_agent", return_value=({}, "test ranker"))
+        with self.db.transaction() as connection:
+            connection.execute("DELETE FROM voice_roleplay_sessions WHERE employee_code=?", ("MMT1001",))
+            connection.execute("DELETE FROM career_choices WHERE employee_code=?", ("MMT1001",))
+        with self.assertRaises(BackendError) as blocked:
+            self.backend.recommendations("MMT1001")
+        self.assertEqual(blocked.exception.code, "lattice_locked")
+
+    @patch("skillsync_ai.backend.learning._rank_all_with_agent", return_value=({}, "test ranker"))
     def test_confidence_is_deterministic_and_uses_zm_plus_ai(self, _ranker) -> None:
         employee = self.data.employees["MMT1001"]
         self.backend.open_phase(self.admin, "zm")
         zm = self.db.authenticate(employee["manager_code"], "zm", generated_password(employee["manager"]))
         assert zm is not None
         ratings = {competency: "Proficient" for competency in self.backend.competencies}
-        self.backend.save_assessment(zm, "MMT1001", ratings, submit=True)
+        self.backend.save_assessment(zm, "MMT1001", ratings, submit=True, career_recommendation="continue")
         self.backend.open_phase(self.admin, "rd", override=True)
         rd = self.db.authenticate(employee["rd_code"], "rd", generated_password(employee["rd"]))
         assert rd is not None
-        self.backend.save_assessment(rd, "MMT1001", ratings, submit=True)
+        self.backend.save_assessment(rd, "MMT1001", ratings, submit=True, career_recommendation="continue")
         with self.db.transaction() as connection:
             for competency in self.backend.competencies:
                 connection.execute(
@@ -268,7 +292,7 @@ class BackendWorkflowTest(unittest.TestCase):
             self.backend.admin_roleplays(employee, "MMT1001")
         self.assertEqual(error.exception.code, "forbidden")
 
-    @patch("skillsync_ai.backend._rank_all_with_agent")
+    @patch("skillsync_ai.backend.learning._rank_all_with_agent")
     def test_aspiration_lock_and_backend_filtered_course_candidates(self, ranker) -> None:
         ranker.side_effect = lambda groups, *_args: (
             {key: _first_two(value["candidates"]) for key, value in groups.items()},
@@ -279,13 +303,22 @@ class BackendWorkflowTest(unittest.TestCase):
         zm = self.db.authenticate(employee["manager_code"], "zm", generated_password(employee["manager"]))
         assert zm is not None
         ratings = {competency: "Advanced" for competency in self.backend.competencies}
-        self.backend.save_assessment(zm, "MMT1002", ratings, submit=True)
+        self.backend.save_assessment(zm, "MMT1002", ratings, submit=True, career_recommendation="continue")
         self.backend.open_phase(self.admin, "rd", override=True)
         rd = self.db.authenticate(employee["rd_code"], "rd", generated_password(employee["rd"]))
         assert rd is not None
-        self.backend.save_assessment(rd, "MMT1002", ratings, submit=True)
+        self.backend.save_assessment(rd, "MMT1002", ratings, submit=True, career_recommendation="continue")
         self.backend.open_phase(self.admin, "employee", override=True)
         with self.db.transaction() as connection:
+            for kind in ("functional", "behavioural"):
+                connection.execute(
+                    """
+                    INSERT INTO voice_roleplay_sessions(
+                        employee_code,kind,status,scores_json,error,updated_at
+                    ) VALUES(?,?, 'completed','{}','',?)
+                    """,
+                    ("MMT1002", kind, utc_now()),
+                )
             for competency in self.backend.competencies:
                 connection.execute(
                     """
@@ -349,7 +382,7 @@ class BackendWorkflowTest(unittest.TestCase):
             # Force equal % via known catalog durations by using progress-only fallback:
             # no catalog ids → hours_pct from courses_completed/courses_total.
             # MMT1002: 2/2 = 100%, MMT1004: 1/2 = 50%
-        payload = self.backend.leaderboard(self.admin)
+        payload = self.backend.leaderboard(self.admin, force_refresh=True)
         rows = [row for row in payload["leaderboard"] if row["employee_code"] in {"MMT1002", "MMT1004"}]
         self.assertEqual(len(rows), 2)
         by_code = {row["employee_code"]: row for row in rows}
@@ -369,7 +402,7 @@ class BackendWorkflowTest(unittest.TestCase):
             connection.execute(
                 "DELETE FROM learning_selections WHERE employee_code='MMT1002' AND course_id='MMT1002-B'"
             )
-        payload = self.backend.leaderboard(self.admin)
+        payload = self.backend.leaderboard(self.admin, force_refresh=True)
         rows = [row for row in payload["leaderboard"] if row["employee_code"] in {"MMT1002", "MMT1004"}]
         by_code = {row["employee_code"]: row for row in rows}
         self.assertEqual(by_code["MMT1002"]["hours_pct"], by_code["MMT1004"]["hours_pct"])
@@ -391,7 +424,7 @@ class BackendWorkflowTest(unittest.TestCase):
                 """,
                 ("MMT1002", "MMT1002-B", "completed", 100, now, now),
             )
-        payload = self.backend.leaderboard(self.admin)
+        payload = self.backend.leaderboard(self.admin, force_refresh=True)
         rows = [row for row in payload["leaderboard"] if row["employee_code"] in {"MMT1002", "MMT1004"}]
         self.assertEqual({row["rank"] for row in rows}, {1})
 
@@ -435,6 +468,135 @@ class BackendWorkflowTest(unittest.TestCase):
         rows = self.backend.agent_audit()
         self.assertEqual(rows[0]["agent"], "Evidence Curator Agent")
         self.assertEqual(rows[0]["output"], {"evidence": []})
+
+    def test_assessment_template_and_upload_for_zm(self) -> None:
+        from io import BytesIO
+
+        from openpyxl import Workbook, load_workbook
+
+        employee = self.data.employees["MMT1001"]
+        self.backend.open_phase(self.admin, "zm")
+        zm = self.backend.login(employee["manager_code"], generated_password(employee["manager"]), role="zm")["user"]
+
+        payload, filename = self.backend.download_assessment_template(zm)
+        self.assertTrue(filename.endswith(".xlsx"))
+        wb = load_workbook(BytesIO(payload), data_only=True)
+        ws = wb.active
+        headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
+        self.assertEqual(headers[0], "Employee Code")
+        self.assertEqual(headers[1], "Employee Name")
+        for competency in self.backend.competencies:
+            self.assertIn(competency, headers)
+        codes = {
+            str(row[0]).strip()
+            for row in ws.iter_rows(min_row=2, values_only=True)
+            if row and row[0] and str(row[0]).strip().upper().startswith("MMT")
+        }
+        self.assertIn("MMT1001", codes)
+
+        # Build upload with all seven ratings → submit
+        upload = Workbook()
+        sheet = upload.active
+        sheet.append(["Employee Code", "Employee Name", *self.backend.competencies])
+        sheet.append(["MMT1001", employee["name"], *(["Intermediate"] * len(self.backend.competencies))])
+        buffer = BytesIO()
+        upload.save(buffer)
+        result = self.backend.upload_assessment_workbook(zm, "filled.xlsx", buffer.getvalue())
+        self.assertEqual(result["summary"]["applied"], 1)
+        self.assertEqual(result["summary"]["errors"], 0)
+        assessment = self.backend.assessment("MMT1001", "zm")
+        self.assertEqual(assessment["status"], "submitted")
+        self.assertEqual(len(assessment["ratings"]), 7)
+
+        # Locked row skipped on re-upload
+        again = self.backend.upload_assessment_workbook(zm, "filled.xlsx", buffer.getvalue())
+        self.assertEqual(again["summary"]["applied"], 0)
+        self.assertGreaterEqual(again["summary"]["skipped"], 1)
+
+        # Out-of-scope code errors
+        bad = Workbook()
+        bad_sheet = bad.active
+        bad_sheet.append(["Employee Code", "Employee Name", *self.backend.competencies])
+        bad_sheet.append(["MMT99999", "Nobody", *(["Beginner"] * len(self.backend.competencies))])
+        bad_buf = BytesIO()
+        bad.save(bad_buf)
+        bad_result = self.backend.upload_assessment_workbook(zm, "bad.xlsx", bad_buf.getvalue())
+        self.assertGreaterEqual(bad_result["summary"]["errors"], 1)
+
+    def test_assessment_upload_partial_saves_draft_and_rd_requires_zm(self) -> None:
+        from io import BytesIO
+
+        from openpyxl import Workbook
+
+        employee = self.data.employees["MMT1001"]
+        self.backend.open_phase(self.admin, "zm")
+        zm = self.db.authenticate(employee["manager_code"], "zm", generated_password(employee["manager"]))
+        assert zm is not None
+
+        partial = Workbook()
+        sheet = partial.active
+        sheet.append(["Employee Code", "Employee Name", *self.backend.competencies])
+        values = [""] * len(self.backend.competencies)
+        values[0] = "Beginner"
+        values[1] = "Intermediate"
+        sheet.append(["MMT1001", employee["name"], *values])
+        buf = BytesIO()
+        partial.save(buf)
+        result = self.backend.upload_assessment_workbook(zm, "partial.xlsx", buf.getvalue())
+        self.assertEqual(result["summary"]["applied"], 1)
+        self.assertEqual(result["applied"][0]["submitted"], False)
+        self.assertEqual(self.backend.assessment("MMT1001", "zm")["status"], "draft")
+
+        # Opening RD closes ZM; RD upload still blocked because ZM is draft, not submitted.
+        self.backend.open_phase(self.admin, "rd", override=True)
+        rd = self.db.authenticate(employee["rd_code"], "rd", generated_password(employee["rd"]))
+        assert rd is not None
+        rd_book = Workbook()
+        rd_sheet = rd_book.active
+        rd_sheet.append(["Employee Code", "Employee Name", *self.backend.competencies])
+        rd_sheet.append(["MMT1001", employee["name"], *(["Proficient"] * len(self.backend.competencies))])
+        rd_buf = BytesIO()
+        rd_book.save(rd_buf)
+        rd_result = self.backend.upload_assessment_workbook(rd, "rd.xlsx", rd_buf.getvalue())
+        self.assertGreaterEqual(rd_result["summary"]["errors"], 1)
+
+    def test_voice_roleplay_sessions_unlock_lattice(self) -> None:
+        employee = self.data.employees["MMT1001"]
+        self.backend.open_phase(self.admin, "employee", override=True)
+        user = self.db.authenticate("MMT1001", "employee", generated_password(employee["name"]))
+        assert user is not None
+        self.assertFalse(self.backend.lattice_unlocked("MMT1001"))
+
+        start = self.backend.start_voice_roleplay(user, "functional")
+        self.assertEqual(start["kind"], "functional")
+        self.assertIn("session_id", start)
+        ticket = self.backend.voice_roleplay_ticket(start["session_id"], user)
+        self.assertEqual(ticket["kind"], "functional")
+
+        functional_ratings = {
+            "Consultative Selling": "Intermediate",
+            "Data Analytics": "Beginner",
+            "Stakeholder Relationship": "Proficient",
+        }
+        done = self.backend.complete_voice_roleplay(start["session_id"], "MMT1001", functional_ratings)
+        self.assertEqual(done["status"], "completed")
+        self.assertFalse(done["lattice_unlocked"])
+
+        start_b = self.backend.start_voice_roleplay(user, "behavioural")
+        behavioural_ratings = {
+            "Communication": "Proficient",
+            "Ownership & Accountability": "Intermediate",
+            "Team Management": "Beginner",
+            "Executive Presence": "Advanced",
+        }
+        done_b = self.backend.complete_voice_roleplay(start_b["session_id"], "MMT1001", behavioural_ratings)
+        self.assertTrue(done_b["lattice_unlocked"])
+        self.assertTrue(self.backend.lattice_unlocked("MMT1001"))
+        sessions = self.backend.voice_roleplay_sessions("MMT1001")
+        self.assertEqual({row["status"] for row in sessions}, {"completed"})
+        roleplays = {row["competency"]: row for row in self.backend.roleplays("MMT1001", include_private=True)}
+        self.assertEqual(roleplays["Data Analytics"]["ai_proficiency"], "Beginner")
+        self.assertEqual(roleplays["Executive Presence"]["ai_proficiency"], "Advanced")
 
 
 def _first_two(candidates):

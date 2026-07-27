@@ -56,7 +56,7 @@ Phase order: `zm` → `rd` → `employee`. Opening a next phase requires 100% co
   "employee_code": "MMT1001",
   "ratings": {
     "Communication": "Intermediate",
-    "Stakeholder Management": "Proficient",
+    "Stakeholder Relationship": "Proficient",
     "Ownership & Accountability": "Intermediate",
     "Team Management": "Beginner",
     "Executive Presence": "Intermediate",

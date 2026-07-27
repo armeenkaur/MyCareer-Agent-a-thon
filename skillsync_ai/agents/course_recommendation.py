@@ -10,7 +10,7 @@ AGENT_NAME = "Course Recommendation Agent"
 
 COMPETENCY_TERMS = {
     "Communication": ["communication", "presentation", "storytelling", "writing", "influence", "negotiation"],
-    "Stakeholder Management": ["stakeholder", "relationship", "influence", "cross-functional", "conflict", "collaboration"],
+    "Stakeholder Relationship": ["stakeholder", "relationship", "influence", "cross-functional", "conflict", "collaboration"],
     "Ownership & Accountability": ["ownership", "accountability", "execution", "initiative", "responsibility", "results"],
     "Team Management": ["team management", "people management", "leadership", "coaching", "delegation", "performance management"],
     "Executive Presence": ["executive presence", "confidence", "credibility", "composure", "senior leadership", "influence"],
@@ -153,7 +153,7 @@ OTHER_SOURCE_FALLBACKS: dict[str, list[dict[str, Any]]] = {
         {"kind": "case_study", "title": "Accountability — Overview", "url": "https://en.wikipedia.org/wiki/Accountability", "duration_minutes": 12},
         {"kind": "tedx", "title": "TEDx: How great leaders inspire action", "url": "https://www.youtube.com/watch?v=qp0HIF3SfI4", "duration_minutes": 18},
     ],
-    "Stakeholder Management": [
+    "Stakeholder Relationship": [
         {"kind": "youtube", "title": "10 ways to have a better conversation", "url": "https://www.youtube.com/watch?v=R1vskiVDwl4", "duration_minutes": 12},
         {"kind": "case_study", "title": "HBR: Managing Your Boss", "url": "https://hbr.org/2005/01/managing-your-boss", "duration_minutes": 15},
         {"kind": "tedx", "title": "TEDx: How to turn a group of strangers into a team", "url": "https://www.youtube.com/watch?v=3boKz0Exros", "duration_minutes": 13},
