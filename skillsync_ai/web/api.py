@@ -297,6 +297,17 @@ class BackendAPI:
                 self._require_role(user, {"admin"})
                 self.backend.reset_career(user, str(body.get("employee_code") or ""))
                 self._send(handler, 200, {"status": "reset"})
+            elif parsed.path == "/api/admin/assessments/reset":
+                self._require_role(user, {"admin"})
+                self._send(
+                    handler,
+                    200,
+                    self.backend.reset_manager_assessments(
+                        user,
+                        str(body.get("employee_code") or ""),
+                        str(body.get("scope") or "both"),
+                    ),
+                )
             elif parsed.path == "/api/admin/learning/reset":
                 self._require_role(user, {"admin"})
                 self._send(

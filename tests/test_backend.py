@@ -222,6 +222,33 @@ class BackendWorkflowTest(unittest.TestCase):
         self.assertEqual(blocked.exception.code, "lattice_locked")
 
     @patch("skillsync_ai.backend.learning._rank_all_with_agent", return_value=({}, "test ranker"))
+    def test_admin_can_reset_zm_and_rd_assessments(self, _ranker) -> None:
+        employee = self.data.employees["MMT1001"]
+        self.backend.open_phase(self.admin, "zm")
+        zm = self.db.authenticate(employee["manager_code"], "zm", generated_password(employee["manager"]))
+        assert zm is not None
+        ratings = {competency: "Intermediate" for competency in self.backend.competencies}
+        self.backend.save_assessment(zm, "MMT1001", ratings, submit=True, career_recommendation="continue")
+        self.backend.open_phase(self.admin, "rd", override=True)
+        rd = self.db.authenticate(employee["rd_code"], "rd", generated_password(employee["rd"]))
+        assert rd is not None
+        self.backend.save_assessment(rd, "MMT1001", ratings, submit=True, career_recommendation="continue")
+        self.assertIsNotNone(self.backend.final_profile("MMT1001"))
+
+        rd_only = self.backend.reset_manager_assessments(self.admin, "MMT1001", scope="rd")
+        self.assertEqual(rd_only["cleared"], ["rd"])
+        self.assertEqual(rd_only["zm_status"], "submitted")
+        self.assertEqual(rd_only["rd_status"], "not_started")
+        self.assertIsNone(self.backend.final_profile("MMT1001"))
+        self.assertEqual(self.backend.assessment("MMT1001", "zm")["status"], "submitted")
+
+        both = self.backend.reset_manager_assessments(self.admin, "MMT1001", scope="zm")
+        self.assertIn("zm", both["cleared"])
+        self.assertEqual(both["zm_status"], "not_started")
+        self.assertEqual(both["rd_status"], "not_started")
+        self.assertIsNone(self.backend.assessment("MMT1001", "zm"))
+
+    @patch("skillsync_ai.backend.learning._rank_all_with_agent", return_value=({}, "test ranker"))
     def test_confidence_is_deterministic_and_uses_zm_plus_ai(self, _ranker) -> None:
         employee = self.data.employees["MMT1001"]
         self.backend.open_phase(self.admin, "zm")

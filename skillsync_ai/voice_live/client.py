@@ -46,6 +46,9 @@ AZURE_VOICE_RATE = "+12%"
 
 # Soft continue-check only (no hard time limit).
 SENSE_CHECK_AFTER_SEC = 180  # ~3 minutes
+# Early End: do not mark complete / unlock lattice.
+MIN_COMPLETE_ELAPSED_SEC = 90
+MIN_COMPLETE_USER_TURNS = 2
 
 
 def _session_temperature(kind: str) -> float:
@@ -53,6 +56,53 @@ def _session_temperature(kind: str) -> float:
     if kind == "behavioural":
         return BEHAVIOURAL_TEMPERATURE
     return FUNCTIONAL_TEMPERATURE
+
+
+def _early_farewell_payload(kind: str) -> dict[str, Any]:
+    persona = "Sarah Patel" if kind == "behavioural" else "Priya Nair"
+    return {
+        "type": "response.create",
+        "response": {
+            "modalities": ["audio"],
+            "instructions": (
+                f"EARLY CLOSE — no summary. Stay in character as {persona}. "
+                "The learner is ending after very little conversation. "
+                "Do NOT summarise the case, project, partnership, plan, owners, risks, metrics, or hidden facts. "
+                "Do NOT recite anything from the briefing. "
+                "Say only a short natural close, along these lines: "
+                "'Okay — understood. Thanks for your time.' "
+                "Then stop. No questions. No wrap-up of the scenario."
+            ),
+        },
+    }
+
+
+def _conversation_wrap_payload(kind: str) -> dict[str, Any]:
+    """Spoken close before scoring — must reflect what was actually said, not the prompt."""
+    persona = "Sarah Patel" if kind == "behavioural" else "Priya Nair"
+    if kind == "behavioural":
+        focus = (
+            "Only mention plan / owners / risks / timelines / next steps if the learner actually said them. "
+        )
+    else:
+        focus = (
+            "Only mention pilot targets / metrics / guardrails / ownership / next steps if the learner actually said them. "
+        )
+    return {
+        "type": "response.create",
+        "response": {
+            "modalities": ["audio"],
+            "instructions": (
+                f"CONVERSATION WRAP — once. Stay in character as {persona}. "
+                "Summarise THIS spoken conversation only — what the learner actually proposed or agreed. "
+                "Do NOT copy or recite the roleplay briefing, hidden case facts, or sample stage questions. "
+                "Do NOT invent details they never said. "
+                f"{focus}"
+                "If little was discussed, keep it very short: acknowledge what they said and thank them. "
+                "No competency names. No assessment talk. One short close, then stop. No new questions."
+            ),
+        },
+    }
 
 
 def _sense_check_payload(kind: str) -> dict[str, Any]:
@@ -306,7 +356,10 @@ class AzureVoiceLiveBridge:
         self._awaiting_user_before_sense = False
         self._response_active = False
         self._user_speaking = False
+        self._user_turn_count = 0
         self._timing_task: asyncio.Task[None] | None = None
+        self._spoken_turn_future: asyncio.Future[bool] | None = None
+        self._closing_speech = False
 
     def start(self) -> None:
         self._thread = threading.Thread(target=self._run_thread, name="voice-live-azure", daemon=True)
@@ -500,6 +553,7 @@ class AzureVoiceLiveBridge:
             return
         if etype == "input_audio_buffer.speech_stopped":
             self._user_speaking = False
+            self._user_turn_count += 1
             if not self._scoring and not self._mute_output:
                 self.on_event({"type": "speech", "who": "idle"})
             # Employee finished answering — now safe to ask standalone continue-check.
@@ -532,6 +586,10 @@ class AzureVoiceLiveBridge:
             if not self._mute_output:
                 self.on_event({"type": "transcript_done", "role": "assistant"})
                 self.on_event({"type": "speech", "who": "idle"})
+            spoken = self._spoken_turn_future
+            if spoken is not None and not spoken.done():
+                spoken.set_result(True)
+                return
             # After a normal bot question, wait for the employee answer before continue-check.
             if (
                 self._pending_timing_cue == "sense"
@@ -628,18 +686,103 @@ class AzureVoiceLiveBridge:
         return "".join(parts)
 
     def append_audio(self, pcm16_b64: str) -> None:
-        if not pcm16_b64 or self._scoring or self._mute_output or self._closed.is_set():
+        if (
+            not pcm16_b64
+            or self._scoring
+            or self._mute_output
+            or self._closing_speech
+            or self._closed.is_set()
+        ):
             return
         payload = json.dumps({"type": "input_audio_buffer.append", "audio": pcm16_b64})
         self._send_raw(payload)
 
-    def stop_speaking(self) -> None:
+    def too_early_to_complete(self) -> bool:
+        """True when End was hit before a real conversation — do not score / unlock."""
+        if self._session_started_at is None:
+            return True
+        elapsed = time.monotonic() - self._session_started_at
+        return elapsed < MIN_COMPLETE_ELAPSED_SEC or self._user_turn_count < MIN_COMPLETE_USER_TURNS
+
+    @property
+    def user_turn_count(self) -> int:
+        return self._user_turn_count
+
+    def session_elapsed_sec(self) -> float:
+        if self._session_started_at is None:
+            return 0.0
+        return max(0.0, time.monotonic() - self._session_started_at)
+
+    def stop_speaking(self, *, scoring: bool = True) -> None:
         """Hard-stop bot audio + mic relay when user ends the session."""
         self._mute_output = True
-        self._scoring = True
+        self._scoring = bool(scoring)
         self._send_raw(json.dumps({"type": "response.cancel"}))
         self._send_raw(json.dumps({"type": "input_audio_buffer.clear"}))
-        self.on_event({"type": "status", "message": "Stopping — scoring…"})
+        if scoring:
+            self.on_event({"type": "status", "message": "Stopping — scoring…"})
+        else:
+            self.on_event({"type": "status", "message": "Ending early…"})
+
+    def cancel_active_turn(self) -> None:
+        """Cancel current reply + clear mic buffer; keep speaker open for a farewell/wrap."""
+        self._scoring = False
+        self._mute_output = False
+        self._send_raw(json.dumps({"type": "response.cancel"}))
+        self._send_raw(json.dumps({"type": "input_audio_buffer.clear"}))
+
+    def speak_early_farewell(self, timeout: float = 18.0) -> None:
+        """Short thanks-only close when End is too early — no scenario summary."""
+        if not self._loop or self._closed.is_set():
+            return
+        self.on_event({"type": "status", "message": "Ending early…"})
+        future: asyncio.Future[bool] = asyncio.run_coroutine_threadsafe(
+            self._speak_once_async(_early_farewell_payload(self.kind)),
+            self._loop,
+        )
+        try:
+            future.result(timeout=timeout)
+        except Exception:  # noqa: BLE001
+            log.exception("Early farewell failed kind=%s", self.kind)
+
+    def speak_conversation_wrap(self, timeout: float = 45.0) -> None:
+        """Spoken close grounded in what was said this call — not the briefing."""
+        if not self._loop or self._closed.is_set():
+            return
+        self.on_event({"type": "status", "message": "Wrapping up…"})
+        future: asyncio.Future[bool] = asyncio.run_coroutine_threadsafe(
+            self._speak_once_async(_conversation_wrap_payload(self.kind)),
+            self._loop,
+        )
+        try:
+            future.result(timeout=timeout)
+        except Exception:  # noqa: BLE001
+            log.exception("Conversation wrap failed kind=%s", self.kind)
+
+    async def _speak_once_async(self, payload: dict[str, Any]) -> bool:
+        if self._ws is None or self._closed.is_set():
+            return False
+        loop = asyncio.get_running_loop()
+        self._scoring = False
+        self._mute_output = False
+        self._closing_speech = True
+        self._spoken_turn_future = loop.create_future()
+        with contextlib.suppress(Exception):
+            await self._ws.send(json.dumps({"type": "response.cancel"}))
+        await asyncio.sleep(0.12)
+        with contextlib.suppress(Exception):
+            await self._ws.send(json.dumps({"type": "input_audio_buffer.clear"}))
+        self._response_active = True
+        await self._ws.send(json.dumps(payload))
+        try:
+            return await asyncio.wait_for(self._spoken_turn_future, timeout=40)
+        except TimeoutError:
+            log.warning("Spoken turn timed out kind=%s", self.kind)
+            return False
+        finally:
+            self._spoken_turn_future = None
+            self._response_active = False
+            self._closing_speech = False
 
     def request_scores(self, timeout: float = 60.0) -> ScoreMap:
         if not self._loop or self._closed.is_set():

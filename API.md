@@ -39,6 +39,7 @@ Roles: `admin`, `zm`, `rd`, `employee`. Login IDs come from Employee Darwin. Pas
 - `POST /api/admin/phases/close` — `{"phase":"rd"}`
 - `GET /api/admin/confidence?employee_code=MMT1001`
 - `POST /api/admin/career/reset` — `{"employee_code":"MMT1001"}`
+- `POST /api/admin/assessments/reset` — `{"employee_code":"MMT1001","scope":"both"}` (`zm` clears ZM+RD; `rd` clears RD only; `both` clears both)
 - `POST /api/admin/linkedin/sync`
 - `GET /api/admin/audit?limit=100` — persisted activity from exactly three active agents.
 

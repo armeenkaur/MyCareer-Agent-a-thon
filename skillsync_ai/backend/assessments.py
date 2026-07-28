@@ -374,3 +374,70 @@ class AssessmentsMixin:
             raise BackendError("No employee rows found in the upload.")
         return records
 
+    def reset_manager_assessments(
+        self,
+        admin: dict[str, Any],
+        employee_code: str,
+        scope: str = "both",
+    ) -> dict[str, Any]:
+        """Admin unlock: clear ZM and/or RD drafts/submissions so managers can re-enter."""
+        if admin.get("role") != "admin":
+            raise BackendError("Admin access required.", "forbidden", 403)
+        employee = self.employee(employee_code)
+        wanted = str(scope or "both").strip().lower()
+        if wanted not in {"zm", "rd", "both"}:
+            raise BackendError("scope must be zm, rd, or both.", "invalid_scope", 422)
+        # ZM wipe invalidates RD validation — always drop RD with ZM.
+        roles: list[str]
+        if wanted == "rd":
+            roles = ["rd"]
+        elif wanted == "zm":
+            roles = ["zm", "rd"]
+        else:
+            roles = ["zm", "rd"]
+
+        cleared: list[str] = []
+        with self.db.transaction() as connection:
+            for role in roles:
+                row = connection.execute(
+                    "SELECT id FROM assessments WHERE employee_code=? AND assessor_role=?",
+                    (employee_code, role),
+                ).fetchone()
+                if not row:
+                    continue
+                connection.execute("DELETE FROM assessments WHERE id=?", (row["id"],))
+                cleared.append(role)
+            if "rd" in roles:
+                connection.execute(
+                    "DELETE FROM course_recommendations WHERE employee_code=?",
+                    (employee_code,),
+                )
+                connection.execute(
+                    "DELETE FROM other_source_recommendations WHERE employee_code=?",
+                    (employee_code,),
+                )
+            if cleared:
+                connection.execute(
+                    "DELETE FROM curated_evidence WHERE employee_code=?",
+                    (employee_code,),
+                )
+
+        self._audit(
+            employee_code,
+            "admin_assessments",
+            "reset",
+            f"Admin {admin.get('employee_code') or admin.get('name') or 'admin'} reset manager assessments",
+            {"scope": wanted, "cleared": cleared},
+            "reset",
+        )
+        zm = self.assessment(employee_code, "zm")
+        rd = self.assessment(employee_code, "rd")
+        return {
+            "status": "reset",
+            "employee_code": employee["employee_code"],
+            "scope": wanted,
+            "cleared": cleared,
+            "zm_status": zm["status"] if zm else "not_started",
+            "rd_status": rd["status"] if rd else "not_started",
+        }
+

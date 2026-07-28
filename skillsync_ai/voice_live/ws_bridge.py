@@ -184,7 +184,46 @@ def _reader_loop(
                     bridge.append_audio(str(message.get("data") or ""))
                 elif mtype == "end" and not scored:
                     scored = True
-                    bridge.stop_speaking()
+                    if bridge.too_early_to_complete():
+                        bridge.cancel_active_turn()
+                        log.info(
+                            "Voice end too early session_id=%s elapsed=%.0fs turns=%s — farewell, not completing",
+                            session_id,
+                            bridge.session_elapsed_sec(),
+                            bridge.user_turn_count,
+                        )
+                        try:
+                            bridge.speak_early_farewell()
+                        except Exception:  # noqa: BLE001
+                            log.exception("Early farewell exception session_id=%s", session_id)
+                        try:
+                            result = backend.abandon_voice_roleplay(
+                                session_id, ticket["employee_code"]
+                            )
+                            outbound.put(
+                                {
+                                    "type": "incomplete",
+                                    "message": (
+                                        "Session ended too early. It was not saved — "
+                                        "Start again when ready. Career lattice stays locked until both sessions are completed."
+                                    ),
+                                    "lattice_unlocked": result.get("lattice_unlocked", False),
+                                    "sessions": result.get("sessions", []),
+                                }
+                            )
+                        except Exception as exc:  # noqa: BLE001
+                            log.exception("Voice abandon failed session_id=%s", session_id)
+                            outbound.put({"type": "error", "message": str(exc)})
+                            backend.fail_voice_roleplay(session_id, str(exc))
+                        stop.set()
+                        return
+                    bridge.cancel_active_turn()
+                    outbound.put({"type": "status", "message": "Wrapping up…"})
+                    try:
+                        bridge.speak_conversation_wrap()
+                    except Exception:  # noqa: BLE001
+                        log.exception("Conversation wrap exception session_id=%s", session_id)
+                    bridge.stop_speaking(scoring=True)
                     outbound.put({"type": "status", "message": "Ending and scoring…"})
                     try:
                         ratings = bridge.request_scores()

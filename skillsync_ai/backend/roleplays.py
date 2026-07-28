@@ -432,6 +432,52 @@ class RoleplaysMixin:
             ),
         )
 
+    def abandon_voice_roleplay(
+        self,
+        session_id: str,
+        employee_code: str,
+    ) -> dict[str, Any]:
+        """End without scoring — keep session incomplete so Start stays available."""
+        with _VOICE_TICKETS_LOCK:
+            ticket = _VOICE_TICKETS.pop(session_id, None)
+        kind = (ticket or {}).get("kind")
+        if not kind:
+            sessions = self.voice_roleplay_sessions(employee_code)
+            in_progress = [row for row in sessions if row["status"] == "in_progress"]
+            if len(in_progress) == 1:
+                kind = in_progress[0]["kind"]
+            else:
+                raise BackendError("Voice session ticket not found.", "not_found", 404)
+        now = utc_now()
+        with self.db.transaction() as connection:
+            connection.execute(
+                """
+                UPDATE voice_roleplay_sessions
+                SET status='not_started', scores_json='{}', error=?, updated_at=?
+                WHERE employee_code=? AND kind=? AND status!='completed'
+                """,
+                (
+                    "Ended before enough conversation — retake when ready.",
+                    now,
+                    employee_code,
+                    kind,
+                ),
+            )
+        self._audit(
+            employee_code,
+            "voice_roleplay",
+            kind,
+            f"Voice session {kind} abandoned early",
+            {"status": "not_started"},
+            "abandoned",
+        )
+        return {
+            "status": "not_started",
+            "kind": kind,
+            "sessions": self.voice_roleplay_sessions(employee_code, include_scores=False),
+            "lattice_unlocked": self.lattice_unlocked(employee_code),
+        }
+
     def fail_voice_roleplay(self, session_id: str, error: str) -> None:
         with _VOICE_TICKETS_LOCK:
             ticket = _VOICE_TICKETS.get(session_id)

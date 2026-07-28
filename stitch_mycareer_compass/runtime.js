@@ -2653,6 +2653,10 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         toast("Roleplay session complete.");
         cleanupVoiceRuntime();
         initRoleplays().catch((err) => toast(err.message, "error"));
+      } else if (msg.type === "incomplete") {
+        toast(msg.message || "Session ended early — not saved. Start again when ready.");
+        cleanupVoiceRuntime();
+        initRoleplays().catch((err) => toast(err.message, "error"));
       } else if (msg.type === "error") {
         toast(msg.message || "Voice session error", "error");
         setVoiceStatus(kind, "");
@@ -2697,7 +2701,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
 
   function endVoiceRoleplay(kind) {
     if (!voiceRuntime.ws || voiceRuntime.kind !== kind) return;
-    setVoiceStatus(kind, "Ending and scoring…");
+    setVoiceStatus(kind, "");
     setVoiceSpeaking("idle");
     stopMicCapture();
     stopBotPlayback();
@@ -4751,6 +4755,27 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           }
         };
       });
+      qsa("[data-reset-zm-rd]").forEach((control) => {
+        control.onclick = async () => {
+          const scope = control.dataset.resetZmRdScope || "both";
+          const labels = {
+            both: "ZM and RD inputs (drafts + submissions)? RD final profile and course recs tied to it are cleared. Aspiration stays.",
+            zm: "ZM input? RD validation will also be cleared (depends on ZM). Aspiration stays.",
+            rd: "RD input only? ZM submission stays. Final profile and course recs are cleared. Aspiration stays.",
+          };
+          if (!confirm(`Reset this employee's ${labels[scope] || labels.both}`)) return;
+          try {
+            await api("/api/admin/assessments/reset", {
+              method: "POST",
+              body: JSON.stringify({ employee_code: control.dataset.resetZmRd, scope }),
+            });
+            toast(scope === "rd" ? "RD input reset." : scope === "zm" ? "ZM (+ RD) input reset." : "ZM/RD inputs reset.");
+            await initAdminEmployees();
+          } catch (error) {
+            toast(error.message, "error");
+          }
+        };
+      });
       qsa("[data-reset-courses]").forEach((control) => {
         control.onclick = async () => {
           if (!confirm("Reset this employee's Select Your Courses / learning journey? They can select courses again. Aspiration stays locked.")) return;
@@ -4841,7 +4866,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
                   <td class="p-4">${esc(row.aspiration?.aspiration_role ? String(row.aspiration.aspiration_role).toUpperCase() : "Not selected")}</td>
                   <td class="p-4">${row.learning_locked ? statusChip("locked") : statusChip("open")}</td>
                   <td class="p-4">${button(fbCount ? `Log (${fbCount})` : "Log", `data-feedback="${row.employee_code}"`, true)}</td>
-                  <td class="p-4 flex flex-wrap gap-2">${button("Profile", `data-profile="${row.employee_code}"`, true)}${button("Assessments", `data-roleplay-review="${row.employee_code}"`, true)}${(row.roleplays_completed || 0) > 0 ? button("Reset Assessments", `data-reset-assessments="${row.employee_code}"`, true) : ""}${row.learning_locked ? button("Reset Courses", `data-reset-courses="${row.employee_code}"`, true) : ""}${row.aspiration ? button("Reset Aspiration", `data-reset="${row.employee_code}"`, true) : ""}</td>
+                  <td class="p-4 flex flex-wrap gap-2">${button("Profile", `data-profile="${row.employee_code}"`, true)}${button("Assessments", `data-roleplay-review="${row.employee_code}"`, true)}${(row.roleplays_completed || 0) > 0 ? button("Reset Assessments", `data-reset-assessments="${row.employee_code}"`, true) : ""}${(row.zm_status === "draft" || row.zm_status === "submitted" || row.rd_status === "draft" || row.rd_status === "submitted") ? `${(row.zm_status === "draft" || row.zm_status === "submitted") ? button("Reset ZM", `data-reset-zm-rd="${row.employee_code}" data-reset-zm-rd-scope="zm"`, true) : ""}${(row.rd_status === "draft" || row.rd_status === "submitted") ? button("Reset RD", `data-reset-zm-rd="${row.employee_code}" data-reset-zm-rd-scope="rd"`, true) : ""}` : ""}${row.learning_locked ? button("Reset Courses", `data-reset-courses="${row.employee_code}"`, true) : ""}${row.aspiration ? button("Reset Aspiration", `data-reset="${row.employee_code}"`, true) : ""}</td>
                 </tr>`;
                 }).join("") || empty("No matching employees.", 12)}
               </tbody>
