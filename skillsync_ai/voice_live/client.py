@@ -62,16 +62,19 @@ def _sense_check_payload(kind: str) -> dict[str, Any]:
         "response": {
             "modalities": ["audio"],
             "instructions": (
-                f"SENSE CHECK (~3 minutes) — ask CONTINUE only. Stay in character as {persona}. "
-                "This is NOT an ending. Do NOT summarise. Do NOT wrap up. Do NOT conclude. "
-                "Acknowledge their last answer in one short sentence, then ask ONE question: "
-                "do they want to continue this conversation a bit longer? "
-                "Example: 'Got it — do you want to continue this discussion a little more?' "
-                "Then STOP completely and wait in silence for their answer. "
-                "Do not speak again until they reply. "
-                "If fewer than 4 competencies have usable evidence, skip the continue question "
-                "and ask one NEW uncovered question instead. "
-                "Never end abruptly. Never deliver a closing summary on this turn."
+                f"STANDALONE CONTINUE CHECK. Stay in character as {persona}. "
+                "This entire turn may contain ONLY one question: "
+                "Do you want to continue this conversation? "
+                "Optional: one short acknowledgement of their last answer (no question mark there). "
+                "Then ask exactly: 'Do you want to continue this conversation?' "
+                "HARD RULES for this turn: "
+                "1) Exactly ONE question total. "
+                "2) Do NOT ask any scenario, project, ownership, data, pilot, or discovery question. "
+                "3) Do NOT wrap up, summarise, or close. "
+                "4) Do NOT combine the continue check with any other ask. "
+                "5) After the continue question, STOP and wait in silence. "
+                "Wrong: asking continue plus another question. "
+                "Right: brief ack, then only the continue question."
             ),
         },
     }
@@ -152,7 +155,8 @@ def _hello_payload(kind: str) -> dict[str, Any]:
             "Stay in character as Sarah Patel. "
             "Do not greet as an assessor. Do not invent any other scenario. "
             "Say exactly: "
-            "Thanks for joining. Quick context — this meeting is our kick-off for the enterprise "
+            "Hi, I’m Sarah Patel, Senior Product Manager. Thanks for joining. "
+            "Quick context — this meeting is our kick-off for the enterprise "
             "partnership implementation: first rollout in six weeks, about 3.5 crore annual value, "
             "and the customer has already added reporting, SLA, and approval-workflow asks after signing. "
             "Engineering is stretched and I need clarity before we commit. "
@@ -165,7 +169,8 @@ def _hello_payload(kind: str) -> dict[str, Any]:
             "Do not greet as an assessor. Do not invent any other scenario "
             "(no strangers, railway stations, directions, or unrelated icebreakers). "
             "Say exactly: "
-            "Thanks for making time. Quick context — I lead partnerships for an 18-property chain "
+            "Hi, I’m Priya Nair, Regional Partnerships Lead. Thanks for making time. "
+            "Quick context — I lead partnerships for an 18-property chain "
             "with strong weekends but weak weekdays, and leadership is worried about commission leakage "
             "and discount-led demand. We are not looking for generic discounts. "
             "Walk me through how you would approach a partnership with a chain like ours."
@@ -298,6 +303,7 @@ class AzureVoiceLiveBridge:
         self._sense_check_sent = False
         self._pending_timing_cue: str | None = None  # "sense" only
         self._timing_cue_in_flight: str | None = None
+        self._awaiting_user_before_sense = False
         self._response_active = False
         self._user_speaking = False
         self._timing_task: asyncio.Task[None] | None = None
@@ -352,7 +358,7 @@ class AzureVoiceLiveBridge:
                         await reader
 
     async def _timing_watchdog(self) -> None:
-        """Queue ~3 min continue sense-check only; flush when idle. No hard time limit."""
+        """Queue ~3 min continue check; flush only as a standalone turn after the employee answers."""
         while not self._closed.is_set() and not self._scoring:
             if self._session_started_at is None or self._ws is None:
                 await asyncio.sleep(1)
@@ -360,14 +366,23 @@ class AzureVoiceLiveBridge:
             elapsed = time.monotonic() - self._session_started_at
             if not self._sense_check_sent and self._pending_timing_cue is None and elapsed >= SENSE_CHECK_AFTER_SEC:
                 self._pending_timing_cue = "sense"
-                log.info("Voice timing sense-check queued kind=%s elapsed=%.0fs", self.kind, elapsed)
-            await self._flush_pending_timing_cue()
+                # Always let the employee finish / give their next answer first,
+                # then ask continue as its own turn (never bundled with discovery).
+                self._awaiting_user_before_sense = True
+                log.info(
+                    "Voice timing sense-check queued kind=%s elapsed=%.0fs (wait for employee answer)",
+                    self.kind,
+                    elapsed,
+                )
+            # Do not flush while waiting for the employee to finish their current answer.
+            if not self._awaiting_user_before_sense:
+                await self._flush_pending_timing_cue()
             if self._sense_check_sent and self._pending_timing_cue is None and self._timing_cue_in_flight is None:
                 return
             await asyncio.sleep(1)
 
     async def _flush_pending_timing_cue(self) -> None:
-        """Send queued sense-check only when idle (no active bot response, user not speaking)."""
+        """Send standalone continue-check only when idle (no active bot response, user not speaking)."""
         if (
             self._pending_timing_cue is None
             or self._ws is None
@@ -376,6 +391,7 @@ class AzureVoiceLiveBridge:
             or self._closed.is_set()
             or self._response_active
             or self._user_speaking
+            or self._awaiting_user_before_sense
         ):
             return
         cue = self._pending_timing_cue
@@ -385,8 +401,12 @@ class AzureVoiceLiveBridge:
             if cue != "sense":
                 self._timing_cue_in_flight = None
                 return
+            # Cancel any auto discovery reply that VAD may have started.
+            with contextlib.suppress(Exception):
+                await self._ws.send(json.dumps({"type": "response.cancel"}))
+            await asyncio.sleep(0.12)
             self._sense_check_sent = True
-            log.info("Voice timing sense-check flush kind=%s", self.kind)
+            log.info("Voice timing standalone continue-check flush kind=%s", self.kind)
             self._response_active = True
             await self._ws.send(json.dumps(_sense_check_payload(self.kind)))
         except Exception:  # noqa: BLE001
@@ -457,6 +477,21 @@ class AzureVoiceLiveBridge:
             return
         if etype in {"response.created", "response.output_item.added"}:
             self._response_active = True
+            # After employee answered and continue-check is due: cancel auto discovery reply,
+            # then ask the standalone continue question instead.
+            if (
+                etype == "response.created"
+                and self._pending_timing_cue == "sense"
+                and not self._timing_cue_in_flight
+                and not self._sense_check_sent
+                and not self._awaiting_user_before_sense
+                and self._ws is not None
+            ):
+                log.info("Cancelling auto discovery reply to insert standalone continue-check")
+                with contextlib.suppress(Exception):
+                    await self._ws.send(json.dumps({"type": "response.cancel"}))
+                self._response_active = False
+                await self._flush_pending_timing_cue()
             return
         if etype == "input_audio_buffer.speech_started":
             self._user_speaking = True
@@ -467,6 +502,10 @@ class AzureVoiceLiveBridge:
             self._user_speaking = False
             if not self._scoring and not self._mute_output:
                 self.on_event({"type": "speech", "who": "idle"})
+            # Employee finished answering — now safe to ask standalone continue-check.
+            if self._pending_timing_cue == "sense" and self._awaiting_user_before_sense:
+                self._awaiting_user_before_sense = False
+                log.info("Employee finished answer; will insert standalone continue-check")
             return
         if etype in {"response.audio_transcript.delta", "response.text.delta"}:
             part = event.get("delta") or ""
@@ -488,10 +527,20 @@ class AzureVoiceLiveBridge:
             return
         if etype == "response.done" and not self._scoring:
             self._response_active = False
+            was_sense = self._timing_cue_in_flight == "sense"
             self._timing_cue_in_flight = None
             if not self._mute_output:
                 self.on_event({"type": "transcript_done", "role": "assistant"})
                 self.on_event({"type": "speech", "who": "idle"})
+            # After a normal bot question, wait for the employee answer before continue-check.
+            if (
+                self._pending_timing_cue == "sense"
+                and not was_sense
+                and not self._sense_check_sent
+            ):
+                self._awaiting_user_before_sense = True
+                log.info("Continue-check waiting for employee answer before standalone ask")
+                return
             await self._flush_pending_timing_cue()
             return
         if etype == "response.done" and self._scoring:
