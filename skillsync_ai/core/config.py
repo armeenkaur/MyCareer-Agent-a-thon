@@ -77,3 +77,6 @@ AZURE_VOICE_LIVE_VOICE_FALLBACK_TYPE = os.environ.get(
     "AZURE_VOICE_LIVE_VOICE_FALLBACK_TYPE",
     "azure-standard",
 ).strip() or "azure-standard"
+# Browser PCM: playback Hz (Voice Live output ~24000); mic capture → Azure input rate.
+VOICE_PLAYBACK_SAMPLE_RATE = int(os.environ.get("VOICE_PLAYBACK_SAMPLE_RATE", "24000"))
+VOICE_INPUT_SAMPLE_RATE = int(os.environ.get("VOICE_INPUT_SAMPLE_RATE", "16000"))

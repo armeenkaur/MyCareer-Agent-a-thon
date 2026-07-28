@@ -8,7 +8,7 @@ from .llm import chat_json
 
 
 AGENT_NAME = "Evidence Curator Agent"
-CURATOR_VERSION = 7
+CURATOR_VERSION = 8
 
 TERMS = {
     "Communication": ["communication", "presentation", "storytelling", "writing", "verbal", "influence", "negotiation", "ppt"],
@@ -57,9 +57,17 @@ def _candidate_snippets(data: Any, emp_code: str) -> list[dict[str, str]]:
     rows: list[dict[str, str]] = []
     counter = 0
 
-    def add(source: str, label: str, text: Any) -> None:
+    def add(source: str, label: str, text: Any, *, keep_whole: bool = False) -> None:
         nonlocal counter
-        for chunk in _split_chunks(text):
+        chunks = [re.sub(r"\s+", " ", str(text or "")).strip()] if keep_whole else _split_chunks(text)
+        if keep_whole:
+            cleaned = chunks[0] if chunks else ""
+            if not cleaned or cleaned.lower() in {"no input", "none", "na", "n/a"}:
+                return
+            chunks = [cleaned[:900]]
+        for chunk in chunks:
+            if not chunk:
+                continue
             counter += 1
             rows.append({"id": f"E{counter}", "source": source, "label": label, "snippet": chunk[:900]})
 
@@ -74,11 +82,12 @@ def _candidate_snippets(data: Any, emp_code: str) -> list[dict[str, str]]:
                 add("TNA", "", value)
     for key, value in data.appraisal.get(emp_code, {}).items():
         if key not in {"EMP Code", "EMP Full Name"}:
-            add("Appraisal", key, value)
+            # One Excel column = one Q→A pair. Never sentence-split (breaks label mapping in UI).
+            add("Appraisal", key, value, keep_whole=True)
     for key, value in data.interview.get(emp_code, {}).items():
         if key not in {"EMP Code", "EMP Name"}:
             # Round columns are source metadata — do not surface as labels.
-            add("Interview", "", value)
+            add("Interview", "", value, keep_whole=True)
     for row in data.amber.get(emp_code, []):
         question = re.sub(r"\s+", " ", str(row.get("Question") or "")).strip()
         question_label = question[:120] + ("…" if len(question) > 120 else "")
@@ -179,14 +188,15 @@ def _select_with_agent(
         if not row or any(existing["id"] == row["id"] for existing in output):
             continue
         snippet = row["snippet"]
-        excerpt = str(choice.get("excerpt") or "").strip()
-        if excerpt and excerpt.lower() in snippet.lower():
-            # Preserve original casing from snippet when possible.
-            start = snippet.lower().find(excerpt.lower())
-            snippet = snippet[start : start + len(excerpt)].strip() if start >= 0 else excerpt
-        elif excerpt and len(excerpt) >= 24:
-            # Agent paraphrased — keep original candidate but prefer shorter if excerpt is subset-ish.
-            snippet = excerpt[:900]
+        # Appraisal/Interview cells are full answers to a labeled question — never truncate
+        # via LLM excerpt (that caused Q/A "mismatch" / partial answers in the UI).
+        if row.get("source") not in {"Appraisal", "Interview"}:
+            excerpt = str(choice.get("excerpt") or "").strip()
+            if excerpt and excerpt.lower() in snippet.lower():
+                start = snippet.lower().find(excerpt.lower())
+                snippet = snippet[start : start + len(excerpt)].strip() if start >= 0 else excerpt
+            elif excerpt and len(excerpt) >= 24:
+                snippet = excerpt[:900]
         refined = {**row, "snippet": snippet, "relevance": str(choice.get("reason") or "Directly relevant evidence.")[:240]}
         if not _is_primary_for(refined["snippet"], competency):
             continue

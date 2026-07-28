@@ -574,9 +574,13 @@ class BackendWorkflowTest(unittest.TestCase):
         self.assertEqual(ticket["kind"], "functional")
 
         functional_ratings = {
-            "Consultative Selling": "Intermediate",
-            "Data Analytics": "Beginner",
-            "Stakeholder Relationship": "Proficient",
+            "Consultative Selling": {"level": "Intermediate", "confidence": 0.8},
+            "Data Analytics": {"level": "Beginner", "confidence": 0.7},
+            "Stakeholder Relationship": {"level": "Proficient", "confidence": 0.9},
+            "Communication": {"level": "Intermediate", "confidence": 0.6},
+            "Executive Presence": {"level": "Proficient", "confidence": 0.5},
+            "Ownership & Accountability": None,
+            "Team Management": None,
         }
         done = self.backend.complete_voice_roleplay(start["session_id"], "MMT1001", functional_ratings)
         self.assertEqual(done["status"], "completed")
@@ -584,10 +588,13 @@ class BackendWorkflowTest(unittest.TestCase):
 
         start_b = self.backend.start_voice_roleplay(user, "behavioural")
         behavioural_ratings = {
-            "Communication": "Proficient",
-            "Ownership & Accountability": "Intermediate",
-            "Team Management": "Beginner",
-            "Executive Presence": "Advanced",
+            "Communication": {"level": "Proficient", "confidence": 0.9},
+            "Ownership & Accountability": {"level": "Intermediate", "confidence": 0.8},
+            "Team Management": {"level": "Beginner", "confidence": 0.7},
+            "Executive Presence": {"level": "Advanced", "confidence": 0.85},
+            "Stakeholder Relationship": {"level": "Advanced", "confidence": 0.8},
+            "Data Analytics": None,
+            "Consultative Selling": None,
         }
         done_b = self.backend.complete_voice_roleplay(start_b["session_id"], "MMT1001", behavioural_ratings)
         self.assertTrue(done_b["lattice_unlocked"])
@@ -597,7 +604,10 @@ class BackendWorkflowTest(unittest.TestCase):
         roleplays = {row["competency"]: row for row in self.backend.roleplays("MMT1001", include_private=True)}
         self.assertEqual(roleplays["Data Analytics"]["ai_proficiency"], "Beginner")
         self.assertEqual(roleplays["Executive Presence"]["ai_proficiency"], "Advanced")
-
+        self.assertEqual(roleplays["Ownership & Accountability"]["ai_proficiency"], "Intermediate")
+        # Merged Communication: Intermediate@0.6 + Proficient@0.9 → Proficient
+        self.assertEqual(roleplays["Communication"]["ai_proficiency"], "Proficient")
+        self.assertIn("confidence-weighted merge", roleplays["Communication"]["rationale"])
 
 def _first_two(candidates):
     return [dict(row) for row in candidates[:2]]

@@ -183,6 +183,14 @@
     return null;
   }
 
+  function careerPathCell(row) {
+    const label = String(row.rd_career_recommendation_label || row.rd_career_recommendation || "").trim();
+    if (row.rd_status === "submitted" && label) {
+      return `<span class="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold bg-[#d5e3ff] text-[#005cab]">${esc(label)}</span>`;
+    }
+    return `<span class="text-sm text-[#926e6c]">Pending</span>`;
+  }
+
   async function bindAssessmentBulkActions(role) {
     const downloadBtn = qs("[data-download-template]");
     const uploadBtn = qs("[data-upload-template]");
@@ -250,7 +258,10 @@
         : ["locked"].includes(normalized)
           ? "bg-red-100 text-red-800"
           : "bg-slate-100 text-slate-700";
-    return `<span class="inline-flex px-2.5 py-1 rounded-md text-xs font-bold ${color}">${esc(normalized.replaceAll("_", " "))}</span>`;
+    const label = normalized
+      .replaceAll("_", " ")
+      .replace(/\b\w/g, (ch) => ch.toUpperCase());
+    return `<span class="inline-flex px-2.5 py-1 rounded-md text-xs font-bold ${color}">${esc(label)}</span>`;
   }
 
   function empty(message, colspan = 1) {
@@ -388,7 +399,7 @@
   function commonBrand(mmt, homeRoute) {
     return `<a data-route="${homeRoute}" href="/app/${homeRoute}" class="flex items-center gap-2 min-w-0">
       <img src="/stitch/common/my-logo.png" alt="my" class="h-10 w-10 rounded-lg object-cover shrink-0 shadow-sm" width="40" height="40"/>
-      <strong class="block text-[#291716] leading-none text-xl md:text-2xl font-extrabold tracking-tight truncate">Career Compass</strong>
+      <strong class="block text-[#291716] leading-none text-xl md:text-2xl font-extrabold tracking-tight truncate">CareerCompass</strong>
     </a>`;
   }
 
@@ -1345,12 +1356,13 @@ Before you begin, we encourage you to take a few minutes to understand the philo
             </div>
           </td>
           <td class="p-4">${statusBadge(row)}</td>
+          <td class="p-4">${careerPathCell(row)}</td>
           <td class="p-4">${feedbackBtn}</td>
           <td class="p-4 text-right">
             <button type="button" ${actionAttr} ${canOpen ? "" : "disabled"} class="${actionClass}">${esc(actionLabel)}</button>
           </td>
         </tr>`;
-      }).join("") || empty(filterStatus === "all" ? "No employees in your reporting scope." : "No employees match this filter.", 4);
+      }).join("") || empty(filterStatus === "all" ? "No employees in your reporting scope." : "No employees match this filter.", 5);
 
       const filterActive = filterStatus !== "all";
       const chipBase = "px-3 py-1.5 bg-white border rounded-full text-xs font-bold inline-flex items-center gap-1 cursor-pointer hover:border-[#df162b] hover:text-[#df162b] transition-colors";
@@ -1419,6 +1431,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
               <thead><tr class="border-b border-[#e7bdb9]">
                 <th class="p-4 text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Employee Name</th>
                 <th class="p-4 text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Status</th>
+                <th class="p-4 text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Career path (RD)</th>
                 <th class="p-4 text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Feedback</th>
                 <th class="p-4 text-xs font-bold uppercase tracking-wider text-[#5d3f3d] text-right">Action</th>
               </tr></thead>
@@ -1572,6 +1585,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
             </div>
           </td>
           <td class="p-4">${statusBadge(row)}</td>
+          <td class="p-4">${careerPathCell(row)}</td>
           <td class="p-4">${feedbackBtn}</td>
           <td class="p-4 text-right">
             <div class="inline-flex flex-wrap justify-end gap-2">
@@ -1580,7 +1594,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
             </div>
           </td>
         </tr>`;
-      }).join("") || empty(filterStatus === "all" ? "No employees in your reporting scope." : "No employees match this filter.", 4);
+      }).join("") || empty(filterStatus === "all" ? "No employees in your reporting scope." : "No employees match this filter.", 5);
 
       const matrixSection = `<section class="bg-white rounded-xl border border-[#e7bdb9] overflow-hidden mb-8">
         <div class="p-4 bg-[#fff0ef] border-b border-[#e7bdb9]">
@@ -1674,6 +1688,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
               <thead><tr class="border-b border-[#e7bdb9]">
                 <th class="p-4 text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Employee Name</th>
                 <th class="p-4 text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Assessment Status</th>
+                <th class="p-4 text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Career path (RD)</th>
                 <th class="p-4 text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Feedback</th>
                 <th class="p-4 text-xs font-bold uppercase tracking-wider text-[#5d3f3d] text-right">Action</th>
               </tr></thead>
@@ -1783,16 +1798,25 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         <main class="flex-grow overflow-y-auto zm-assess-scroll p-5 md:p-6 space-y-6 md:space-y-8 bg-gray-50/50">
           ${meta.competencies.map((item) => {
             const bundle = evidenceBySkill[item.competency] || {};
-            return `<section class="bg-white rounded-xl border border-gray-200 p-5 md:p-6 shadow-sm">
+            const suggested = String(bundle.suggested_rating || "").trim();
+            const savedRating = assessment?.ratings?.[item.competency] || "";
+            const activeRating = savedRating || suggested || "";
+            const noteRequired = Boolean(suggested && activeRating && activeRating !== suggested);
+            return `<section class="bg-white rounded-xl border border-gray-200 p-5 md:p-6 shadow-sm" data-zm-skill="${esc(item.competency)}" data-suggested="${esc(suggested)}">
             <div class="grid lg:grid-cols-2 gap-6">
               <div>
                 <div class="mb-5 md:mb-6">
                   <h2 class="text-lg font-bold text-gray-900">${esc(item.competency)}</h2>
                   <p class="text-sm text-gray-600 mt-1 italic">${esc(item.definition)}</p>
+                  ${suggested ? `<div class="mt-3 p-3 rounded-lg border border-[#d5e3ff] bg-[#f5f8ff]">
+                    <p class="text-xs font-bold uppercase tracking-wide text-[#1464F4]">AI suggested rating</p>
+                    <p class="text-sm font-bold text-[#291716] mt-1">${esc(suggested)}</p>
+                    <p class="text-[10px] text-[#926e6c] mt-2">Pre-filled from supporting evidence — edit if needed. A note is required if you choose a different level.</p>
+                  </div>` : ""}
                 </div>
                 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 md:gap-4 mb-5 md:mb-6">
                   ${levels.map((level) => {
-                    const checked = assessment?.ratings?.[item.competency] === level;
+                    const checked = activeRating === level;
                     const rubric = meta.rubric[item.competency]?.[level] || "";
                     return `<label class="relative ${locked ? "cursor-default" : "cursor-pointer"} group">
                       <input class="sr-only zm-assess-radio" type="radio" name="rating-${esc(item.competency)}" value="${level}" ${checked ? "checked" : ""} ${locked ? "disabled" : ""}/>
@@ -1810,10 +1834,13 @@ Before you begin, we encourage you to take a few minutes to understand the philo
                     </label>`;
                   }).join("")}
                 </div>
-                <textarea data-note="${esc(item.competency)}" ${locked ? "disabled" : ""} rows="3" class="w-full border border-gray-200 rounded-lg text-sm p-3 focus:ring-[#df162b] focus:border-[#df162b] placeholder:text-gray-400 placeholder:italic disabled:bg-gray-50" placeholder="Add optional evidence notes here...">${esc(assessment?.notes?.[item.competency] || "")}</textarea>
+                <label class="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1" data-note-label="${esc(item.competency)}">
+                  ${noteRequired ? 'Note <span class="text-[#df162b]">(required — differs from AI suggestion)</span>' : "Note (optional)"}
+                </label>
+                <textarea data-note="${esc(item.competency)}" ${locked ? "disabled" : ""} rows="3" class="w-full border border-gray-200 rounded-lg text-sm p-3 focus:ring-[#df162b] focus:border-[#df162b] placeholder:text-gray-400 placeholder:italic disabled:bg-gray-50 ${noteRequired ? "border-[#df162b]/50" : ""}" placeholder="${noteRequired ? "Explain why your rating differs from the AI suggestion…" : "Add optional evidence notes here..."}">${esc(assessment?.notes?.[item.competency] || "")}</textarea>
               </div>
               <div>
-                <h3 class="font-bold text-sm text-[#291716]">Supporting Evidence</h3>
+                <h3 class="font-bold text-sm text-[#291716]">Supporting Evidence From Previous Feedbacks</h3>
                 ${renderEvidencePanel(bundle)}
               </div>
             </div>
@@ -1848,7 +1875,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           <footer class="py-6 flex flex-col items-center justify-center space-y-3">
             <div class="flex items-center gap-2">
               <img src="/stitch/common/my-logo.png" alt="my" class="w-8 h-8 rounded-lg object-cover"/>
-              <span class="text-gray-800 font-bold tracking-tight text-lg">Career Compass</span>
+              <span class="text-gray-800 font-bold tracking-tight text-lg">CareerCompass</span>
             </div>
             <p class="text-[10px] text-[#df162b]/40 uppercase tracking-widest font-bold">© 2026 MakeMyTrip Talent Development. All rights reserved.</p>
             ${locked ? `<div class="pt-2"><div class="bg-[#df162b]/5 px-6 py-2 rounded-full border border-[#df162b]/10"><p class="text-[#df162b] font-semibold text-sm">Submitted and locked</p></div></div>` : ""}
@@ -1856,6 +1883,36 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         </main>
       </div>`;
       document.body.appendChild(modal);
+      const syncZmNoteRequirement = (skill) => {
+        const section = qs(`[data-zm-skill="${CSS.escape(skill)}"]`, modal);
+        if (!section) return;
+        const suggested = String(section.dataset.suggested || "").trim();
+        const selected = qs(`input[name="rating-${CSS.escape(skill)}"]:checked`, modal);
+        const rating = selected ? selected.value : "";
+        const required = Boolean(suggested && rating && rating !== suggested);
+        const label = qs(`[data-note-label="${CSS.escape(skill)}"]`, modal);
+        const note = qs(`[data-note="${CSS.escape(skill)}"]`, modal);
+        if (label) {
+          label.innerHTML = required
+            ? 'Note <span class="text-[#df162b]">(required — differs from AI suggestion)</span>'
+            : "Note (optional)";
+        }
+        if (note) {
+          note.placeholder = required
+            ? "Explain why your rating differs from the AI suggestion…"
+            : "Add optional evidence notes here...";
+          note.classList.toggle("border-[#df162b]/50", required);
+        }
+      };
+      if (!locked) {
+        qsa(".zm-assess-radio[name^='rating-']", modal).forEach((input) => {
+          input.addEventListener("change", () => {
+            const skill = String(input.name || "").replace(/^rating-/, "");
+            if (skill) syncZmNoteRequirement(skill);
+          });
+        });
+        meta.competencies.forEach((item) => syncZmNoteRequirement(item.competency));
+      }
       const closeAssessment = () => {
         modal.remove();
         renderZmDashboard().catch((err) => toast(err.message, "error"));
@@ -1879,8 +1936,21 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           toast("Select a career move recommendation before submission.", "error");
           return;
         }
-        if (submit && !confirm("Submit and lock this assessment?")) return;
         const notes = Object.fromEntries(qsa("[data-note]", modal).map((node) => [node.dataset.note, node.value]));
+        if (submit) {
+          const missingNotes = meta.competencies
+            .map((item) => item.competency)
+            .filter((skill) => {
+              const suggested = String(evidenceBySkill[skill]?.suggested_rating || "").trim();
+              if (!suggested || !ratings[skill] || ratings[skill] === suggested) return false;
+              return !String(notes[skill] || "").trim();
+            });
+          if (missingNotes.length) {
+            toast(`Add a note where your rating differs from AI: ${missingNotes.join(", ")}`, "error");
+            return;
+          }
+        }
+        if (submit && !confirm("Submit and lock this assessment?")) return;
         await api("/api/assessment", {
           method: "POST",
           body: JSON.stringify({
@@ -2017,16 +2087,20 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       </section>`
       : "";
     render(`${pageHeader(`${context.employee.name}'s Competency Profile`, `${context.employee.employee_code} · ${context.employee.designation || context.employee.role_name || "—"} · ${context.employee.grade || ""}`, button("Back", "data-back", true))}
-      <div class="space-y-5">${Object.entries(context.evidence).map(([competency, bundle]) => `<section class="bg-white border border-[#e7bdb9] rounded-xl p-5">
+      <div class="space-y-5">${Object.entries(context.evidence).map(([competency, bundle]) => {
+        const suggested = String(bundle.suggested_rating || "").trim();
+        const activeRating = ratings[competency] || "";
+        const noteRequired = Boolean(suggested && activeRating && activeRating !== suggested);
+        return `<section class="bg-white border border-[#e7bdb9] rounded-xl p-5" data-rd-skill="${esc(competency)}" data-suggested="${esc(suggested)}">
         <div class="grid lg:grid-cols-2 gap-6">
           <div>
             <h2 class="text-lg font-bold text-[#291716]">${esc(competency)}</h2>
             <p class="text-sm mt-2 text-[#5d3f3d]">ZM rating: <strong class="text-[#291716]">${esc(context.zm_assessment.ratings?.[competency] || "Not rated")}</strong></p>
             <p class="text-sm text-[#926e6c] mt-1">${esc(context.zm_assessment.notes?.[competency] || "No ZM note.")}</p>
-            ${bundle.suggested_rating ? `<div class="mt-3 p-3 rounded-lg border border-[#d5e3ff] bg-[#f5f8ff]">
+            ${suggested ? `<div class="mt-3 p-3 rounded-lg border border-[#d5e3ff] bg-[#f5f8ff]">
               <p class="text-xs font-bold uppercase tracking-wide text-[#1464F4]">Suggested rating</p>
-              <p class="text-sm font-bold text-[#291716] mt-1">${esc(bundle.suggested_rating)}</p>
-              <p class="text-[10px] text-[#926e6c] mt-2">Advisory only — final rating is yours to decide.</p>
+              <p class="text-sm font-bold text-[#291716] mt-1">${esc(suggested)}</p>
+              <p class="text-[10px] text-[#926e6c] mt-2">Advisory only — final rating is yours. A note is required if you choose a different level.</p>
             </div>` : ""}
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
               ${levels.map((level) => {
@@ -2040,17 +2114,41 @@ Before you begin, we encourage you to take a few minutes to understand the philo
                 </button>`;
               }).join("")}
             </div>
-            <textarea data-rd-note="${esc(competency)}" ${locked ? "disabled" : ""} class="w-full border border-[#e7bdb9] rounded-lg p-3 mt-4 text-sm" placeholder="Optional RD note">${esc(notes[competency] || "")}</textarea>
+            <label class="block text-xs font-bold uppercase tracking-wide text-[#926e6c] mt-4 mb-1" data-rd-note-label="${esc(competency)}">
+              ${noteRequired ? 'RD note <span class="text-[#df162b]">(required — differs from AI suggestion)</span>' : "RD note (optional)"}
+            </label>
+            <textarea data-rd-note="${esc(competency)}" ${locked ? "disabled" : ""} class="w-full border border-[#e7bdb9] rounded-lg p-3 text-sm ${noteRequired ? "border-[#df162b]/50" : ""}" placeholder="${noteRequired ? "Explain why your rating differs from the AI suggestion…" : "Optional RD note"}">${esc(notes[competency] || "")}</textarea>
           </div>
           <div>
-            <h3 class="font-bold text-sm text-[#291716]">Supporting Evidence</h3>
+            <h3 class="font-bold text-sm text-[#291716]">Supporting Evidence From Previous Feedbacks</h3>
             ${renderEvidencePanel(bundle)}
           </div>
         </div>
-      </section>`).join("")}${careerMoveHtml}</div>
+      </section>`;
+      }).join("")}${careerMoveHtml}</div>
       <div class="mt-6 flex justify-end gap-3">${locked ? '<strong class="text-emerald-700">Final profile submitted and locked</strong>' : `${button("Save Draft", "data-draft", true)}${button("Submit Final Profile", "data-final")}`}</div>`);
     qs("[data-back]").onclick = () => go("rd/dashboard");
     if (locked) return;
+    const syncRdNoteRequirement = (skill) => {
+      const section = qs(`[data-rd-skill="${CSS.escape(skill)}"]`);
+      if (!section) return;
+      const suggested = String(section.dataset.suggested || "").trim();
+      const rating = ratings[skill] || "";
+      const required = Boolean(suggested && rating && rating !== suggested);
+      const label = qs(`[data-rd-note-label="${CSS.escape(skill)}"]`);
+      const note = qs(`[data-rd-note="${CSS.escape(skill)}"]`);
+      if (label) {
+        label.innerHTML = required
+          ? 'RD note <span class="text-[#df162b]">(required — differs from AI suggestion)</span>'
+          : "RD note (optional)";
+      }
+      if (note) {
+        note.placeholder = required
+          ? "Explain why your rating differs from the AI suggestion…"
+          : "Optional RD note";
+        note.classList.toggle("border-[#df162b]/50", required);
+      }
+    };
     qsa("[data-career-move]").forEach((control) => {
       control.onclick = () => {
         careerRecommendation = control.dataset.careerMove;
@@ -2073,8 +2171,10 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           const def = qs("p", item);
           if (def) def.className = `text-xs mt-1 leading-relaxed ${active ? "text-white/90" : "text-[#5d3f3d]"}`;
         });
+        syncRdNoteRequirement(control.dataset.rating);
       };
     });
+    Object.keys(context.evidence || {}).forEach((skill) => syncRdNoteRequirement(skill));
     const save = async (submit) => {
       if (submit && Object.keys(ratings).length !== Object.keys(context.evidence).length) {
         toast("Rate all seven competencies before submission.", "error");
@@ -2084,8 +2184,19 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         toast("Select a career move recommendation before submission.", "error");
         return;
       }
-      if (submit && !confirm("Submit and lock final RD profile?")) return;
       qsa("[data-rd-note]").forEach((node) => { notes[node.dataset.rdNote] = node.value; });
+      if (submit) {
+        const missingNotes = Object.keys(context.evidence || {}).filter((skill) => {
+          const suggested = String(context.evidence[skill]?.suggested_rating || "").trim();
+          if (!suggested || !ratings[skill] || ratings[skill] === suggested) return false;
+          return !String(notes[skill] || "").trim();
+        });
+        if (missingNotes.length) {
+          toast(`Add a note where your rating differs from AI: ${missingNotes.join(", ")}`, "error");
+          return;
+        }
+      }
+      if (submit && !confirm("Submit and lock final RD profile?")) return;
       await api("/api/assessment", {
         method: "POST",
         body: JSON.stringify({
@@ -2132,6 +2243,37 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     qs("[data-final]").onclick = () => save(true).catch((error) => toast(error.message, "error"));
   }
 
+  const ROLEPLAY_BRIEFS = {
+    functional: {
+      title: "Consultative Partnership Pitch With Hotel Chain",
+      about: "You are a MakeMyTrip Business Development Manager meeting a hotel chain (18 properties) that wants more demand but worries about commission leakage and discount-led business. Diagnose first — do not push a package immediately. Ask for the right data, propose a sharp partnership approach, and build trust.",
+      success: [
+        "Diagnose the demand problem before pitching product.",
+        "Use occupancy, cancellation, and commercial data to guide the ask.",
+        "Differentiate weekday corporate vs weekend leisure plans.",
+        "Align GM, revenue, and leadership priorities.",
+        "Propose a 90-day pilot with owners, metrics, and guardrails.",
+      ],
+      aiName: "Priya Nair",
+      aiRole: "Regional Partnerships Lead",
+      aiPersona: "Commercially sharp, collaborative, and time-pressed. Open to MakeMyTrip but skeptical of generic OTA pitches. Challenges vague claims and expects proof without heavy discounts.",
+    },
+    behavioural: {
+      title: "Leading a Cross-Functional Strategic Project",
+      about: "You are a MakeMyTrip Business Development Manager leading a high-value enterprise partnership implementation (go-live in 6 weeks; ~INR 3.5 crore signed value). Customer added reporting, SLA, and approval-workflow asks after signing. Product and Engineering are stretched. Align teams without formal authority.",
+      success: [
+        "Clarify the 6-week objective and success metrics.",
+        "Define ownership, decision rights, and escalation.",
+        "Show what weekly leadership numbers prove on-track status.",
+        "Phase post-signing scope against ~30% Engineering capacity.",
+        "Summarise plan, owners, risks, timelines, and next steps.",
+      ],
+      aiName: "Sarah Patel",
+      aiRole: "Senior Product Manager",
+      aiPersona: "Collaborative but cautious. Represents Product, Engineering, and Delivery. Pushes back on fuzzy scope, unclear ownership, and unrealistic timelines. Needs confidence before committing capacity.",
+    },
+  };
+
   async function initRoleplays() {
     const result = await api("/api/employee/roleplays");
     const sessions = result.sessions || [];
@@ -2141,36 +2283,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     const meName = session.user?.display_name || session.user?.name || "You";
     const meRole = session.user?.designation || session.user?.role_name || "Business Development Manager";
     const meAvatar = loadAvatar(session.user);
-    const briefings = {
-      functional: {
-        title: "Winning a Strategic Partner Conversation",
-        about: "You are meeting a key hotel / travel partner who is reviewing performance, asking for data-backed recommendations, and deciding whether to deepen the partnership. Practice consultative discovery, using insights, and aligning stakeholders on next steps.",
-        success: [
-          "Uncover the partner’s real priorities before pitching.",
-          "Use clear data or trends to support your recommendation.",
-          "Handle objections without becoming defensive.",
-          "Align on ownership, timelines, and a concrete next step.",
-          "Keep the tone commercial, credible, and relationship-focused.",
-        ],
-        aiName: "Priya Nair",
-        aiRole: "Regional Partnerships Lead",
-        aiPersona: "Direct, commercially sharp, and data-driven. She challenges vague claims, asks for proof, and expects clear ownership of actions. She stays professional and rewards structured, consultative thinking.",
-      },
-      behavioural: {
-        title: "Leading a Cross-Functional Strategic Project",
-        about: "You are the Business Development Manager leading a high-visibility kick-off for a key enterprise customer. Scope, ownership, and dependencies are unclear. Product and Engineering are stretched, and the customer expects regular updates. Lead the meeting without formal authority.",
-        success: [
-          "Clarify the objective, scope, timeline, and success metrics.",
-          "Define your role, decision rights, and escalation path.",
-          "Surface risks, dependencies, and points of friction early.",
-          "Set a realistic communication cadence and change process.",
-          "Summarise next steps and leave with clear alignment.",
-        ],
-        aiName: "Sarah Patel",
-        aiRole: "Senior Product Manager",
-        aiPersona: "Collaborative and customer-focused, but cautious. She pushes back on unrealistic timelines, unclear ownership, and scope creep. She wants the project to succeed only if expectations are realistic for her already-loaded teams.",
-      },
-    };
+    const briefings = ROLEPLAY_BRIEFS;
     const banner = `<div class="bg-white border border-[#e7bdb9] rounded-xl p-6 mb-7 relative overflow-hidden flex flex-col md:flex-row md:items-center justify-between gap-6">
       <div class="absolute top-0 left-0 w-1.5 h-full bg-[#1464F4]"></div>
       <div class="flex flex-col md:flex-row md:items-center gap-6">
@@ -2184,7 +2297,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
             : '<span class="material-symbols-outlined">lock</span> Career lattice locked'}</div>
           <p class="text-sm text-[#5d3f3d] mt-1">${result.lattice_unlocked
             ? "Both voice roleplay sessions are complete."
-            : "Complete Functional and Behavioural voice roleplays to unlock Career Lattice."}</p>
+            : "Complete both voice roleplay sessions to unlock Career Lattice."}</p>
         </div>
       </div>
       <div class="flex items-center gap-4">
@@ -2192,12 +2305,10 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         ${result.lattice_unlocked ? button("View Lattice", "data-career") : ""}
       </div>
     </div>`;
-    const cards = sessions.map((row) => {
+    const cards = sessions.map((row, index) => {
       const done = row.status === "completed";
       const brief = briefings[row.kind] || {};
-      const skills = (row.competencies || []).map((c) =>
-        `<span class="inline-flex px-2 py-0.5 rounded-md bg-[#fff0ef] text-[11px] font-semibold text-[#5d3f3d]">${esc(c)}</span>`
-      ).join("");
+      const sessionLabel = `Session ${index + 1}`;
       const successList = (brief.success || []).map((item) =>
         `<li class="text-sm text-[#5d3f3d] leading-snug">${esc(item)}</li>`
       ).join("");
@@ -2209,13 +2320,12 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           <div class="min-w-0">
             <div class="flex items-center gap-2 text-[11px] font-bold uppercase tracking-wider text-[#5d3f3d] mb-1">
               <span class="material-symbols-outlined text-base text-[#df162b]">apartment</span>
-              MakeMyTrip · ${esc(row.label || row.kind)}
+              MakeMyTrip · ${esc(sessionLabel)}
             </div>
-            <h2 class="font-bold text-xl text-[#291716] leading-tight">${esc(brief.title || row.label || row.kind)}</h2>
+            <h2 class="font-bold text-xl text-[#291716] leading-tight">${esc(brief.title || sessionLabel)}</h2>
           </div>
           <span class="shrink-0 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide ${done ? "bg-green-100 text-green-700" : "bg-[#ffe1df] text-[#5d3f3d]"}">${esc(String(row.status || "not_started").replaceAll("_", " "))}</span>
         </div>
-        <div class="flex flex-wrap gap-1.5 mb-4">${skills}</div>
         <div class="space-y-4 mb-4">
           <div>
             <h3 class="text-sm font-bold text-[#291716] mb-1">What this conversation is about</h3>
@@ -2256,7 +2366,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         <div class="mt-auto flex flex-col gap-2">
           ${done ? '<p class="text-sm font-bold text-emerald-700">Session complete</p>' : `
           <button type="button" data-voice-start="${esc(row.kind)}" class="w-full px-3 py-2.5 bg-[#1464F4] text-white rounded-lg font-bold text-sm hover:opacity-90">Start mic session</button>
-          <button type="button" data-voice-end="${esc(row.kind)}" disabled class="w-full px-3 py-2.5 border border-[#e7bdb9] text-[#5d3f3d] rounded-lg font-bold text-sm disabled:opacity-40">End &amp; score</button>`}
+          <button type="button" data-voice-end="${esc(row.kind)}" disabled class="w-full px-3 py-2.5 border border-[#e7bdb9] text-[#5d3f3d] rounded-lg font-bold text-sm disabled:opacity-40">End</button>`}
         </div>
       </section>`;
     }).join("");
@@ -2282,6 +2392,8 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     acceptAudio: false,
     playbackSampleRate: 24000,
     inputSampleRate: 16000,
+    stage: null,
+    transcriptOpen: false,
   };
 
   function floatTo16BitPCM(float32) {
@@ -2371,7 +2483,126 @@ Before you begin, we encourage you to take a few minutes to understand the philo
 
   function setVoiceStatus(kind, text) {
     const node = qs(`[data-voice-status="${CSS.escape(kind)}"]`);
-    if (node) node.textContent = text;
+    if (node && text) node.textContent = text;
+    // Never show status on the live stage header.
+    const stageStatus = qs("[data-voice-stage-status]");
+    if (stageStatus) stageStatus.textContent = "";
+  }
+
+  function setVoiceSpeaking(who) {
+    const stage = voiceRuntime.stage;
+    if (!stage) return;
+    const youBar = qs("[data-voice-you-bar]", stage);
+    const aiBar = qs("[data-voice-ai-bar]", stage);
+    const aiDots = qs("[data-voice-ai-dots]", stage);
+    if (youBar) youBar.classList.toggle("opacity-100", who === "user");
+    if (youBar) youBar.classList.toggle("opacity-0", who !== "user");
+    if (aiBar) aiBar.classList.toggle("opacity-100", who === "assistant");
+    if (aiBar) aiBar.classList.toggle("opacity-0", who !== "assistant");
+    if (aiDots) aiDots.classList.toggle("animate-pulse", who === "assistant");
+  }
+
+  function openVoiceStage(kind) {
+    closeVoiceStage();
+    const brief = ROLEPLAY_BRIEFS[kind] || {};
+    const meName = session.user?.display_name || session.user?.name || "You";
+    const meRole = session.user?.designation || session.user?.role_name || "Business Development Manager";
+    const meAvatar = loadAvatar(session.user);
+    const avatarHtml = meAvatar
+      ? `<img src="${meAvatar}" alt="" class="w-20 h-20 md:w-24 md:h-24 rounded-full object-cover border-2 border-white shadow-md">`
+      : `<div class="w-20 h-20 md:w-24 md:h-24 rounded-full bg-[#ffe1df] text-[#df162b] grid place-items-center text-2xl font-bold shadow-md">${esc((meName || "Y").split(/\s+/).map((p) => p[0]).slice(0, 2).join("").toUpperCase() || "ME")}</div>`;
+    const stage = document.createElement("div");
+    stage.id = "voice-roleplay-stage";
+    stage.className = "fixed inset-0 z-[100] bg-[#f4f6f8] flex flex-col";
+    stage.innerHTML = `
+      <header class="shrink-0 px-4 md:px-8 py-4 border-b border-[#e7bdb9] bg-white">
+        <div class="min-w-0">
+          <p class="text-[11px] font-bold uppercase tracking-wider text-[#5d3f3d]">Live roleplay</p>
+          <h1 class="text-lg md:text-xl font-extrabold text-[#291716] truncate">${esc(brief.title || "Voice assessment")}</h1>
+        </div>
+        <p class="hidden sm:block text-sm text-[#5d3f3d] mt-1" data-voice-stage-status></p>
+      </header>
+      <div class="flex-1 min-h-0 grid lg:grid-cols-[minmax(0,1.1fr)_minmax(280px,0.9fr)]">
+        <section class="flex items-center justify-center p-6 md:p-10">
+          <div class="w-full max-w-3xl bg-white rounded-2xl border border-[#e7bdb9] shadow-xl px-6 py-10 md:px-10 md:py-12">
+            <div class="grid grid-cols-2 gap-6 md:gap-10 items-start">
+              <div class="flex flex-col items-center text-center">
+                ${avatarHtml}
+                <p class="mt-4 font-extrabold text-[#291716] text-lg">You</p>
+                <p class="text-sm text-[#5d3f3d] mt-1">${esc(meRole)}</p>
+                <div data-voice-you-bar class="mt-3 h-1.5 w-16 rounded-full bg-[#1464F4] opacity-0 transition-opacity"></div>
+              </div>
+              <div class="flex flex-col items-center text-center">
+                <div data-voice-ai-dots class="w-20 h-20 md:w-24 md:h-24 rounded-full bg-[#e8f1ff] text-[#1464F4] grid place-items-center shadow-md">
+                  <span class="flex gap-1.5">
+                    <span class="w-2.5 h-2.5 rounded-full bg-[#1464F4]"></span>
+                    <span class="w-2.5 h-2.5 rounded-full bg-[#1464F4]"></span>
+                    <span class="w-2.5 h-2.5 rounded-full bg-[#1464F4]"></span>
+                  </span>
+                </div>
+                <p class="mt-4 font-extrabold text-[#291716] text-lg">${esc(brief.aiName || "AI counterpart")}</p>
+                <p class="text-sm text-[#5d3f3d] mt-1">${esc(brief.aiRole || "")}</p>
+                <div data-voice-ai-bar class="mt-3 h-1.5 w-16 rounded-full bg-[#1464F4] opacity-0 transition-opacity"></div>
+              </div>
+            </div>
+            <p class="text-center text-xs text-[#926e6c] mt-8 max-w-xl mx-auto leading-relaxed">${esc(brief.aiPersona || "")}</p>
+          </div>
+        </section>
+        <aside class="border-t lg:border-t-0 lg:border-l border-[#e7bdb9] bg-white flex flex-col min-h-0">
+          <div class="px-4 py-3 border-b border-[#e7bdb9]">
+            <h2 class="text-sm font-bold text-[#291716]">Live transcript</h2>
+            <p class="text-xs text-[#5d3f3d] mt-0.5">What ${esc(brief.aiName || "the assessor")} is saying</p>
+          </div>
+          <div data-voice-transcript class="flex-1 overflow-y-auto p-4 space-y-3 text-sm text-[#291716] leading-relaxed">
+            <p class="text-[#926e6c] italic" data-voice-transcript-empty>Transcript appears here as the voicebot speaks…</p>
+          </div>
+        </aside>
+      </div>
+      <footer class="shrink-0 px-4 md:px-8 py-4 border-t border-[#e7bdb9] bg-white flex justify-center">
+        <button type="button" data-voice-stage-end class="w-full max-w-sm px-4 py-3 bg-[#df162b] text-white rounded-lg font-bold text-sm hover:opacity-90">End</button>
+      </footer>`;
+    document.body.appendChild(stage);
+    document.body.style.overflow = "hidden";
+    voiceRuntime.stage = stage;
+    voiceRuntime.transcriptOpen = false;
+    qs("[data-voice-stage-end]", stage).onclick = () => endVoiceRoleplay(kind);
+  }
+
+  function closeVoiceStage() {
+    if (voiceRuntime.stage) {
+      voiceRuntime.stage.remove();
+      voiceRuntime.stage = null;
+    }
+    voiceRuntime.transcriptOpen = false;
+    document.body.style.overflow = "";
+  }
+
+  function appendVoiceTranscript(delta) {
+    const stage = voiceRuntime.stage;
+    if (!stage || !delta) return;
+    const box = qs("[data-voice-transcript]", stage);
+    if (!box) return;
+    const empty = qs("[data-voice-transcript-empty]", stage);
+    if (empty) empty.remove();
+    let current = qs("[data-voice-transcript-current]", stage);
+    if (!current) {
+      current = document.createElement("p");
+      current.setAttribute("data-voice-transcript-current", "");
+      current.className = "whitespace-pre-wrap";
+      box.appendChild(current);
+    }
+    current.textContent = `${current.textContent || ""}${delta}`;
+    box.scrollTop = box.scrollHeight;
+    voiceRuntime.transcriptOpen = true;
+  }
+
+  function finalizeVoiceTranscriptTurn() {
+    const stage = voiceRuntime.stage;
+    if (!stage) return;
+    const current = qs("[data-voice-transcript-current]", stage);
+    if (!current || !String(current.textContent || "").trim()) return;
+    current.removeAttribute("data-voice-transcript-current");
+    current.classList.add("text-[#5d3f3d]");
   }
 
   async function startVoiceRoleplay(kind) {
@@ -2379,11 +2610,18 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       toast("End the current session first.", "error");
       return;
     }
-    setVoiceStatus(kind, "Starting session…");
-    const started = await api("/api/employee/voice-roleplay/start", {
-      method: "POST",
-      body: JSON.stringify({ kind }),
-    });
+    openVoiceStage(kind);
+    setVoiceStatus(kind, "");
+    let started;
+    try {
+      started = await api("/api/employee/voice-roleplay/start", {
+        method: "POST",
+        body: JSON.stringify({ kind }),
+      });
+    } catch (error) {
+      closeVoiceStage();
+      throw error;
+    }
     const proto = location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${proto}//${location.host}${started.ws_path}&token=${encodeURIComponent(session.token)}`;
     const ws = new WebSocket(wsUrl);
@@ -2400,16 +2638,24 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     ws.onmessage = (event) => {
       let msg;
       try { msg = JSON.parse(event.data); } catch { return; }
-      if (msg.type === "ready") setVoiceStatus(kind, "Connected — speak when ready.");
+      if (msg.type === "ready") setVoiceStatus(kind, "");
       else if (msg.type === "audio" && msg.data) playPcm16Base64(msg.data);
-      else if (msg.type === "status") setVoiceStatus(kind, msg.message || "");
-      else if (msg.type === "complete") {
+      else if (msg.type === "transcript" && msg.delta) {
+        setVoiceSpeaking("assistant");
+        appendVoiceTranscript(msg.delta);
+      } else if (msg.type === "transcript_done") {
+        finalizeVoiceTranscriptTurn();
+      } else if (msg.type === "speech") {
+        setVoiceSpeaking(msg.who || "idle");
+      } else if (msg.type === "status") {
+        // Do not show timing / continue / voice status to the employee.
+      } else if (msg.type === "complete") {
         toast("Roleplay session complete.");
         cleanupVoiceRuntime();
         initRoleplays().catch((err) => toast(err.message, "error"));
       } else if (msg.type === "error") {
         toast(msg.message || "Voice session error", "error");
-        setVoiceStatus(kind, msg.message || "Error");
+        setVoiceStatus(kind, "");
         cleanupVoiceRuntime();
         initRoleplays().catch(() => {});
       }
@@ -2422,31 +2668,37 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       if (voiceRuntime.ws === ws) cleanupVoiceRuntime();
     };
 
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const source = audioCtx.createMediaStreamSource(stream);
-    const processor = audioCtx.createScriptProcessor(4096, 1, 1);
-    const inputTargetRate = Number(voiceRuntime.inputSampleRate) || 16000;
-    processor.onaudioprocess = (e) => {
-      if (!voiceRuntime.ws || voiceRuntime.ws.readyState !== WebSocket.OPEN) return;
-      if (!voiceRuntime.acceptAudio) return;
-      const input = e.inputBuffer.getChannelData(0);
-      const down = downsampleToRate(input, audioCtx.sampleRate, inputTargetRate);
-      const pcm = floatTo16BitPCM(down);
-      voiceRuntime.ws.send(JSON.stringify({ type: "audio", data: pcm16ToBase64(pcm) }));
-    };
-    source.connect(processor);
-    const mute = audioCtx.createGain();
-    mute.gain.value = 0;
-    processor.connect(mute);
-    mute.connect(audioCtx.destination);
-    voiceRuntime.capture = { stream, audioCtx, source, processor };
-    setVoiceStatus(kind, "Mic live — waiting for assessor…");
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      const source = audioCtx.createMediaStreamSource(stream);
+      const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+      const inputTargetRate = Number(voiceRuntime.inputSampleRate) || 16000;
+      processor.onaudioprocess = (e) => {
+        if (!voiceRuntime.ws || voiceRuntime.ws.readyState !== WebSocket.OPEN) return;
+        if (!voiceRuntime.acceptAudio) return;
+        const input = e.inputBuffer.getChannelData(0);
+        const down = downsampleToRate(input, audioCtx.sampleRate, inputTargetRate);
+        const pcm = floatTo16BitPCM(down);
+        voiceRuntime.ws.send(JSON.stringify({ type: "audio", data: pcm16ToBase64(pcm) }));
+      };
+      source.connect(processor);
+      const mute = audioCtx.createGain();
+      mute.gain.value = 0;
+      processor.connect(mute);
+      mute.connect(audioCtx.destination);
+      voiceRuntime.capture = { stream, audioCtx, source, processor };
+      setVoiceStatus(kind, "Mic live — waiting for assessor…");
+    } catch (error) {
+      cleanupVoiceRuntime();
+      throw error;
+    }
   }
 
   function endVoiceRoleplay(kind) {
     if (!voiceRuntime.ws || voiceRuntime.kind !== kind) return;
     setVoiceStatus(kind, "Ending and scoring…");
+    setVoiceSpeaking("idle");
     stopMicCapture();
     stopBotPlayback();
     try {
@@ -2456,6 +2708,8 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     }
     const endBtn = qs(`[data-voice-end="${CSS.escape(kind)}"]`);
     if (endBtn) endBtn.disabled = true;
+    const stageEnd = qs("[data-voice-stage-end]");
+    if (stageEnd) stageEnd.disabled = true;
   }
 
   function cleanupVoiceRuntime() {
@@ -2467,6 +2721,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     voiceRuntime.ws = null;
     voiceRuntime.kind = null;
     voiceRuntime.acceptAudio = false;
+    closeVoiceStage();
   }
 
   async function initCareer() {
@@ -2568,10 +2823,10 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       return byId[id];
     };
 
-    // Green only on the route from current seat → locked aspiration.
+    // Lit edges only on the route from current seat → aspiration/eligible targets.
+    // Never light BD→ZM when seat is KAM (that spine is a BD-only hop).
     const currentSeat = isKamCurrent ? "kam" : "bd";
-    const greenEdges = (() => {
-      if (!choiceId) return new Set();
+    const routeEdgesFor = (targetId) => {
       const routes = {
         kam: currentSeat === "bd" ? [["bd", "kam"]] : [],
         zm: currentSeat === "bd" ? [["bd", "zm"]] : currentSeat === "kam" ? [["kam", "zm"]] : [],
@@ -2583,18 +2838,30 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         bdfe: currentSeat === "bd" ? [["bd", "bdfe"]] : [],
         category: currentSeat === "bd" ? [["bd", "category"]] : [],
       };
-      return new Set((routes[choiceId] || []).map(([from, to]) => `${from}|${to}`));
+      return routes[targetId] || [];
+    };
+    const greenEdges = (() => {
+      if (!choiceId) return new Set();
+      return new Set(routeEdgesFor(choiceId).map(([from, to]) => `${from}|${to}`));
+    })();
+    const blueEdges = (() => {
+      if (choiceId) return new Set();
+      const edges = new Set();
+      for (const node of journey) {
+        if (!node?.enabled || node.id === "current") continue;
+        for (const [from, to] of routeEdgesFor(node.id)) {
+          edges.add(`${from}|${to}`);
+        }
+      }
+      return edges;
     })();
 
     const pathStroke = (fromId, toId) => {
-      const to = resolveNode(toId);
-      if (!to) return { base: "#cfcfcf", glow: "transparent", lit: false };
-      if (greenEdges.has(`${fromId}|${toId}`)) {
+      const key = `${fromId}|${toId}`;
+      if (greenEdges.has(key)) {
         return { base: "#16a34a", glow: "#16a34a", lit: true };
       }
-      const from = resolveNode(fromId);
-      const st = nodeStatus(to);
-      if (st === "selected" || st === "eligible" || (from && nodeStatus(from) === "current" && to.enabled)) {
+      if (blueEdges.has(key)) {
         return { base: "#1464F4", glow: "#1464F4", lit: true };
       }
       return { base: "#c5c5c5", glow: "transparent", lit: false };
@@ -4698,7 +4965,15 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         ? `<div class="grid md:grid-cols-2 gap-4 mt-6">${sessions.map((row) => {
           const scores = row.scores || {};
           const scoreLines = Object.keys(scores).length
-            ? Object.entries(scores).map(([k, v]) => `<p class="text-sm text-slate-700"><strong>${esc(k)}:</strong> ${esc(v)}</p>`).join("")
+            ? Object.entries(scores).map(([k, v]) => {
+              if (v == null) return `<p class="text-sm text-slate-500"><strong>${esc(k)}:</strong> —</p>`;
+              if (typeof v === "object") {
+                const conf = Number(v.confidence);
+                const confLabel = Number.isFinite(conf) ? ` · conf ${Math.round(conf * 100)}%` : "";
+                return `<p class="text-sm text-slate-700"><strong>${esc(k)}:</strong> ${esc(v.level || "—")}<span class="text-slate-500">${esc(confLabel)}</span></p>`;
+              }
+              return `<p class="text-sm text-slate-700"><strong>${esc(k)}:</strong> ${esc(v)}</p>`;
+            }).join("")
             : '<p class="text-sm text-slate-500">No scores yet.</p>';
           return `<article class="border border-slate-200 rounded-xl p-5 bg-slate-50">
             <div class="flex justify-between gap-3"><h3 class="font-bold">${esc(row.label || row.kind)}</h3>${statusChip(row.status)}</div>

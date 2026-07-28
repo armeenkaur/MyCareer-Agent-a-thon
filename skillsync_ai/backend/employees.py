@@ -60,6 +60,11 @@ class EmployeesMixin:
                     """,
                     (employee["employee_code"],),
                 ).fetchone()
+            rd_move = ""
+            rd_move_label = ""
+            if rd and rd.get("status") == "submitted":
+                rd_move = str((rd or {}).get("career_recommendation") or "").strip()
+                rd_move_label = CAREER_MOVE_LABELS.get(rd_move, rd_move)
             output.append(
                 {
                     **employee,
@@ -71,8 +76,18 @@ class EmployeesMixin:
                         (zm or {}).get("career_recommendation") or ""
                     ) if user["role"] == "admin" else "",
                     "rd_career_recommendation": (
-                        (rd or {}).get("career_recommendation") or ""
-                    ) if user["role"] == "admin" else "",
+                        ((rd or {}).get("career_recommendation") or "")
+                        if user["role"] == "admin"
+                        else rd_move
+                    ),
+                    "rd_career_recommendation_label": (
+                        CAREER_MOVE_LABELS.get(
+                            str((rd or {}).get("career_recommendation") or ""),
+                            str((rd or {}).get("career_recommendation") or ""),
+                        )
+                        if user["role"] == "admin"
+                        else rd_move_label
+                    ),
                     "final_profile_available": bool(rd and rd["status"] == "submitted"),
                     "roleplays_completed": roleplay_count,
                     "roleplays_total": len(VOICE_KINDS),

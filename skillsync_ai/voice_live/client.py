@@ -5,6 +5,7 @@ import contextlib
 import json
 import re
 import threading
+import time
 from collections.abc import Callable
 from typing import Any
 
@@ -21,22 +22,59 @@ from ..core.config import (
     VOICE_INPUT_SAMPLE_RATE,
 )
 from ..core.logging_setup import get_logger
-from . import load_prompt, scoring_instruction
+from . import ROLEPLAY_STRONG, ROLEPLAY_SUPPORTING, load_prompt, scoring_instruction
 
 log = get_logger("skillsync.voice_live")
 
 VALID_LEVELS = frozenset({"Beginner", "Intermediate", "Proficient", "Advanced"})
+# Per skill: {"level": str, "confidence": float} or None (supporting only).
+ScoreEntry = dict[str, Any] | None
+ScoreMap = dict[str, ScoreEntry]
 # Prefer OpenAI female voices on this gpt-realtime endpoint (default is male alloy).
 # Azure Diya kept as fallback with raised pitch/rate when azure-standard works.
 DEFAULT_FEMALE_VOICE = "shimmer"
 DEFAULT_FEMALE_VOICE_TYPE = "openai"
 HOTELS_FEMALE_VOICE = "en-IN-Diya:DragonHDLatestNeural"
 HOTELS_FEMALE_VOICE_TYPE = "azure-standard"
-SESSION_TEMPERATURE = 0.5
+SESSION_TEMPERATURE = 0.55
+BEHAVIOURAL_TEMPERATURE = 0.9
+FUNCTIONAL_TEMPERATURE = 0.55
 VOICE_TEMPERATURE = 0.5
 # Azure Voice Live voice object supports pitch/rate (seen on session.updated).
 AZURE_VOICE_PITCH = "+20%"
 AZURE_VOICE_RATE = "+12%"
+
+# Soft continue-check only (no hard time limit).
+SENSE_CHECK_AFTER_SEC = 180  # ~3 minutes
+
+
+def _session_temperature(kind: str) -> float:
+    """Behavioural runs hotter so Sarah can answer scenario questions with richer detail."""
+    if kind == "behavioural":
+        return BEHAVIOURAL_TEMPERATURE
+    return FUNCTIONAL_TEMPERATURE
+
+
+def _sense_check_payload(kind: str) -> dict[str, Any]:
+    persona = "Sarah Patel" if kind == "behavioural" else "Priya Nair"
+    return {
+        "type": "response.create",
+        "response": {
+            "modalities": ["audio"],
+            "instructions": (
+                f"SENSE CHECK (~3 minutes) — ask CONTINUE only. Stay in character as {persona}. "
+                "This is NOT an ending. Do NOT summarise. Do NOT wrap up. Do NOT conclude. "
+                "Acknowledge their last answer in one short sentence, then ask ONE question: "
+                "do they want to continue this conversation a bit longer? "
+                "Example: 'Got it — do you want to continue this discussion a little more?' "
+                "Then STOP completely and wait in silence for their answer. "
+                "Do not speak again until they reply. "
+                "If fewer than 4 competencies have usable evidence, skip the continue question "
+                "and ask one NEW uncovered question instead. "
+                "Never end abruptly. Never deliver a closing summary on this turn."
+            ),
+        },
+    }
 
 
 def _voice_block(voice: str, voice_type: str) -> dict[str, Any]:
@@ -88,7 +126,7 @@ def _session_update_payload(kind: str, voice: str, voice_type: str) -> dict[str,
             # Our deployment rejects ["text","audio"] together; Hotels uses both.
             "modalities": ["audio"],
             "voice": _voice_block(voice, voice_type),
-            "temperature": SESSION_TEMPERATURE,
+            "temperature": _session_temperature(kind),
             "instructions": load_prompt(kind),
             "input_audio_format": "pcm16",
             "output_audio_format": "pcm16",
@@ -110,25 +148,27 @@ def _hello_payload(kind: str) -> dict[str, Any]:
     """Hotels-style: response.create with exact first line. No voice override here (session owns voice)."""
     if kind == "behavioural":
         opening = (
-            "Start in English. Say this line exactly to the learner, then stop and wait. "
+            "Start in English. Say this kick-off exactly to the learner, then stop and wait. "
             "Stay in character as Sarah Patel. "
             "Do not greet as an assessor. Do not invent any other scenario. "
             "Say exactly: "
-            "Thanks for joining. Before we commit resources, I need more clarity. "
-            "The customer has already added new requirements since signing, Engineering is stretched, "
-            "and I'm not convinced we've agreed what success looks like. "
-            "Can you walk us through how you see this project working?"
+            "Thanks for joining. Quick context — this meeting is our kick-off for the enterprise "
+            "partnership implementation: first rollout in six weeks, about 3.5 crore annual value, "
+            "and the customer has already added reporting, SLA, and approval-workflow asks after signing. "
+            "Engineering is stretched and I need clarity before we commit. "
+            "Can you walk me through how you see this project working?"
         )
     else:
         opening = (
-            "Start in English. Say this line exactly to the learner, then stop and wait. "
+            "Start in English. Say this kick-off exactly to the learner, then stop and wait. "
             "Stay in character as Priya Nair, hotel partnerships lead. "
             "Do not greet as an assessor. Do not invent any other scenario "
             "(no strangers, railway stations, directions, or unrelated icebreakers). "
             "Say exactly: "
-            "Thanks for making time. Before we talk packages, I need to understand whether you "
-            "actually understand our demand problem. Walk me through how you'd approach a "
-            "partnership with a chain like ours."
+            "Thanks for making time. Quick context — I lead partnerships for an 18-property chain "
+            "with strong weekends but weak weekdays, and leadership is worried about commission leakage "
+            "and discount-led demand. We are not looking for generic discounts. "
+            "Walk me through how you would approach a partnership with a chain like ours."
         )
     return {
         "type": "response.create",
@@ -162,8 +202,8 @@ def _score_payload(kind: str, *, strict: bool = False) -> dict[str, Any]:
     }
 
 
-def parse_ratings_json(text: str, expected_skills: list[str]) -> dict[str, str]:
-    """Extract ratings map from model text; raise ValueError if unusable."""
+def parse_ratings_json(text: str, kind: str) -> ScoreMap:
+    """Extract per-skill level+confidence map; supporting skills may be null."""
     raw = (text or "").strip()
     if not raw:
         raise ValueError("Empty scoring response.")
@@ -173,12 +213,33 @@ def parse_ratings_json(text: str, expected_skills: list[str]) -> dict[str, str]:
     ratings = payload.get("ratings") if isinstance(payload, dict) else None
     if not isinstance(ratings, dict):
         raise ValueError("Scoring JSON missing ratings object.")
-    cleaned: dict[str, str] = {}
-    for skill in expected_skills:
-        level = str(ratings.get(skill) or "").strip()
+    required = ROLEPLAY_STRONG[kind]
+    optional = ROLEPLAY_SUPPORTING[kind]
+    expected = list(required) + list(optional)
+    cleaned: ScoreMap = {}
+    for skill in expected:
+        entry = ratings.get(skill)
+        if entry is None:
+            if skill in required:
+                raise ValueError(f"Missing required rating for {skill}.")
+            cleaned[skill] = None
+            continue
+        # Legacy flat string: "Proficient"
+        if isinstance(entry, str):
+            level = entry.strip()
+            confidence = 0.7
+        elif isinstance(entry, dict):
+            level = str(entry.get("level") or "").strip()
+            try:
+                confidence = float(entry.get("confidence"))
+            except (TypeError, ValueError) as exc:
+                raise ValueError(f"Invalid confidence for {skill}.") from exc
+        else:
+            raise ValueError(f"Invalid rating shape for {skill}.")
         if level not in VALID_LEVELS:
             raise ValueError(f"Invalid or missing level for {skill}.")
-        cleaned[skill] = level
+        confidence = max(0.0, min(1.0, confidence))
+        cleaned[skill] = {"level": level, "confidence": confidence}
     return cleaned
 
 
@@ -226,13 +287,20 @@ class AzureVoiceLiveBridge:
         self._score_text_parts: list[str] = []
         self._scoring = False
         self._mute_output = False
-        self._score_future: asyncio.Future[dict[str, str]] | None = None
+        self._score_future: asyncio.Future[ScoreMap] | None = None
         self._score_generation = 0
         self._voice_candidates = _voice_candidates()
         self._voice_index = 0
         self._session_ack = asyncio.Event()
         self._applied_voice: Any = None
         self._hello_sent = False
+        self._session_started_at: float | None = None
+        self._sense_check_sent = False
+        self._pending_timing_cue: str | None = None  # "sense" only
+        self._timing_cue_in_flight: str | None = None
+        self._response_active = False
+        self._user_speaking = False
+        self._timing_task: asyncio.Task[None] | None = None
 
     def start(self) -> None:
         self._thread = threading.Thread(target=self._run_thread, name="voice-live-azure", daemon=True)
@@ -268,14 +336,65 @@ class AzureVoiceLiveBridge:
             reader = asyncio.create_task(self._read_loop())
             try:
                 await self._configure_voice_and_greet()
+                self._session_started_at = time.monotonic()
+                self._timing_task = asyncio.create_task(self._timing_watchdog())
                 self._ready.set()
                 self.on_event({"type": "ready"})
                 await reader
             finally:
+                if self._timing_task and not self._timing_task.done():
+                    self._timing_task.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await self._timing_task
                 if not reader.done():
                     reader.cancel()
                     with contextlib.suppress(asyncio.CancelledError):
                         await reader
+
+    async def _timing_watchdog(self) -> None:
+        """Queue ~3 min continue sense-check only; flush when idle. No hard time limit."""
+        while not self._closed.is_set() and not self._scoring:
+            if self._session_started_at is None or self._ws is None:
+                await asyncio.sleep(1)
+                continue
+            elapsed = time.monotonic() - self._session_started_at
+            if not self._sense_check_sent and self._pending_timing_cue is None and elapsed >= SENSE_CHECK_AFTER_SEC:
+                self._pending_timing_cue = "sense"
+                log.info("Voice timing sense-check queued kind=%s elapsed=%.0fs", self.kind, elapsed)
+            await self._flush_pending_timing_cue()
+            if self._sense_check_sent and self._pending_timing_cue is None and self._timing_cue_in_flight is None:
+                return
+            await asyncio.sleep(1)
+
+    async def _flush_pending_timing_cue(self) -> None:
+        """Send queued sense-check only when idle (no active bot response, user not speaking)."""
+        if (
+            self._pending_timing_cue is None
+            or self._ws is None
+            or self._scoring
+            or self._mute_output
+            or self._closed.is_set()
+            or self._response_active
+            or self._user_speaking
+        ):
+            return
+        cue = self._pending_timing_cue
+        self._pending_timing_cue = None
+        self._timing_cue_in_flight = cue
+        try:
+            if cue != "sense":
+                self._timing_cue_in_flight = None
+                return
+            self._sense_check_sent = True
+            log.info("Voice timing sense-check flush kind=%s", self.kind)
+            self._response_active = True
+            await self._ws.send(json.dumps(_sense_check_payload(self.kind)))
+        except Exception:  # noqa: BLE001
+            log.exception("Voice timing cue flush failed kind=%s cue=%s", self.kind, cue)
+            self._timing_cue_in_flight = None
+            self._response_active = False
+            self._sense_check_sent = False
+            self._pending_timing_cue = "sense"
 
     async def _read_loop(self) -> None:
         assert self._ws is not None
@@ -331,22 +450,53 @@ class AzureVoiceLiveBridge:
             return
         if etype == "response.audio.delta":
             delta = event.get("delta") or event.get("audio")
+            self._response_active = True
             if delta and not self._scoring and not self._mute_output:
+                self.on_event({"type": "speech", "who": "assistant"})
                 self.on_event({"type": "audio", "data": delta})
             return
+        if etype in {"response.created", "response.output_item.added"}:
+            self._response_active = True
+            return
+        if etype == "input_audio_buffer.speech_started":
+            self._user_speaking = True
+            if not self._scoring and not self._mute_output:
+                self.on_event({"type": "speech", "who": "user"})
+            return
+        if etype == "input_audio_buffer.speech_stopped":
+            self._user_speaking = False
+            if not self._scoring and not self._mute_output:
+                self.on_event({"type": "speech", "who": "idle"})
+            return
         if etype in {"response.audio_transcript.delta", "response.text.delta"}:
+            part = event.get("delta") or ""
+            if not part:
+                return
+            self._response_active = True
             if self._scoring:
-                part = event.get("delta") or ""
-                if part:
-                    self._score_text_parts.append(str(part))
+                self._score_text_parts.append(str(part))
+            elif not self._mute_output:
+                self.on_event({"type": "transcript", "delta": str(part), "role": "assistant"})
             return
         if etype in {"response.audio_transcript.done", "response.text.done"}:
             if self._scoring and not self._score_text_parts:
                 transcript = event.get("transcript") or event.get("text")
                 if transcript:
                     self._score_text_parts.append(str(transcript))
+            elif not self._scoring and not self._mute_output:
+                self.on_event({"type": "transcript_done", "role": "assistant"})
+            return
+        if etype == "response.done" and not self._scoring:
+            self._response_active = False
+            self._timing_cue_in_flight = None
+            if not self._mute_output:
+                self.on_event({"type": "transcript_done", "role": "assistant"})
+                self.on_event({"type": "speech", "who": "idle"})
+            await self._flush_pending_timing_cue()
             return
         if etype == "response.done" and self._scoring:
+            self._response_active = False
+            self._timing_cue_in_flight = None
             generation = self._score_generation
             text = "".join(self._score_text_parts).strip()
             if not text:
@@ -356,7 +506,7 @@ class AzureVoiceLiveBridge:
             if not future or future.done() or generation != self._score_generation:
                 return
             try:
-                ratings = parse_ratings_json(text, self.expected_skills)
+                ratings = parse_ratings_json(text, self.kind)
                 future.set_result(ratings)
             except Exception as exc:  # noqa: BLE001
                 log.warning("Voice score parse failed: %s raw=%r", exc, text[:500])
@@ -365,9 +515,20 @@ class AzureVoiceLiveBridge:
         if etype == "error":
             message = str((event.get("error") or {}).get("message") or event.get("message") or "Azure error")
             log.warning("Azure Voice Live error: %s", message)
+            lowered = message.lower()
+            # Timing cue collided with an in-flight reply — re-queue; do not kill the session.
+            if "already has an active response" in lowered:
+                self._response_active = True
+                failed = self._timing_cue_in_flight
+                self._timing_cue_in_flight = None
+                if failed == "sense":
+                    self._sense_check_sent = False
+                    self._pending_timing_cue = "sense"
+                return
             if await self._maybe_fallback_voice(message):
                 return
             self.on_event({"type": "error", "message": message})
+            return
 
     async def _maybe_fallback_voice(self, message: str) -> bool:
         """Retry next female voice if Azure rejects the current one."""
@@ -431,15 +592,15 @@ class AzureVoiceLiveBridge:
         self._send_raw(json.dumps({"type": "input_audio_buffer.clear"}))
         self.on_event({"type": "status", "message": "Stopping — scoring…"})
 
-    def request_scores(self, timeout: float = 60.0) -> dict[str, str]:
+    def request_scores(self, timeout: float = 60.0) -> ScoreMap:
         if not self._loop or self._closed.is_set():
             raise RuntimeError("Voice session is not connected.")
-        future: asyncio.Future[dict[str, str]] = asyncio.run_coroutine_threadsafe(
+        future: asyncio.Future[ScoreMap] = asyncio.run_coroutine_threadsafe(
             self._score_async(), self._loop
         )
         return future.result(timeout=timeout)
 
-    async def _score_async(self) -> dict[str, str]:
+    async def _score_async(self) -> ScoreMap:
         self._scoring = True
         self._mute_output = True
         self._score_text_parts = []

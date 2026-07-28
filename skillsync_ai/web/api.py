@@ -287,7 +287,7 @@ class BackendAPI:
                 result = self.backend.complete_voice_roleplay(
                     str(body.get("session_id") or ""),
                     str(user["employee_code"]),
-                    {str(k): str(v) for k, v in ratings.items()},
+                    ratings,
                 )
                 self._send(handler, 200, result)
             elif parsed.path == "/api/employee/career":

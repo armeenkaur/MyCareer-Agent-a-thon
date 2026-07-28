@@ -70,6 +70,10 @@ class AssessmentsMixin:
             self._validate_career_recommendation(employee_code, recommendation)
         elif recommendation:
             self._validate_career_recommendation(employee_code, recommendation)
+        if submit and role == "zm":
+            self._validate_ai_override_notes(employee_code, ratings, notes or {}, "zm_suggested_rating")
+        if submit and role == "rd":
+            self._validate_ai_override_notes(employee_code, ratings, notes or {}, "suggested_rating")
         existing = self.assessment(employee_code, role)
         if existing and existing["status"] == "submitted":
             raise BackendError("Submitted assessment is locked.", "assessment_locked", 409)
@@ -120,6 +124,34 @@ class AssessmentsMixin:
                 log.exception("Course precomputation failed employee=%s", employee_code)
         return self.assessment(employee_code, role) or {}
 
+    def _validate_ai_override_notes(
+        self,
+        employee_code: str,
+        ratings: dict[str, str],
+        notes: dict[str, str],
+        suggestion_key: str,
+    ) -> None:
+        """When assessor overrides an AI suggested rating, a note is required for that competency."""
+        missing: list[str] = []
+        for competency, proficiency in ratings.items():
+            cached = self._cached_evidence(employee_code, competency)
+            if not isinstance(cached, dict):
+                continue
+            suggested = str(cached.get(suggestion_key) or "").strip()
+            if suggested not in {"Beginner", "Intermediate", "Proficient", "Advanced"}:
+                continue
+            if proficiency == suggested:
+                continue
+            note = str(notes.get(competency) or "").strip()
+            if not note:
+                missing.append(competency)
+        if missing:
+            raise BackendError(
+                "Add a note for each competency where your rating differs from the AI suggestion: "
+                + ", ".join(missing),
+                "note_required",
+                422,
+            )
 
     def download_assessment_template(self, user: dict[str, Any]) -> tuple[bytes, str]:
         """Excel template: scoped incomplete employees + competency columns with dropdowns."""

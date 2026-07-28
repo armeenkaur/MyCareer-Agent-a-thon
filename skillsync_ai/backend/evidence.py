@@ -3,13 +3,14 @@ from __future__ import annotations
 from typing import Any
 from ..agents.evidence_curator import AGENT_NAME as EVIDENCE_AGENT, CURATOR_VERSION, curate_evidence
 from ..agents.rd_suggestion import AGENT_NAME as RD_SUGGEST_AGENT, suggest_rd_rating
+from ..agents.zm_suggestion import AGENT_NAME as ZM_SUGGEST_AGENT, suggest_zm_rating
 from ..core.logging_setup import get_logger
 from .errors import BackendError
 log = get_logger('skillsync.backend')
 
 class EvidenceMixin:
     def zm_assessment_evidence(self, user: dict[str, Any], employee_code: str) -> dict[str, Any]:
-        """Supporting evidence for ZM rating UI — no AI suggested ratings."""
+        """Supporting evidence for ZM rating UI + AI suggested ratings when evidence exists."""
         if user.get("role") != "zm":
             raise BackendError("ZM access required.", "forbidden", 403)
         self._assert_employee_scope(user, employee_code)
@@ -19,21 +20,49 @@ class EvidenceMixin:
             # Always fill on miss — ZM needs evidence for draft and submitted review.
             if cached is None:
                 cached = curate_evidence(self.data, employee_code, competency)
-                cached.pop("suggested_rating", None)
-                cached.pop("suggested_rationale", None)
                 self._save_evidence(employee_code, competency, cached)
                 self._audit(employee_code, EVIDENCE_AGENT, competency, "Workbook evidence (ZM)", cached, "ok")
-            if isinstance(cached, dict):
-                bundle = dict(cached)
-                bundle.pop("suggested_rating", None)
-                bundle.pop("suggested_rationale", None)
-                evidence[competency] = self._evidence_for_manager_ui(bundle)
-            else:
+            if not isinstance(cached, dict):
                 evidence[competency] = {
                     "competency": competency,
                     "evidence": [],
                     "empty_message": "No relevant evidence found.",
                 }
+                continue
+            ui = self._evidence_for_manager_ui(dict(cached))
+            items = ui.get("evidence") or []
+            if not items:
+                ui.pop("suggested_rating", None)
+                ui.pop("zm_suggested_rating", None)
+                ui["empty_message"] = ui.get("empty_message") or "No relevant evidence found."
+                evidence[competency] = ui
+                continue
+            suggestion = str(cached.get("zm_suggested_rating") or "").strip()
+            if suggestion not in {"Beginner", "Intermediate", "Proficient", "Advanced"}:
+                result = suggest_zm_rating(
+                    competency,
+                    items,
+                    self.data.level_definitions.get(competency, {}),
+                    employee_code,
+                )
+                suggestion = str((result or {}).get("proficiency") or "").strip()
+                if suggestion in {"Beginner", "Intermediate", "Proficient", "Advanced"}:
+                    cached = dict(cached)
+                    cached["zm_suggested_rating"] = suggestion
+                    self._save_evidence(employee_code, competency, cached)
+                    self._audit(
+                        employee_code,
+                        ZM_SUGGEST_AGENT,
+                        competency,
+                        f"evidence_rows={len(items)}",
+                        {"proficiency": suggestion},
+                        "ok",
+                    )
+            if suggestion in {"Beginner", "Intermediate", "Proficient", "Advanced"}:
+                ui["suggested_rating"] = suggestion
+            else:
+                ui.pop("suggested_rating", None)
+            evidence[competency] = ui
         return {
             "employee": self.employee(employee_code),
             "evidence": evidence,

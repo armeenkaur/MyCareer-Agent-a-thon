@@ -14,7 +14,14 @@ from ..core.config import PROFICIENCY_ORDER, PROFICIENCY_VALUE, UPLOAD_DIR, VOIC
 from ..core.logging_setup import get_logger
 from ..core.utils import display_designation, is_kam_title, role_level_key, slug
 from ..database import Database, FEEDBACK_QUESTION, KUDOS_PRESET, PHASES, PHASE_FREE_ROLES, ist_today, utc_now
-from ..voice_live import ROLEPLAY_BUCKETS, VOICE_KINDS
+from ..voice_live import (
+    ALL_ROLEPLAY_SKILLS,
+    ROLEPLAY_BUCKETS,
+    ROLEPLAY_STRONG,
+    ROLEPLAY_SUPPORTING,
+    VOICE_KINDS,
+    merge_roleplay_scores,
+)
 from .constants import BADGE_CATALOG, SCREENSHOT_EXTENSIONS, VOICE_TICKET_TTL_SECONDS, _VOICE_TICKETS, _VOICE_TICKETS_LOCK
 from .errors import BackendError
 log = get_logger('skillsync.backend')
@@ -260,7 +267,7 @@ class RoleplaysMixin:
         self,
         session_id: str,
         employee_code: str,
-        ratings: dict[str, str],
+        ratings: dict[str, Any],
     ) -> dict[str, Any]:
         with _VOICE_TICKETS_LOCK:
             ticket = _VOICE_TICKETS.pop(session_id, None)
@@ -273,17 +280,7 @@ class RoleplaysMixin:
                 kind = in_progress[0]["kind"]
             else:
                 raise BackendError("Voice session ticket not found.", "not_found", 404)
-        expected = ROLEPLAY_BUCKETS[kind]
-        if set(ratings.keys()) != set(expected):
-            raise BackendError("Ratings must include every competency for this bucket.")
-        cleaned: dict[str, str] = {}
-        for skill in expected:
-            raw_level = str(ratings.get(skill) or "").strip()
-            level = normalize_proficiency(raw_level)
-            if level is None:
-                raise BackendError(f"Invalid proficiency for {skill}.")
-            cleaned[skill] = level
-        ratings = cleaned
+        cleaned = self._normalize_voice_scores(kind, ratings)
         now = utc_now()
         with self.db.transaction() as connection:
             connection.execute(
@@ -293,37 +290,15 @@ class RoleplaysMixin:
                 ON CONFLICT(employee_code, kind) DO UPDATE SET
                     status='completed', scores_json=excluded.scores_json, error='', updated_at=excluded.updated_at
                 """,
-                (employee_code, kind, "completed", json.dumps(ratings), "", now),
+                (employee_code, kind, "completed", json.dumps(cleaned), "", now),
             )
-            for competency, level in ratings.items():
-                connection.execute(
-                    """
-                    INSERT INTO roleplay_assessments(
-                        employee_code,competency,filename,file_path,status,ai_proficiency,rationale,ocr_text,error,updated_at
-                    ) VALUES(?,?,?,?,?,?,?,?,?,?)
-                    ON CONFLICT(employee_code,competency) DO UPDATE SET
-                        status=excluded.status, ai_proficiency=excluded.ai_proficiency,
-                        rationale=excluded.rationale, error='', updated_at=excluded.updated_at
-                    """,
-                    (
-                        employee_code,
-                        competency,
-                        "voice_roleplay",
-                        "",
-                        "completed",
-                        level,
-                        f"Voice roleplay ({kind}) end-of-call rating.",
-                        "",
-                        "",
-                        now,
-                    ),
-                )
+            self._upsert_voice_ai_scores(connection, employee_code, now)
         self._audit(
             employee_code,
             "voice_roleplay",
             kind,
             f"Voice session {kind}",
-            {"ratings": ratings},
+            {"ratings": cleaned},
             "completed",
         )
         if self.phase_progress("employee")["is_complete"]:
@@ -339,6 +314,123 @@ class RoleplaysMixin:
             "lattice_unlocked": self.lattice_unlocked(employee_code),
         }
 
+    def _normalize_voice_scores(self, kind: str, ratings: dict[str, Any]) -> dict[str, Any]:
+        """Validate strong/supporting score map with confidence. Supporting may be null."""
+        if not isinstance(ratings, dict):
+            raise BackendError("Ratings must be an object.")
+        required = ROLEPLAY_STRONG[kind]
+        optional = ROLEPLAY_SUPPORTING[kind]
+        expected = set(required) | set(optional)
+        unknown = set(ratings) - expected
+        if unknown:
+            raise BackendError(f"Unknown competencies in ratings: {', '.join(sorted(unknown))}.")
+        missing_required = [skill for skill in required if skill not in ratings]
+        if missing_required:
+            raise BackendError(f"Ratings missing required competencies: {', '.join(missing_required)}.")
+        cleaned: dict[str, Any] = {}
+        for skill in list(required) + list(optional):
+            if skill not in ratings:
+                cleaned[skill] = None
+                continue
+            entry = ratings[skill]
+            if entry is None:
+                if skill in required:
+                    raise BackendError(f"Required competency cannot be null: {skill}.")
+                cleaned[skill] = None
+                continue
+            if isinstance(entry, str):
+                level = normalize_proficiency(entry.strip())
+                confidence = 0.7
+            elif isinstance(entry, dict):
+                level = normalize_proficiency(str(entry.get("level") or "").strip())
+                try:
+                    confidence = float(entry.get("confidence"))
+                except (TypeError, ValueError) as exc:
+                    raise BackendError(f"Invalid confidence for {skill}.") from exc
+            else:
+                raise BackendError(f"Invalid rating shape for {skill}.")
+            if level is None:
+                raise BackendError(f"Invalid proficiency for {skill}.")
+            cleaned[skill] = {
+                "level": level,
+                "confidence": max(0.0, min(1.0, confidence)),
+            }
+        return cleaned
+
+    def _upsert_voice_ai_scores(
+        self, connection: Any, employee_code: str, now: str
+    ) -> None:
+        """Write AI proficiency: partial after one session; confidence-weighted merge after both."""
+        rows = connection.execute(
+            "SELECT kind, status, scores_json FROM voice_roleplay_sessions WHERE employee_code=?",
+            (employee_code,),
+        ).fetchall()
+        completed: dict[str, dict[str, Any]] = {}
+        for row in rows:
+            if row["status"] != "completed":
+                continue
+            try:
+                parsed = json.loads(row["scores_json"] or "{}")
+            except json.JSONDecodeError:
+                parsed = {}
+            if isinstance(parsed, dict):
+                completed[row["kind"]] = parsed
+        if len(completed) >= 2 and all(kind in completed for kind in VOICE_KINDS):
+            try:
+                merged = merge_roleplay_scores([completed[kind] for kind in VOICE_KINDS])
+            except ValueError as exc:
+                raise BackendError(str(exc), "score_merge_failed", 422) from exc
+            rationale = "Voice roleplay confidence-weighted merge (functional + behavioural)."
+            for competency, level in merged.items():
+                self._write_roleplay_ai_row(
+                    connection, employee_code, competency, level, rationale, now
+                )
+            return
+        # Single session: write non-null skills only.
+        for kind, scores in completed.items():
+            for competency, entry in scores.items():
+                if not isinstance(entry, dict):
+                    continue
+                level = entry.get("level")
+                if level not in PROFICIENCY_ORDER:
+                    continue
+                conf = entry.get("confidence")
+                rationale = f"Voice roleplay ({kind}) end-of-call rating (confidence={conf})."
+                self._write_roleplay_ai_row(
+                    connection, employee_code, competency, str(level), rationale, now
+                )
+
+    @staticmethod
+    def _write_roleplay_ai_row(
+        connection: Any,
+        employee_code: str,
+        competency: str,
+        level: str,
+        rationale: str,
+        now: str,
+    ) -> None:
+        connection.execute(
+            """
+            INSERT INTO roleplay_assessments(
+                employee_code,competency,filename,file_path,status,ai_proficiency,rationale,ocr_text,error,updated_at
+            ) VALUES(?,?,?,?,?,?,?,?,?,?)
+            ON CONFLICT(employee_code,competency) DO UPDATE SET
+                status=excluded.status, ai_proficiency=excluded.ai_proficiency,
+                rationale=excluded.rationale, error='', updated_at=excluded.updated_at
+            """,
+            (
+                employee_code,
+                competency,
+                "voice_roleplay",
+                "",
+                "completed",
+                level,
+                rationale,
+                "",
+                "",
+                now,
+            ),
+        )
 
     def fail_voice_roleplay(self, session_id: str, error: str) -> None:
         with _VOICE_TICKETS_LOCK:
@@ -360,7 +452,7 @@ class RoleplaysMixin:
         if admin.get("role") != "admin":
             raise BackendError("Admin access required.", "forbidden", 403)
         employee = self.employee(employee_code)
-        competencies = [skill for kind in VOICE_KINDS for skill in ROLEPLAY_BUCKETS[kind]]
+        competencies = list(ALL_ROLEPLAY_SKILLS)
         with self.db.transaction() as connection:
             connection.execute(
                 "DELETE FROM voice_roleplay_sessions WHERE employee_code=?",
