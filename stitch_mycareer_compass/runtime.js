@@ -2280,6 +2280,8 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     nextPlay: 0,
     sources: [],
     acceptAudio: false,
+    playbackSampleRate: 24000,
+    inputSampleRate: 16000,
   };
 
   function floatTo16BitPCM(float32) {
@@ -2291,9 +2293,10 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     return out;
   }
 
-  function downsampleTo16k(float32, inputRate) {
-    if (inputRate === 16000) return float32;
-    const ratio = inputRate / 16000;
+  function downsampleToRate(float32, inputRate, targetRate) {
+    const target = Number(targetRate) || 16000;
+    if (inputRate === target) return float32;
+    const ratio = inputRate / target;
     const newLen = Math.max(1, Math.floor(float32.length / ratio));
     const result = new Float32Array(newLen);
     for (let i = 0; i < newLen; i += 1) {
@@ -2339,8 +2342,9 @@ Before you begin, we encourage you to take a few minutes to understand the philo
 
   function playPcm16Base64(b64) {
     if (!voiceRuntime.acceptAudio) return;
+    const playRate = Number(voiceRuntime.playbackSampleRate) || 24000;
     if (!voiceRuntime.playCtx) {
-      voiceRuntime.playCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 16000 });
+      voiceRuntime.playCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: playRate });
       voiceRuntime.nextPlay = 0;
       voiceRuntime.sources = [];
     }
@@ -2351,7 +2355,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     const pcm = new Int16Array(bytes.buffer);
     const float32 = new Float32Array(pcm.length);
     for (let i = 0; i < pcm.length; i += 1) float32[i] = pcm[i] / 32768;
-    const buffer = ctx.createBuffer(1, float32.length, 16000);
+    const buffer = ctx.createBuffer(1, float32.length, playRate);
     buffer.copyToChannel(float32, 0);
     const src = ctx.createBufferSource();
     src.buffer = buffer;
@@ -2386,6 +2390,8 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     voiceRuntime.kind = kind;
     voiceRuntime.ws = ws;
     voiceRuntime.acceptAudio = true;
+    voiceRuntime.playbackSampleRate = Number(started.playback_sample_rate) || 24000;
+    voiceRuntime.inputSampleRate = Number(started.input_sample_rate) || 16000;
     const startBtn = qs(`[data-voice-start="${CSS.escape(kind)}"]`);
     const endBtn = qs(`[data-voice-end="${CSS.escape(kind)}"]`);
     if (startBtn) startBtn.disabled = true;
@@ -2420,11 +2426,12 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     const source = audioCtx.createMediaStreamSource(stream);
     const processor = audioCtx.createScriptProcessor(4096, 1, 1);
+    const inputTargetRate = Number(voiceRuntime.inputSampleRate) || 16000;
     processor.onaudioprocess = (e) => {
       if (!voiceRuntime.ws || voiceRuntime.ws.readyState !== WebSocket.OPEN) return;
       if (!voiceRuntime.acceptAudio) return;
       const input = e.inputBuffer.getChannelData(0);
-      const down = downsampleTo16k(input, audioCtx.sampleRate);
+      const down = downsampleToRate(input, audioCtx.sampleRate, inputTargetRate);
       const pcm = floatTo16BitPCM(down);
       voiceRuntime.ws.send(JSON.stringify({ type: "audio", data: pcm16ToBase64(pcm) }));
     };
@@ -3171,8 +3178,83 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     };
   }
 
+  function mentorcloudUrl(payload) {
+    return String(payload?.mentorcloud_url || "https://makemytrip.mentorcloud.com/").trim();
+  }
+
+  function mentorTileHtml(payload) {
+    const url = mentorcloudUrl(payload);
+    return `<section id="mc-mentor-tile" class="mb-8 scroll-mt-24">
+      <div class="bg-white rounded-xl border border-[#e7bdb9] p-6 flex flex-col md:flex-row md:items-center gap-5">
+        <div class="w-12 h-12 rounded-full bg-[#fff0ef] text-[#df162b] flex items-center justify-center shrink-0">
+          <span class="material-symbols-outlined text-[28px]" style="font-variation-settings:'FILL' 1">handshake</span>
+        </div>
+        <div class="flex-1 min-w-0">
+          <h3 class="text-lg font-bold text-[#291716]">Connect with your mentor</h3>
+          <p class="text-sm text-[#5d3f3d] mt-1">Get coaching support as you progress through your courses. Open MyMentorCloud to schedule and continue the conversation.</p>
+        </div>
+        <a href="${esc(url)}" target="_blank" rel="noopener" class="inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-[#df162b] text-white rounded-lg font-bold text-sm hover:opacity-90 shrink-0">
+          <span class="material-symbols-outlined text-[18px]">open_in_new</span>
+          Open MyMentorCloud
+        </a>
+      </div>
+    </section>`;
+  }
+
+  function wireMentorControls(payload) {
+    qs("[data-connect-mentor]")?.addEventListener("click", () => {
+      const tile = document.getElementById("mc-mentor-tile");
+      if (tile) tile.scrollIntoView({ behavior: "smooth", block: "start" });
+      else window.open(mentorcloudUrl(payload), "_blank", "noopener");
+    });
+  }
+
   async function initLearning() {
-    const result = await api("/api/employee/learning");
+    let result;
+    try {
+      result = await api("/api/employee/learning");
+    } catch (error) {
+      const mentorPayload = { mentorcloud_url: "https://makemytrip.mentorcloud.com/" };
+      const [career, roleplays] = await Promise.all([
+        api("/api/employee/career").catch(() => ({ choice: null })),
+        api("/api/employee/roleplays").catch(() => ({ lattice_unlocked: false })),
+      ]);
+      const latticeUnlocked = Boolean(roleplays.lattice_unlocked);
+      const aspirationLocked = Boolean(career.choice);
+      const needAssessments = !latticeUnlocked;
+      const needAspiration = latticeUnlocked && !aspirationLocked;
+      render(`<div class="mb-6 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+          <div>
+            <h1 class="text-2xl md:text-3xl font-extrabold text-[#df162b]">Your Learning Journey</h1>
+            <p class="text-[#5d3f3d] mt-1">Track your progress across your identified gaps and unlock your full potential.</p>
+          </div>
+          <button type="button" data-connect-mentor class="inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-[#df162b] text-[#df162b] rounded-lg font-bold text-sm hover:bg-[#df162b]/5 shrink-0">
+            <span class="material-symbols-outlined text-[18px]">handshake</span>
+            Connect with your mentor
+          </button>
+        </div>
+        ${mentorTileHtml(mentorPayload)}
+        <div class="bg-white border border-[#e7bdb9] rounded-xl p-8 text-center max-w-2xl mx-auto">
+          <span class="material-symbols-outlined text-5xl text-[#e7bdb9]">${needAssessments || needAspiration ? "lock" : "menu_book"}</span>
+          <h2 class="text-xl font-bold text-[#291716] mt-3">${needAssessments || needAspiration ? "Learning journey locked" : "No courses locked yet"}</h2>
+          <p class="text-sm text-[#5d3f3d] mt-2">${needAssessments
+            ? "Complete both voice roleplays, unlock Career Lattice, and lock an aspiration first."
+            : needAspiration
+              ? "Lock a career aspiration on the Career Lattice before selecting courses."
+              : (error?.message || "Shop recommended courses and checkout to lock your learning journey.")}</p>
+          <div class="mt-5">${needAssessments
+            ? button("Open Assessments", "data-open-prior")
+            : needAspiration
+              ? button("Open Career Lattice", "data-open-prior")
+              : button("Open Course Shop", "data-open-courses")}</div>
+        </div>`);
+      wireMentorControls(mentorPayload);
+      qs("[data-open-prior]")?.addEventListener("click", () => {
+        go(needAssessments ? "employee/roleplays" : "employee/career");
+      });
+      qs("[data-open-courses]")?.addEventListener("click", () => go("employee/courses"));
+      return;
+    }
     const courses = result.courses || [];
     if (!courses.length) {
       const [career, roleplays] = await Promise.all([
@@ -3183,10 +3265,17 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       const aspirationLocked = Boolean(career.choice);
       const needAssessments = !latticeUnlocked;
       const needAspiration = latticeUnlocked && !aspirationLocked;
-      render(`<div class="mb-6">
-          <h1 class="text-2xl md:text-3xl font-extrabold text-[#df162b]">Your Learning Journey</h1>
-          <p class="text-[#5d3f3d] mt-1">Track your progress across your identified gaps and unlock your full potential.</p>
+      render(`<div class="mb-6 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+          <div>
+            <h1 class="text-2xl md:text-3xl font-extrabold text-[#df162b]">Your Learning Journey</h1>
+            <p class="text-[#5d3f3d] mt-1">Track your progress across your identified gaps and unlock your full potential.</p>
+          </div>
+          <button type="button" data-connect-mentor class="inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-[#df162b] text-[#df162b] rounded-lg font-bold text-sm hover:bg-[#df162b]/5 shrink-0">
+            <span class="material-symbols-outlined text-[18px]">handshake</span>
+            Connect with your mentor
+          </button>
         </div>
+        ${mentorTileHtml(result)}
         <div class="bg-white border border-[#e7bdb9] rounded-xl p-8 text-center max-w-2xl mx-auto">
           <span class="material-symbols-outlined text-5xl text-[#e7bdb9]">${needAssessments || needAspiration ? "lock" : "menu_book"}</span>
           <h2 class="text-xl font-bold text-[#291716] mt-3">${needAssessments || needAspiration ? "Learning journey locked" : "No courses locked yet"}</h2>
@@ -3201,6 +3290,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
               ? button("Open Career Lattice", "data-open-prior")
               : button("Open Course Shop", "data-open-courses")}</div>
         </div>`);
+      wireMentorControls(result);
       qs("[data-open-prior]")?.addEventListener("click", () => {
         go(needAssessments ? "employee/roleplays" : "employee/career");
       });
@@ -3306,9 +3396,15 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       </div>`;
     }).join("");
 
-    render(`<section class="mb-8">
-        <h1 class="text-2xl md:text-3xl font-extrabold text-[#df162b] mb-1">Your Learning Journey</h1>
-        <p class="text-[#5d3f3d]">Track your progress across your identified gaps and unlock your full potential.</p>
+    render(`<section class="mb-8 flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+        <div>
+          <h1 class="text-2xl md:text-3xl font-extrabold text-[#df162b] mb-1">Your Learning Journey</h1>
+          <p class="text-[#5d3f3d]">Track your progress across your identified gaps and unlock your full potential.</p>
+        </div>
+        <button type="button" data-connect-mentor class="inline-flex items-center justify-center gap-2 px-4 py-2.5 border border-[#df162b] text-[#df162b] rounded-lg font-bold text-sm hover:bg-[#df162b]/5 shrink-0">
+          <span class="material-symbols-outlined text-[18px]">handshake</span>
+          Connect with your mentor
+        </button>
       </section>
       <section class="mb-8">
         <div class="bg-white rounded-xl border border-[#e7bdb9] p-6 flex flex-col md:flex-row items-center gap-6">
@@ -3339,9 +3435,11 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           </div>
         </div>
       </section>
+      ${mentorTileHtml(result)}
       <section>${sections}</section>
       <p class="text-center text-xs text-[#926e6c] mt-8">Journey already Selected after checkout</p>`);
 
+    wireMentorControls(result);
     qsa("[data-progress-action]").forEach((control) => {
       control.onclick = async () => {
         try {

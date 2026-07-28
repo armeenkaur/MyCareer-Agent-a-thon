@@ -106,6 +106,18 @@ class BackendAPI:
                 self._send(handler, 200, self.backend.recommendations(self._employee_code(user, query)))
             elif parsed.path == "/api/employee/learning":
                 self._send(handler, 200, self.backend.learning_journey(self._employee_code(user, query)))
+            elif parsed.path == "/api/employee/mentor":
+                self._require_role(user, {"employee"})
+                code = self._employee_code(user, query)
+                self._send(
+                    handler,
+                    200,
+                    {
+                        "mentor": self.backend.employee_mentor(code),
+                        "mentors": self.backend.list_mentors(),
+                        "mentorcloud_url": self.backend.mentorcloud_url(),
+                    },
+                )
             elif parsed.path == "/api/leaderboard":
                 self._send(handler, 200, self.backend.leaderboard(user))
             elif parsed.path == "/api/admin/confidence":
@@ -319,6 +331,9 @@ class BackendAPI:
                         str(body.get("action") or ""),
                     ),
                 )
+            elif parsed.path == "/api/employee/mentor":
+                self._require_role(user, {"employee"})
+                self._send(handler, 200, self.backend.select_mentor(user, str(body.get("mentor_login_id") or "")))
             elif parsed.path == "/api/admin/linkedin/sync":
                 self._require_role(user, {"admin"})
                 self._send(handler, 200, self.backend.sync_linkedin(user))

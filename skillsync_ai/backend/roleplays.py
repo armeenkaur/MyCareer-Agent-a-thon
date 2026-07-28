@@ -10,7 +10,7 @@ import re
 from typing import Any
 from ..agents.roleplay_assessment import AGENT_NAME as ROLEPLAY_AGENT, assess_roleplay
 from ..agents.llm import normalize_proficiency
-from ..core.config import PROFICIENCY_ORDER, PROFICIENCY_VALUE, UPLOAD_DIR
+from ..core.config import PROFICIENCY_ORDER, PROFICIENCY_VALUE, UPLOAD_DIR, VOICE_INPUT_SAMPLE_RATE, VOICE_PLAYBACK_SAMPLE_RATE
 from ..core.logging_setup import get_logger
 from ..core.utils import display_designation, is_kam_title, role_level_key, slug
 from ..database import Database, FEEDBACK_QUESTION, KUDOS_PRESET, PHASES, PHASE_FREE_ROLES, ist_today, utc_now
@@ -18,7 +18,7 @@ from ..voice_live import ROLEPLAY_BUCKETS, VOICE_KINDS
 from .constants import BADGE_CATALOG, SCREENSHOT_EXTENSIONS, VOICE_TICKET_TTL_SECONDS, _VOICE_TICKETS, _VOICE_TICKETS_LOCK
 from .errors import BackendError
 log = get_logger('skillsync.backend')
-
+ 
 class RoleplaysMixin:
     def submit_roleplay(
         self,
@@ -229,6 +229,8 @@ class RoleplaysMixin:
             "competencies": list(ROLEPLAY_BUCKETS[kind]),
             "ws_path": f"/ws/voice-roleplay?session_id={session_id}",
             "expires_at": expires_at.isoformat(),
+            "playback_sample_rate": VOICE_PLAYBACK_SAMPLE_RATE,
+            "input_sample_rate": VOICE_INPUT_SAMPLE_RATE,
         }
 
 

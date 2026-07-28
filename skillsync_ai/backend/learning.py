@@ -6,7 +6,16 @@ from ..agents.course_recommendation import AGENT_NAME as COURSE_AGENT, _fallback
 from ..core.config import PROFICIENCY_ORDER, PROFICIENCY_VALUE, UPLOAD_DIR
 from ..core.logging_setup import get_logger
 from ..core.utils import display_designation, is_kam_title, role_level_key, slug
-from ..database import Database, FEEDBACK_QUESTION, KUDOS_PRESET, PHASES, PHASE_FREE_ROLES, ist_today, utc_now
+from ..database import (
+    Database,
+    FEEDBACK_QUESTION,
+    KUDOS_PRESET,
+    MENTORCLOUD_URL,
+    PHASES,
+    PHASE_FREE_ROLES,
+    ist_today,
+    utc_now,
+) 
 from .errors import BackendError
 log = get_logger('skillsync.backend')
 
@@ -518,6 +527,72 @@ class LearningMixin:
                 "percentage": round((completed / total) * 100) if total else 0,
             },
             "linkedin": dict(activity) if activity else {"learning_hours": 0.0, "completions": 0, "synced_at": None},
+            "mentor": self.employee_mentor(employee_code),
+            "mentors": self.list_mentors(),
+            "mentorcloud_url": MENTORCLOUD_URL,
+        }
+
+    def list_mentors(self) -> list[dict[str, str]]:
+        with self.db.connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT login_id, display_name
+                FROM users
+                WHERE role='lteam' AND active=1
+                ORDER BY display_name
+                """
+            ).fetchall()
+        return [{"login_id": row["login_id"], "name": row["display_name"]} for row in rows]
+
+    @staticmethod
+    def mentorcloud_url() -> str:
+        return MENTORCLOUD_URL
+
+    def employee_mentor(self, employee_code: str) -> dict[str, str] | None:
+        with self.db.connect() as connection:
+            row = connection.execute(
+                """
+                SELECT mentor_login_id, mentor_name, selected_at
+                FROM employee_mentors
+                WHERE employee_code=?
+                """,
+                (employee_code,),
+            ).fetchone()
+        if not row:
+            return None
+        return {
+            "login_id": row["mentor_login_id"],
+            "name": row["mentor_name"],
+            "selected_at": row["selected_at"],
+        }
+
+    def select_mentor(self, user: dict[str, Any], mentor_login_id: str) -> dict[str, Any]:
+        if user.get("role") != "employee":
+            raise BackendError("Only employees can select a mentor.", "forbidden", 403)
+        code = str(user.get("employee_code") or "").strip()
+        if not code:
+            raise BackendError("Employee account is missing an employee code.")
+        mentor_id = str(mentor_login_id or "").strip()
+        mentors = {row["login_id"]: row["name"] for row in self.list_mentors()}
+        if mentor_id not in mentors:
+            raise BackendError("Choose a valid L-Team mentor.")
+        now = utc_now()
+        with self.db.transaction() as connection:
+            connection.execute(
+                """
+                INSERT INTO employee_mentors(employee_code, mentor_login_id, mentor_name, selected_at)
+                VALUES(?,?,?,?)
+                ON CONFLICT(employee_code) DO UPDATE SET
+                    mentor_login_id=excluded.mentor_login_id,
+                    mentor_name=excluded.mentor_name,
+                    selected_at=excluded.selected_at
+                """,
+                (code, mentor_id, mentors[mentor_id], now),
+            )
+        return {
+            "mentor": self.employee_mentor(code),
+            "mentors": self.list_mentors(),
+            "mentorcloud_url": MENTORCLOUD_URL,
         }
 
     @staticmethod

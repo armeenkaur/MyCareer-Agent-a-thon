@@ -22,6 +22,11 @@ FEEDBACK_QUESTION = (
     "behaviour (skills, habits, or impact), or do things look the same as before the journey "
     "was assigned? Please share concrete examples where you can."
 )
+MENTORCLOUD_URL = "https://makemytrip.mentorcloud.com/"
+LTEAM_ACCOUNTS = (
+    {"login_id": "MMT2351", "display_name": "Abhishek Logani", "password": "Abhishek"},
+    {"login_id": "MMT12568", "display_name": "Ajeeta Yadav", "password": "Ajeeta"},
+)
 
 
 def utc_now() -> str:
@@ -143,7 +148,7 @@ class Database:
                 CREATE TABLE IF NOT EXISTS learning_kudos (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     employee_code TEXT NOT NULL REFERENCES employees(employee_code),
-                    from_login_id TEXT NOT NULL,
+                    from_login_id TEXT NOT NULL, 
                     from_name TEXT NOT NULL DEFAULT '',
                     message TEXT NOT NULL,
                     created_at TEXT NOT NULL
@@ -288,6 +293,7 @@ class Database:
             )
             self._migrate_phases_feedback(connection)
             self._migrate_users_lteam(connection)
+            self._migrate_employee_mentors(connection)
             self._migrate_voice_roleplay_sessions(connection)
             self._migrate_assessment_career_recommendation(connection)
             self._migrate_leaderboard_snapshots(connection)
@@ -306,6 +312,18 @@ class Database:
                 )
                 """
             )
+
+    def _migrate_employee_mentors(self, connection: sqlite3.Connection) -> None:
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS employee_mentors (
+                employee_code TEXT PRIMARY KEY REFERENCES employees(employee_code),
+                mentor_login_id TEXT NOT NULL,
+                mentor_name TEXT NOT NULL DEFAULT '',
+                selected_at TEXT NOT NULL
+            )
+            """
+        )
 
     def _migrate_assessment_career_recommendation(self, connection: sqlite3.Connection) -> None:
         columns = {row["name"] for row in connection.execute("PRAGMA table_info(assessments)").fetchall()}
@@ -477,8 +495,25 @@ class Database:
             for rd in data.rd_accounts():
                 self._upsert_user(connection, rd["code"], "rd", rd["name"], None)
             self._upsert_user(connection, "ADMIN", "admin", "Admin", None)
-            self._upsert_user(connection, "LTeam", "lteam", "L-Team", None)
-            self._force_password(connection, "LTeam", "lteam", "LTeam")
+            # Legacy shared LTeam login → real L-Team members
+            connection.execute(
+                "UPDATE users SET active=0, updated_at=? WHERE login_id=? AND role=?",
+                (now, "LTeam", "lteam"),
+            )
+            for account in LTEAM_ACCOUNTS:
+                self._upsert_user(
+                    connection,
+                    account["login_id"],
+                    "lteam",
+                    account["display_name"],
+                    None,
+                )
+                self._force_password(
+                    connection,
+                    account["login_id"],
+                    "lteam",
+                    account["password"],
+                )
 
     def _force_password(
         self,

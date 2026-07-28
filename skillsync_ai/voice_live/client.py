@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import json
-import logging
 import re
 import threading
 from collections.abc import Callable
@@ -18,34 +18,59 @@ from ..core.config import (
     AZURE_VOICE_LIVE_VOICE_FALLBACK,
     AZURE_VOICE_LIVE_VOICE_FALLBACK_TYPE,
     AZURE_VOICE_LIVE_VOICE_TYPE,
+    VOICE_INPUT_SAMPLE_RATE,
 )
+from ..core.logging_setup import get_logger
 from . import load_prompt, scoring_instruction
 
-log = logging.getLogger("skillsync.voice_live")
+log = get_logger("skillsync.voice_live")
 
 VALID_LEVELS = frozenset({"Beginner", "Intermediate", "Proficient", "Advanced"})
+# Prefer OpenAI female voices on this gpt-realtime endpoint (default is male alloy).
+# Azure Diya kept as fallback with raised pitch/rate when azure-standard works.
+DEFAULT_FEMALE_VOICE = "shimmer"
+DEFAULT_FEMALE_VOICE_TYPE = "openai"
+HOTELS_FEMALE_VOICE = "en-IN-Diya:DragonHDLatestNeural"
+HOTELS_FEMALE_VOICE_TYPE = "azure-standard"
+SESSION_TEMPERATURE = 0.5
+VOICE_TEMPERATURE = 0.5
+# Azure Voice Live voice object supports pitch/rate (seen on session.updated).
+AZURE_VOICE_PITCH = "+20%"
+AZURE_VOICE_RATE = "+12%"
+
+
+def _voice_block(voice: str, voice_type: str) -> dict[str, Any]:
+    """Female voice config. OpenAI shimmer/coral; Azure Diya with higher pitch + slightly faster rate."""
+    kind = (voice_type or DEFAULT_FEMALE_VOICE_TYPE).strip() or DEFAULT_FEMALE_VOICE_TYPE
+    if kind == "openai":
+        return {"type": "openai", "name": voice}
+    return {
+        "name": voice,
+        "type": kind or HOTELS_FEMALE_VOICE_TYPE,
+        "temperature": VOICE_TEMPERATURE,
+        "pitch": AZURE_VOICE_PITCH,
+        "rate": AZURE_VOICE_RATE,
+    }
 
 
 def _voice_candidates() -> list[tuple[str, str]]:
-    """Female voices only. Hotels primary Diya HD, then Ava/Jenny neural, then OpenAI shimmer/coral."""
+    """Female-only. shimmer first (reliable on gpt-realtime), then coral, then Hotels Diya."""
     ordered = [
-        (AZURE_VOICE_LIVE_VOICE or "en-IN-Diya:DragonHDLatestNeural", AZURE_VOICE_LIVE_VOICE_TYPE or "azure-standard"),
-        (
-            AZURE_VOICE_LIVE_VOICE_FALLBACK or "en-US-AvaNeural",
-            AZURE_VOICE_LIVE_VOICE_FALLBACK_TYPE or "azure-standard",
-        ),
-        ("en-IN-Diya:DragonHDLatestNeural", "azure-standard"),
-        ("en-US-AvaNeural", "azure-standard"),
-        ("en-US-JennyNeural", "azure-standard"),
-        ("en-IN-NeerjaNeural", "azure-standard"),
-        ("shimmer", "openai"),
+        (AZURE_VOICE_LIVE_VOICE or DEFAULT_FEMALE_VOICE, AZURE_VOICE_LIVE_VOICE_TYPE or DEFAULT_FEMALE_VOICE_TYPE),
+        (DEFAULT_FEMALE_VOICE, DEFAULT_FEMALE_VOICE_TYPE),
         ("coral", "openai"),
+        ("sage", "openai"),
+        (HOTELS_FEMALE_VOICE, HOTELS_FEMALE_VOICE_TYPE),
+        (
+            AZURE_VOICE_LIVE_VOICE_FALLBACK or "coral",
+            AZURE_VOICE_LIVE_VOICE_FALLBACK_TYPE or DEFAULT_FEMALE_VOICE_TYPE,
+        ),
     ]
     seen: set[tuple[str, str]] = set()
     out: list[tuple[str, str]] = []
     for name, vtype in ordered:
         voice = str(name or "").strip()
-        kind = str(vtype or "azure-standard").strip() or "azure-standard"
+        kind = str(vtype or DEFAULT_FEMALE_VOICE_TYPE).strip() or DEFAULT_FEMALE_VOICE_TYPE
         if not voice:
             continue
         key = (voice, kind)
@@ -53,35 +78,26 @@ def _voice_candidates() -> list[tuple[str, str]]:
             continue
         seen.add(key)
         out.append(key)
-    return out or [("en-US-AvaNeural", "azure-standard")]
+    return out or [(DEFAULT_FEMALE_VOICE, DEFAULT_FEMALE_VOICE_TYPE)]
 
 
 def _session_update_payload(kind: str, voice: str, voice_type: str) -> dict[str, Any]:
-    # OpenAI voices: {type,name}. Azure TTS: include temperature like Hotels-VoiceBot.
-    if voice_type == "openai":
-        voice_block: dict[str, Any] = {"type": "openai", "name": voice}
-    else:
-        voice_block = {
-            "type": voice_type or "azure-standard",
-            "name": voice,
-            "temperature": 0.6,
-        }
     return {
         "type": "session.update",
         "session": {
-            # This deployment allows only ["audio"] or ["text"], not both.
+            # Our deployment rejects ["text","audio"] together; Hotels uses both.
             "modalities": ["audio"],
-            "voice": voice_block,
-            "temperature": 0.6,
+            "voice": _voice_block(voice, voice_type),
+            "temperature": SESSION_TEMPERATURE,
             "instructions": load_prompt(kind),
             "input_audio_format": "pcm16",
             "output_audio_format": "pcm16",
-            "input_audio_sampling_rate": 16000,
+            "input_audio_sampling_rate": VOICE_INPUT_SAMPLE_RATE,
             "turn_detection": {
                 "type": "azure_semantic_vad",
-                "threshold": 0.6,
-                "prefix_padding_ms": 300,
-                "silence_duration_ms": 900,
+                "threshold": 0.9,
+                "prefix_padding_ms": 700,
+                "silence_duration_ms": 800,
                 "create_response": True,
                 "interrupt_response": True,
                 "remove_filler_words": True,
@@ -91,12 +107,13 @@ def _session_update_payload(kind: str, voice: str, voice_type: str) -> dict[str,
 
 
 def _hello_payload(kind: str) -> dict[str, Any]:
+    """Hotels-style: response.create with exact first line. No voice override here (session owns voice)."""
     if kind == "behavioural":
         opening = (
-            "Open in English only for this first turn. Stay in character as Sarah Patel. "
-            "Do not greet as an assessor or mention roleplay/assessment. "
-            "Paraphrase this kick-off opening, then stop and wait for the learner — "
-            "one question only, no second question: "
+            "Start in English. Say this line exactly to the learner, then stop and wait. "
+            "Stay in character as Sarah Patel. "
+            "Do not greet as an assessor. Do not invent any other scenario. "
+            "Say exactly: "
             "Thanks for joining. Before we commit resources, I need more clarity. "
             "The customer has already added new requirements since signing, Engineering is stretched, "
             "and I'm not convinced we've agreed what success looks like. "
@@ -104,9 +121,14 @@ def _hello_payload(kind: str) -> dict[str, Any]:
         )
     else:
         opening = (
-            "Open in English only for this first turn. "
-            "Greet briefly and ask ONE short functional skills roleplay question, then stop and wait. "
-            "Do not mention language rules. Do not ask a second question."
+            "Start in English. Say this line exactly to the learner, then stop and wait. "
+            "Stay in character as Priya Nair, hotel partnerships lead. "
+            "Do not greet as an assessor. Do not invent any other scenario "
+            "(no strangers, railway stations, directions, or unrelated icebreakers). "
+            "Say exactly: "
+            "Thanks for making time. Before we talk packages, I need to understand whether you "
+            "actually understand our demand problem. Walk me through how you'd approach a "
+            "partnership with a chain like ours."
         )
     return {
         "type": "response.create",
@@ -115,6 +137,19 @@ def _hello_payload(kind: str) -> dict[str, Any]:
             "instructions": opening,
         },
     }
+
+
+def _applied_voice_name(applied: Any) -> str:
+    if isinstance(applied, dict):
+        return str(applied.get("name") or "").strip().lower()
+    return str(applied or "").strip().lower()
+
+
+def _is_default_male_voice(applied: Any) -> bool:
+    name = _applied_voice_name(applied)
+    # alloy = male OpenAI default; also treat empty as bad.
+    maleish = {"alloy", "echo", "onyx", "ash", "ballad", "verse"}
+    return not name or name in maleish or name.startswith("alloy")
 
 
 def _score_payload(kind: str, *, strict: bool = False) -> dict[str, Any]:
@@ -229,32 +264,52 @@ class AzureVoiceLiveBridge:
             ping_timeout=20,
         ) as ws:
             self._ws = ws
-            await self._configure_voice_and_greet()
-            self._ready.set()
-            self.on_event({"type": "ready"})
-            async for raw in ws:
-                if self._closed.is_set():
-                    break
-                await self._handle_azure_message(raw)
+            # Must read inbound events WHILE waiting for session.updated — otherwise voice never applies.
+            reader = asyncio.create_task(self._read_loop())
+            try:
+                await self._configure_voice_and_greet()
+                self._ready.set()
+                self.on_event({"type": "ready"})
+                await reader
+            finally:
+                if not reader.done():
+                    reader.cancel()
+                    with contextlib.suppress(asyncio.CancelledError):
+                        await reader
+
+    async def _read_loop(self) -> None:
+        assert self._ws is not None
+        async for raw in self._ws:
+            if self._closed.is_set():
+                break
+            await self._handle_azure_message(raw)
 
     async def _configure_voice_and_greet(self) -> None:
-        """Apply voice, wait for session.updated, then greet — avoids default male alloy."""
+        """Apply female Diya, wait until alloy is gone, then speak fixed opening."""
         if self._ws is None:
             return
         voice, voice_type = self._voice_candidates[self._voice_index]
-        log.info("Voice Live requesting voice=%s type=%s", voice, voice_type)
+        log.info("Voice Live requesting female voice=%s type=%s", voice, voice_type)
         self._session_ack = asyncio.Event()
         self._applied_voice = None
         self._hello_sent = False
         await self._ws.send(json.dumps(_session_update_payload(self.kind, voice, voice_type)))
+        # session.created defaults to male alloy — do NOT greet until session.updated applies Diya.
         try:
             await asyncio.wait_for(self._session_ack.wait(), timeout=8)
         except TimeoutError:
-            log.warning("No session.updated within 8s; greeting with requested voice=%s anyway", voice)
-        log.info("Voice Live applied voice=%s", self._applied_voice)
+            log.warning("No session.updated within 8s for voice=%s", voice)
+        if _is_default_male_voice(self._applied_voice):
+            log.warning("Still on male default voice=%s; re-sending female voice update", self._applied_voice)
+            self._session_ack = asyncio.Event()
+            await self._ws.send(json.dumps(_session_update_payload(self.kind, voice, voice_type)))
+            with contextlib.suppress(TimeoutError):
+                await asyncio.wait_for(self._session_ack.wait(), timeout=5)
+        log.info("Voice Live applied voice=%s (male_default=%s)", self._applied_voice, _is_default_male_voice(self._applied_voice))
         if not self._hello_sent:
             await self._ws.send(json.dumps(_hello_payload(self.kind)))
             self._hello_sent = True
+            self.on_event({"type": "status", "message": f"Female voice: {voice}"})
 
     async def _handle_azure_message(self, raw: str | bytes) -> None:
         try:
@@ -262,11 +317,17 @@ class AzureVoiceLiveBridge:
         except (TypeError, ValueError, UnicodeDecodeError):
             return
         etype = str(event.get("type") or "")
-        if etype == "session.updated":
+        if etype in {"session.updated", "session.created"}:
             session = event.get("session") or {}
-            self._applied_voice = session.get("voice")
-            log.info("session.updated voice=%s", self._applied_voice)
-            self._session_ack.set()
+            if "voice" in session:
+                self._applied_voice = session.get("voice")
+                log.info("%s voice=%s", etype, self._applied_voice)
+            # Only session.updated means our Diya config stuck — ignore alloy on session.created.
+            if etype == "session.updated" and not _is_default_male_voice(self._applied_voice):
+                self._session_ack.set()
+            elif etype == "session.updated":
+                log.warning("session.updated still male/default voice=%s", self._applied_voice)
+                self._session_ack.set()
             return
         if etype == "response.audio.delta":
             delta = event.get("delta") or event.get("audio")
@@ -333,7 +394,7 @@ class AzureVoiceLiveBridge:
         self._hello_sent = False
         await self._ws.send(json.dumps(_session_update_payload(self.kind, voice, voice_type)))
         try:
-            await asyncio.wait_for(self._session_ack.wait(), timeout=8)
+            await asyncio.wait_for(self._session_ack.wait(), timeout=2)
         except TimeoutError:
             log.warning("Fallback voice ack timeout for %s", voice)
         if not self._hello_sent:
