@@ -66,7 +66,11 @@ class MyCareerServer:
         self.database = Database(DATABASE_PATH)
         self.backend = MyCareerBackend(self.data, self.database)
         self.api = BackendAPI(self.backend)
-        log.info("Backend ready employees=%s database=%s", len(self.data.employees), DATABASE_PATH)
+        log.info(
+            "Backend ready employees=%s database=%s (SQLite persists assessments/roleplays/career/evidence)",
+            len(self.data.employees),
+            DATABASE_PATH.resolve(),
+        )
 
     def handler(self) -> type[BaseHTTPRequestHandler]:
         app = self

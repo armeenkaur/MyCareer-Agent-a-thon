@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 from ..agents.evidence_curator import AGENT_NAME as EVIDENCE_AGENT, CURATOR_VERSION, curate_evidence
-from ..core.config import PROFICIENCY_ORDER, PROFICIENCY_VALUE, UPLOAD_DIR
+from ..core.config import OPEN_ALL_PHASES_BY_DEFAULT, PROFICIENCY_ORDER, PROFICIENCY_VALUE, UPLOAD_DIR
 from ..core.logging_setup import get_logger
 from ..database import Database, FEEDBACK_QUESTION, KUDOS_PRESET, PHASES, PHASE_FREE_ROLES, ist_today, utc_now
 from .errors import BackendError
@@ -13,8 +13,12 @@ class BackendBase:
     def __init__(self, data: Any, database: Database) -> None:
         self.data = data
         self.db = database
+        # Auth cookies only — never wipe assessments / roleplays / career / evidence.
         self.db.clear_runtime_cache()
         self.db.seed_from_workbooks(data)
+        if OPEN_ALL_PHASES_BY_DEFAULT:
+            self.db.ensure_phases_open()
+            log.info("All phases forced open (OPEN_ALL_PHASES_BY_DEFAULT)")
         self.competencies = [row["skill"] for row in data.competencies]
 
     # Authentication and phase gates

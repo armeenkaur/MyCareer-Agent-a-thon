@@ -64,10 +64,11 @@ class Database:
         self.migrate()
 
     def connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self.path, timeout=20)
+        connection = sqlite3.connect(self.path, timeout=30)
         connection.row_factory = sqlite3.Row
         connection.execute("PRAGMA foreign_keys = ON")
         connection.execute("PRAGMA journal_mode = WAL")
+        connection.execute("PRAGMA synchronous = NORMAL")
         return connection
 
     @contextmanager
@@ -298,7 +299,10 @@ class Database:
             self._migrate_assessment_career_recommendation(connection)
             self._migrate_leaderboard_snapshots(connection)
             for phase in PHASES:
-                connection.execute("INSERT OR IGNORE INTO phases(phase, status) VALUES (?, 'closed')", (phase,))
+                connection.execute(
+                    "INSERT OR IGNORE INTO phases(phase, status) VALUES (?, 'open')",
+                    (phase,),
+                )
             connection.execute(
                 """
                 CREATE TABLE IF NOT EXISTS course_progress (
@@ -461,10 +465,31 @@ class Database:
         )
 
     def clear_runtime_cache(self) -> None:
-        """Clear restart-scoped sessions and curated RD evidence (forces fresh workbook pick-up)."""
+        """Drop auth sessions only. Workflow data stays on disk across restarts."""
         with self.transaction() as connection:
             connection.execute("DELETE FROM sessions")
-            connection.execute("DELETE FROM curated_evidence")
+
+    def ensure_phases_open(self) -> None:
+        """Open every phase window (zm/rd/employee/feedback) for local / hackathon use."""
+        now = utc_now()
+        with self.transaction() as connection:
+            for phase in PHASES:
+                connection.execute(
+                    "INSERT OR IGNORE INTO phases(phase, status, opened_at) VALUES (?, 'open', ?)",
+                    (phase, now),
+                )
+                connection.execute(
+                    """
+                    UPDATE phases
+                    SET status='open',
+                        opened_at=COALESCE(opened_at, ?),
+                        closed_at=NULL,
+                        opened_by=COALESCE(opened_by, 'system'),
+                        override_used=1
+                    WHERE phase=? AND status!='open'
+                    """,
+                    (now, phase),
+                )
 
     def seed_from_workbooks(self, data: Any) -> None:
         now = utc_now()

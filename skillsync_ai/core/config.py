@@ -30,6 +30,17 @@ _load_dotenv()
 
 DATABASE_PATH = Path(os.environ.get("MYCAREER_DATABASE_PATH", ROOT / "data" / "mycareer.db"))
 
+# Hackathon default: all workflow windows open so ZM/RD/employee/feedback work without admin gates.
+# Set OPEN_ALL_PHASES_BY_DEFAULT=0 to keep admin-controlled phase gates.
+def _env_bool(name: str, default: bool) -> bool:
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    return str(raw).strip().lower() in {"1", "true", "yes", "on"}
+
+
+OPEN_ALL_PHASES_BY_DEFAULT = _env_bool("OPEN_ALL_PHASES_BY_DEFAULT", True)
+
 PROFICIENCY_ORDER = ["Beginner", "Intermediate", "Proficient", "Advanced"]
 PROFICIENCY_VALUE = {name: idx + 1 for idx, name in enumerate(PROFICIENCY_ORDER)}
 
