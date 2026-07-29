@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 from ..core.logging_setup import get_logger
 from ..data_sources import CAREER_MOVE_LABELS
+from ..database import utc_now
 from ..voice_live import ROLEPLAY_BUCKETS, VOICE_KINDS
 from .errors import BackendError
 log = get_logger('skillsync.backend')
@@ -126,4 +127,41 @@ class EmployeesMixin:
                 str(payload["rd_career_recommendation"]), payload["rd_career_recommendation"]
             )
         return payload
+
+    def disclaimer_status(self, user: dict[str, Any]) -> dict[str, Any]:
+        """Home-note acknowledgement for employee portal."""
+        if user.get("role") != "employee" or not user.get("employee_code"):
+            raise BackendError("Employee access required.", "forbidden", 403)
+        code = str(user["employee_code"])
+        with self.db.connect() as connection:
+            row = connection.execute(
+                "SELECT acknowledged_at, login_id FROM employee_disclaimer_acks WHERE employee_code=?",
+                (code,),
+            ).fetchone()
+        if not row:
+            return {"acknowledged": False, "acknowledged_at": None, "employee_code": code}
+        return {
+            "acknowledged": True,
+            "acknowledged_at": row["acknowledged_at"],
+            "employee_code": code,
+            "login_id": row["login_id"] or "",
+        }
+
+    def acknowledge_disclaimer(self, user: dict[str, Any]) -> dict[str, Any]:
+        if user.get("role") != "employee" or not user.get("employee_code"):
+            raise BackendError("Employee access required.", "forbidden", 403)
+        code = str(user["employee_code"])
+        now = utc_now()
+        with self.db.transaction() as connection:
+            connection.execute(
+                """
+                INSERT INTO employee_disclaimer_acks(employee_code, acknowledged_at, login_id)
+                VALUES(?,?,?)
+                ON CONFLICT(employee_code) DO UPDATE SET
+                    acknowledged_at=excluded.acknowledged_at,
+                    login_id=excluded.login_id
+                """,
+                (code, now, str(user.get("login_id") or "")),
+            )
+        return self.disclaimer_status(user)
 

@@ -86,6 +86,9 @@ class BackendAPI:
                 self._require_role(user, {"zm"})
                 employee_code = self._required_query(query, "employee_code")
                 self._send(handler, 200, self.backend.zm_assessment_evidence(user, employee_code))
+            elif parsed.path == "/api/employee/disclaimer":
+                self._require_role(user, {"employee"})
+                self._send(handler, 200, self.backend.disclaimer_status(user))
             elif parsed.path in {"/api/employee/roleplays", "/api/employee/voice-roleplays"}:
                 employee_code = self._employee_code(user, query)
                 sessions = self.backend.voice_roleplay_sessions(employee_code)
@@ -293,6 +296,9 @@ class BackendAPI:
             elif parsed.path == "/api/employee/career":
                 self._require_role(user, {"employee"})
                 self._send(handler, 200, self.backend.choose_career(user, str(body.get("aspiration_role") or "")))
+            elif parsed.path == "/api/employee/disclaimer":
+                self._require_role(user, {"employee"})
+                self._send(handler, 200, self.backend.acknowledge_disclaimer(user))
             elif parsed.path == "/api/admin/career/reset":
                 self._require_role(user, {"admin"})
                 self.backend.reset_career(user, str(body.get("employee_code") or ""))

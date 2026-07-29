@@ -298,6 +298,7 @@ class Database:
             self._migrate_voice_roleplay_sessions(connection)
             self._migrate_assessment_career_recommendation(connection)
             self._migrate_leaderboard_snapshots(connection)
+            self._migrate_disclaimer_acks(connection)
             for phase in PHASES:
                 connection.execute(
                     "INSERT OR IGNORE INTO phases(phase, status) VALUES (?, 'open')",
@@ -325,6 +326,17 @@ class Database:
                 mentor_login_id TEXT NOT NULL,
                 mentor_name TEXT NOT NULL DEFAULT '',
                 selected_at TEXT NOT NULL
+            )
+            """
+        )
+
+    def _migrate_disclaimer_acks(self, connection: sqlite3.Connection) -> None:
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS employee_disclaimer_acks (
+                employee_code TEXT PRIMARY KEY REFERENCES employees(employee_code),
+                acknowledged_at TEXT NOT NULL,
+                login_id TEXT NOT NULL DEFAULT ''
             )
             """
         )

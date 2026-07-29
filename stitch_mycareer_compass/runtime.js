@@ -433,11 +433,52 @@
   }
 
   function hasDisclaimerAck(user = session.user) {
+    if (user?.disclaimer_acknowledged) return true;
     return localStorage.getItem(ackStorageKey(user)) === "1";
   }
 
-  function setDisclaimerAck(user = session.user) {
+  async function setDisclaimerAck(user = session.user) {
     localStorage.setItem(ackStorageKey(user), "1");
+    if (user) {
+      user.disclaimer_acknowledged = true;
+    }
+    if (session.user) {
+      session.user.disclaimer_acknowledged = true;
+    }
+    if (user?.role === "employee") {
+      try {
+        const result = await api("/api/employee/disclaimer", { method: "POST", body: "{}" });
+        if (session.user) {
+          session.user.disclaimer_acknowledged = true;
+          session.user.disclaimer_acknowledged_at = result.acknowledged_at || null;
+        }
+      } catch (error) {
+        console.warn("Disclaimer DB save failed; kept local ack", error);
+      }
+    }
+  }
+
+  async function syncDisclaimerAckFromServer(user = session.user) {
+    if (!user || user.role !== "employee") return;
+    try {
+      const result = await api("/api/employee/disclaimer");
+      if (result.acknowledged) {
+        localStorage.setItem(ackStorageKey(user), "1");
+        user.disclaimer_acknowledged = true;
+        user.disclaimer_acknowledged_at = result.acknowledged_at || null;
+        if (session.user) {
+          session.user.disclaimer_acknowledged = true;
+          session.user.disclaimer_acknowledged_at = result.acknowledged_at || null;
+        }
+        return;
+      }
+      // Migrate browser-only ack into DB once.
+      if (localStorage.getItem(ackStorageKey(user)) === "1") {
+        await setDisclaimerAck(user);
+      }
+    } catch (_) {
+      /* offline / older deploy — localStorage still works */
+    }
   }
 
   function avatarButtonHtml(user, mmt) {
@@ -758,10 +799,10 @@
     const inner = qs("[data-ack-inner]", node);
     const agreeBtn = qs("[data-ack-agree]", node);
     inner.onchange = () => { agreeBtn.disabled = !inner.checked; };
-    agreeBtn.onclick = () => {
+    agreeBtn.onclick = async () => {
       if (!inner.checked) return;
       dismiss();
-      onAgree?.();
+      await onAgree?.();
     };
   }
 
@@ -887,6 +928,7 @@
     try {
       session.user = (await api("/api/me")).user;
       localStorage.setItem(userKey, JSON.stringify(session.user));
+      await syncDisclaimerAckFromServer(session.user);
       const expectedRole = page.split("/")[0];
       if (expectedRole !== session.user.role) {
         go(session.user.role === "admin" ? "admin/overview" : session.user.role === "lteam" ? "lteam/dashboard" : `${session.user.role}/welcome`);
@@ -1054,6 +1096,7 @@
   }
 
   async function initEmployeeWelcome() {
+    await syncDisclaimerAckFromServer();
     const [phases, roleplays, career] = await Promise.all([
       api("/api/phases"),
       api("/api/employee/roleplays"),
@@ -1234,9 +1277,9 @@ Before you begin, we encourage you to take a few minutes to understand the philo
 
     qs("[data-open-disclaimer]")?.addEventListener("click", (event) => {
       event.preventDefault();
-      openDisclaimerModal(() => {
+      openDisclaimerModal(async () => {
         if (!hasDisclaimerAck()) {
-          setDisclaimerAck();
+          await setDisclaimerAck();
           syncAckUi();
           toast("Acknowledgement saved.");
         }

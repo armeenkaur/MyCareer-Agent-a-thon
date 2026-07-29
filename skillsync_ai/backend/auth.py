@@ -118,5 +118,12 @@ class AuthMixin:
             role_name = str(employee.get("role_name") or employee.get("role") or "").strip()
             if designation or role_name:
                 payload["designation"] = display_designation(designation, role_name, short=True)
+            try:
+                ack = self.disclaimer_status(user)
+                payload["disclaimer_acknowledged"] = bool(ack.get("acknowledged"))
+                payload["disclaimer_acknowledged_at"] = ack.get("acknowledged_at")
+            except BackendError:
+                payload["disclaimer_acknowledged"] = False
+                payload["disclaimer_acknowledged_at"] = None
         return payload
 
