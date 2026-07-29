@@ -61,6 +61,11 @@ class BackendWorkflowTest(unittest.TestCase):
             self.assertEqual(connection.execute("SELECT COUNT(*) FROM employees").fetchone()[0], 44)
 
     def test_phase_gate_blocks_login_until_admin_opens_phase(self) -> None:
+        # Force-closed so gate is testable even when OPEN_ALL_PHASES_BY_DEFAULT opens on boot.
+        with self.db.transaction() as connection:
+            connection.execute(
+                "UPDATE phases SET status='closed', opened_at=NULL, closed_at=NULL WHERE phase='zm'"
+            )
         employee = self.data.employees["MMT1001"]
         with self.assertRaises(BackendError) as error:
             self.backend.login(employee["manager_code"], generated_password(employee["manager"]), role="zm")
@@ -98,6 +103,10 @@ class BackendWorkflowTest(unittest.TestCase):
 
     def test_switch_role_shows_phase_closed_when_target_not_open(self) -> None:
         self.backend.open_phase(self.admin, "zm")
+        with self.db.transaction() as connection:
+            connection.execute(
+                "UPDATE phases SET status='closed', opened_at=NULL, closed_at=NULL WHERE phase='rd'"
+            )
         zm_login = self.backend.login("MMT11043", "Dinesh")
         with self.assertRaises(BackendError) as error:
             self.backend.switch_role(zm_login["user"], zm_login["token"], "rd")
@@ -382,10 +391,11 @@ class BackendWorkflowTest(unittest.TestCase):
                     """,
                     (code, now, now, now),
                 )
+                assessment_id = cursor.lastrowid
                 for competency in self.backend.competencies:
                     connection.execute(
                         "INSERT INTO assessment_ratings(assessment_id,competency,proficiency) VALUES(?,?,'Beginner')",
-                        (cursor.lastrowid, competency),
+                        (assessment_id, competency),
                     )
                 for idx, course_id in enumerate((f"{code}-A", f"{code}-B")):
                     connection.execute(
@@ -477,10 +487,11 @@ class BackendWorkflowTest(unittest.TestCase):
                 """,
                 (utc_now(), utc_now(), utc_now()),
             )
+            assessment_id = cursor.lastrowid
             for competency in self.backend.competencies:
                 connection.execute(
                     "INSERT INTO assessment_ratings(assessment_id,competency,proficiency) VALUES(?,?,'Intermediate')",
-                    (cursor.lastrowid, competency),
+                    (assessment_id, competency),
                 )
         zm = self.db.authenticate(employee["manager_code"], "zm", generated_password(employee["manager"]))
         assert zm is not None

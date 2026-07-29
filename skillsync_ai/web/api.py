@@ -27,7 +27,46 @@ class BackendAPI:
         query = {key: values[0] for key, values in parse_qs(parsed.query).items()}
         try:
             if parsed.path == "/api/health":
-                self._send(handler, 200, {"status": "ok", "service": "MyCareer Compass Backend"})
+                from ..core.config import DATABASE_PATH, ON_RENDER, database_is_ephemeral
+                from ..database import mysql_config_from_env
+
+                assessment_count = 0
+                engine = getattr(self.backend.db, "engine", "sqlite")
+                try:
+                    with self.backend.db.connect() as connection:
+                        assessment_count = int(
+                            connection.execute("SELECT COUNT(*) FROM assessments").fetchone()[0]
+                        )
+                except Exception:  # noqa: BLE001
+                    assessment_count = -1
+                if engine == "mysql":
+                    cfg = self.backend.db.mysql or mysql_config_from_env() or {}
+                    db_path = f"mysql://{cfg.get('host')}:{cfg.get('port')}/{cfg.get('database')}"
+                    ephemeral = False
+                    warning = ""
+                else:
+                    db_path = str(DATABASE_PATH.resolve())
+                    ephemeral = database_is_ephemeral()
+                    warning = (
+                        "SQLite on ephemeral disk — prefer MySQL (MYSQL_HOST/MYSQL_DATABASE/...) "
+                        "or persistent volume."
+                        if ephemeral
+                        else ""
+                    )
+                self._send(
+                    handler,
+                    200,
+                    {
+                        "status": "ok",
+                        "service": "MyCareer Compass Backend",
+                        "database_engine": engine,
+                        "database_path": db_path,
+                        "on_render": ON_RENDER,
+                        "database_ephemeral": ephemeral,
+                        "assessment_rows": assessment_count,
+                        "warning": warning,
+                    },
+                )
                 return
             if parsed.path == "/api/meta":
                 self._send(

@@ -69,7 +69,12 @@ class LeaderboardMixin:
         if user["role"] == "employee":
             viewer_code = str(user.get("employee_code") or "")
             with self.db.connect() as connection:
-                scoped = [dict(row) for row in connection.execute("SELECT * FROM employees ORDER BY employee_code")]
+                scoped = [
+                    dict(row)
+                    for row in connection.execute(
+                        "SELECT * FROM employees ORDER BY employee_code"
+                    ).fetchall()
+                ]
 
         catalog_by_id = {str(course.get("id") or ""): course for course in (self.data.courses or [])}
         rows: list[dict[str, Any]] = []

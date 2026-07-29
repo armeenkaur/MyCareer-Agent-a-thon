@@ -22,16 +22,14 @@ def _load_dotenv() -> None:
         key, value = line.split("=", 1)
         key = key.strip()
         value = value.strip().strip("'").strip('"')
-        if key:
+        # Do not override shell / process env (tests, docker, CI).
+        if key and key not in os.environ:
             os.environ[key] = value
 
 
 _load_dotenv()
 
-DATABASE_PATH = Path(os.environ.get("MYCAREER_DATABASE_PATH", ROOT / "data" / "mycareer.db"))
 
-# Hackathon default: all workflow windows open so ZM/RD/employee/feedback work without admin gates.
-# Set OPEN_ALL_PHASES_BY_DEFAULT=0 to keep admin-controlled phase gates.
 def _env_bool(name: str, default: bool) -> bool:
     raw = os.environ.get(name)
     if raw is None:
@@ -39,6 +37,43 @@ def _env_bool(name: str, default: bool) -> bool:
     return str(raw).strip().lower() in {"1", "true", "yes", "on"}
 
 
+def _resolve_database_path() -> Path:
+    """Prefer explicit path, then Render persistent disk (/var/data), else repo data/."""
+    override = (os.environ.get("MYCAREER_DATABASE_PATH") or "").strip()
+    if override:
+        return Path(override)
+    render_disk = Path(os.environ.get("RENDER_DISK_PATH") or "/var/data")
+    try:
+        if render_disk.is_dir() and os.access(render_disk, os.W_OK):
+            return render_disk / "mycareer.db"
+    except OSError:
+        pass
+    return ROOT / "data" / "mycareer.db"
+
+
+DATABASE_PATH = _resolve_database_path()
+ON_RENDER = bool(os.environ.get("RENDER") or os.environ.get("RENDER_SERVICE_ID"))
+
+
+def database_is_ephemeral() -> bool:
+    """True when SQLite lives on Render's wipeable checkout filesystem."""
+    if not ON_RENDER:
+        return False
+    try:
+        resolved = DATABASE_PATH.resolve()
+    except OSError:
+        return True
+    if str(resolved).startswith("/var/data"):
+        return False
+    try:
+        resolved.relative_to(ROOT.resolve())
+        return True
+    except ValueError:
+        return False
+
+
+# Hackathon default: all workflow windows open so ZM/RD/employee/feedback work without admin gates.
+# Set OPEN_ALL_PHASES_BY_DEFAULT=0 to keep admin-controlled phase gates.
 OPEN_ALL_PHASES_BY_DEFAULT = _env_bool("OPEN_ALL_PHASES_BY_DEFAULT", True)
 
 PROFICIENCY_ORDER = ["Beginner", "Intermediate", "Proficient", "Advanced"]

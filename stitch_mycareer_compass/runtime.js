@@ -2133,7 +2133,6 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       <div class="space-y-5">${Object.entries(context.evidence).map(([competency, bundle]) => {
         const suggested = String(bundle.suggested_rating || "").trim();
         const activeRating = ratings[competency] || "";
-        const noteRequired = Boolean(suggested && activeRating && activeRating !== suggested);
         return `<section class="bg-white border border-[#e7bdb9] rounded-xl p-5" data-rd-skill="${esc(competency)}" data-suggested="${esc(suggested)}">
         <div class="grid lg:grid-cols-2 gap-6">
           <div>
@@ -2143,7 +2142,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
             ${suggested ? `<div class="mt-3 p-3 rounded-lg border border-[#d5e3ff] bg-[#f5f8ff]">
               <p class="text-xs font-bold uppercase tracking-wide text-[#1464F4]">Suggested rating</p>
               <p class="text-sm font-bold text-[#291716] mt-1">${esc(suggested)}</p>
-              <p class="text-[10px] text-[#926e6c] mt-2">Advisory only — final rating is yours. A note is required if you choose a different level.</p>
+              <p class="text-[10px] text-[#926e6c] mt-2">Advisory only — final rating is yours. Notes are optional.</p>
             </div>` : ""}
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
               ${levels.map((level) => {
@@ -2157,10 +2156,8 @@ Before you begin, we encourage you to take a few minutes to understand the philo
                 </button>`;
               }).join("")}
             </div>
-            <label class="block text-xs font-bold uppercase tracking-wide text-[#926e6c] mt-4 mb-1" data-rd-note-label="${esc(competency)}">
-              ${noteRequired ? 'RD note <span class="text-[#df162b]">(required — differs from AI suggestion)</span>' : "RD note (optional)"}
-            </label>
-            <textarea data-rd-note="${esc(competency)}" ${locked ? "disabled" : ""} class="w-full border border-[#e7bdb9] rounded-lg p-3 text-sm ${noteRequired ? "border-[#df162b]/50" : ""}" placeholder="${noteRequired ? "Explain why your rating differs from the AI suggestion…" : "Optional RD note"}">${esc(notes[competency] || "")}</textarea>
+            <label class="block text-xs font-bold uppercase tracking-wide text-[#926e6c] mt-4 mb-1">RD note (optional)</label>
+            <textarea data-rd-note="${esc(competency)}" ${locked ? "disabled" : ""} class="w-full border border-[#e7bdb9] rounded-lg p-3 text-sm" placeholder="Optional RD note">${esc(notes[competency] || "")}</textarea>
           </div>
           <div>
             <h3 class="font-bold text-sm text-[#291716]">Supporting Evidence From Previous Feedbacks</h3>
@@ -2172,26 +2169,6 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       <div class="mt-6 flex justify-end gap-3">${locked ? '<strong class="text-emerald-700">Final profile submitted and locked</strong>' : `${button("Save Draft", "data-draft", true)}${button("Submit Final Profile", "data-final")}`}</div>`);
     qs("[data-back]").onclick = () => go("rd/dashboard");
     if (locked) return;
-    const syncRdNoteRequirement = (skill) => {
-      const section = qs(`[data-rd-skill="${CSS.escape(skill)}"]`);
-      if (!section) return;
-      const suggested = String(section.dataset.suggested || "").trim();
-      const rating = ratings[skill] || "";
-      const required = Boolean(suggested && rating && rating !== suggested);
-      const label = qs(`[data-rd-note-label="${CSS.escape(skill)}"]`);
-      const note = qs(`[data-rd-note="${CSS.escape(skill)}"]`);
-      if (label) {
-        label.innerHTML = required
-          ? 'RD note <span class="text-[#df162b]">(required — differs from AI suggestion)</span>'
-          : "RD note (optional)";
-      }
-      if (note) {
-        note.placeholder = required
-          ? "Explain why your rating differs from the AI suggestion…"
-          : "Optional RD note";
-        note.classList.toggle("border-[#df162b]/50", required);
-      }
-    };
     qsa("[data-career-move]").forEach((control) => {
       control.onclick = () => {
         careerRecommendation = control.dataset.careerMove;
@@ -2214,10 +2191,8 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           const def = qs("p", item);
           if (def) def.className = `text-xs mt-1 leading-relaxed ${active ? "text-white/90" : "text-[#5d3f3d]"}`;
         });
-        syncRdNoteRequirement(control.dataset.rating);
       };
     });
-    Object.keys(context.evidence || {}).forEach((skill) => syncRdNoteRequirement(skill));
     const save = async (submit) => {
       if (submit && Object.keys(ratings).length !== Object.keys(context.evidence).length) {
         toast("Rate all seven competencies before submission.", "error");
@@ -2228,17 +2203,6 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         return;
       }
       qsa("[data-rd-note]").forEach((node) => { notes[node.dataset.rdNote] = node.value; });
-      if (submit) {
-        const missingNotes = Object.keys(context.evidence || {}).filter((skill) => {
-          const suggested = String(context.evidence[skill]?.suggested_rating || "").trim();
-          if (!suggested || !ratings[skill] || ratings[skill] === suggested) return false;
-          return !String(notes[skill] || "").trim();
-        });
-        if (missingNotes.length) {
-          toast(`Add a note where your rating differs from AI: ${missingNotes.join(", ")}`, "error");
-          return;
-        }
-      }
       if (submit && !confirm("Submit and lock final RD profile?")) return;
       await api("/api/assessment", {
         method: "POST",
@@ -2648,11 +2612,44 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     current.classList.add("text-[#5d3f3d]");
   }
 
+  function openVoicePrepModal() {
+    return new Promise((resolve) => {
+      closeOverlay("mc-voice-prep-modal");
+      const node = document.createElement("div");
+      node.id = "mc-voice-prep-modal";
+      node.className = "fixed inset-0 z-[80] bg-black/40 grid place-items-center p-4";
+      node.innerHTML = `<div class="bg-white rounded-xl shadow-2xl w-full max-w-md border border-[#e7bdb9] overflow-hidden" role="dialog" aria-modal="true" aria-labelledby="mc-voice-prep-title">
+        <div class="px-5 py-4 border-b border-[#e7bdb9] flex items-center justify-between">
+          <h2 id="mc-voice-prep-title" class="text-lg font-extrabold text-[#291716]">Before you start</h2>
+          <button type="button" data-voice-prep-cancel class="text-[#5d3f3d] hover:text-[#df162b]"><span class="material-symbols-outlined">close</span></button>
+        </div>
+        <div class="p-5 text-sm text-[#291716] space-y-3 leading-relaxed">
+          <p>Please be in an environment with <strong>no background noise</strong> so the mic session can hear you clearly.</p>
+          <p>When the session is over, click the <strong>End</strong> button to end the conversation.</p>
+        </div>
+        <div class="px-5 py-4 border-t border-[#e7bdb9] flex gap-3 justify-end">
+          <button type="button" data-voice-prep-cancel class="px-4 py-2.5 rounded-lg font-bold text-sm border border-[#e7bdb9] text-[#5d3f3d]">Cancel</button>
+          <button type="button" data-voice-prep-ok class="px-4 py-2.5 rounded-lg font-bold text-sm bg-[#df162b] text-white">Got it — Start</button>
+        </div>
+      </div>`;
+      document.body.appendChild(node);
+      const finish = (ok) => {
+        closeOverlay("mc-voice-prep-modal");
+        resolve(ok);
+      };
+      node.addEventListener("click", (event) => { if (event.target === node) finish(false); });
+      qsa("[data-voice-prep-cancel]", node).forEach((btn) => { btn.onclick = () => finish(false); });
+      qs("[data-voice-prep-ok]", node).onclick = () => finish(true);
+    });
+  }
+
   async function startVoiceRoleplay(kind) {
     if (voiceRuntime.ws) {
       toast("End the current session first.", "error");
       return;
     }
+    const ready = await openVoicePrepModal();
+    if (!ready) return;
     openVoiceStage(kind);
     setVoiceStatus(kind, "");
     let started;
@@ -3121,6 +3118,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     sortMode: "code-asc",
     filterStatus: "all",
     searchRaw: "",
+    selectedCode: "",
   };
 
   function parseDurationSeconds(value) {
@@ -4701,12 +4699,19 @@ Before you begin, we encourage you to take a few minutes to understand the philo
   async function initAdminEmployees() {
     const rows = await employeeSummaries();
     const total = rows.length;
+    if (!total) {
+      render(`${pageHeader("Employee Master")}<p class="bg-white border rounded-xl p-8">No employees available.</p>`);
+      return;
+    }
+
     let filterStatus = adminEmployeesView.filterStatus || "all";
     let sortMode = adminEmployeesView.sortMode || "code-asc";
     let filterOpen = false;
     let sortOpen = false;
     let searchRaw = adminEmployeesView.searchRaw || "";
     let searchTerm = searchRaw.trim().toLowerCase();
+    let selected = params.get("employee") || adminEmployeesView.selectedCode || rows[0].employee_code;
+    if (!rows.some((row) => row.employee_code === selected)) selected = rows[0].employee_code;
 
     const filterLabel = {
       all: "All",
@@ -4729,11 +4734,15 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       "assessments-asc": "Assessments low→high",
     };
     const statusRank = { not_started: 0, pending: 0, draft: 1, submitted: 2 };
+    const careerMoveLabel = {
+      kam: "KAM", zm: "ZM", bdfe: "BDFE", category: "Category", continue: "Continue in Current Profile",
+    };
 
     const persistView = () => {
       adminEmployeesView.sortMode = sortMode;
       adminEmployeesView.filterStatus = filterStatus;
       adminEmployeesView.searchRaw = searchRaw;
+      adminEmployeesView.selectedCode = selected;
     };
 
     const matchesFilter = (row) => {
@@ -4775,7 +4784,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       return list;
     };
 
-    const bindRowActions = () => {
+    const bindDetailActions = () => {
       qsa("[data-profile]").forEach((control) => { control.onclick = () => openFinalProfile(control.dataset.profile); });
       qsa("[data-feedback]").forEach((control) => {
         control.onclick = () => openFeedbackLogbook(control.dataset.feedback).catch((error) => toast(error.message, "error"));
@@ -4845,20 +4854,66 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       });
     };
 
+    const detailMeta = (label, valueHtml) => `
+      <div class="bg-[#fff8f7] border border-[#e7bdb9] rounded-xl p-4 min-h-[88px]">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-[#5d3f3d]">${esc(label)}</p>
+        <div class="mt-2 text-sm font-semibold text-[#291716]">${valueHtml}</div>
+      </div>`;
+
     const draw = () => {
       const list = filteredSorted();
+      if (list.length && !list.some((row) => row.employee_code === selected)) {
+        selected = list[0].employee_code;
+      }
+      persistView();
+      history.replaceState({}, "", `/app/admin/employees?employee=${encodeURIComponent(selected)}`);
+
+      const row = list.find((item) => item.employee_code === selected) || rows.find((item) => item.employee_code === selected);
       const filterActive = filterStatus !== "all";
       const chipBase = "px-3 py-1.5 bg-white border rounded-full text-xs font-bold inline-flex items-center gap-1 cursor-pointer hover:border-[#df162b] hover:text-[#df162b] transition-colors";
       const chipOn = "border-[#df162b] text-[#df162b] bg-[#fff0ef]";
       const chipOff = "border-[#e7bdb9] text-[#5d3f3d]";
+      const fbCount = Number(row?.feedback_count) || 0;
+      const zmMove = careerMoveLabel[row?.zm_career_recommendation] || row?.zm_career_recommendation || "—";
+      const rdMove = careerMoveLabel[row?.rd_career_recommendation] || row?.rd_career_recommendation || "—";
+      const aspiration = row?.aspiration?.aspiration_role
+        ? String(row.aspiration.aspiration_role).toUpperCase()
+        : "Not selected";
+      const code = row?.employee_code || selected;
 
-      render(`${pageHeader("Employee Master", "Workbook identity plus persisted workflow status.", button("Export CSV", "data-export", true))}
-        <label class="block mb-4"><span class="sr-only">Search employees</span>
-          <input data-search value="${esc(searchRaw)}" class="w-full md:w-96 border border-slate-200 rounded-lg px-4 py-3" placeholder="Search code, name, role, manager">
-        </label>
-        <div class="bg-white rounded-xl border border-[#e7bdb9] overflow-hidden mb-8">
-          <div class="p-4 bg-[#fff0ef] border-b border-[#e7bdb9] flex justify-between items-center gap-3 flex-wrap">
-            <div class="flex gap-2 flex-wrap items-center">
+      const actionButtons = row ? [
+        button("View profile", `data-profile="${esc(code)}"`, true),
+        button("Assessments", `data-roleplay-review="${esc(code)}"`, true),
+        button(fbCount ? `Feedback log (${fbCount})` : "Feedback log", `data-feedback="${esc(code)}"`, true),
+        (row.roleplays_completed || 0) > 0
+          ? button("Reset assessments", `data-reset-assessments="${esc(code)}"`, true)
+          : "",
+        (row.zm_status === "draft" || row.zm_status === "submitted")
+          ? button("Reset ZM", `data-reset-zm-rd="${esc(code)}" data-reset-zm-rd-scope="zm"`, true)
+          : "",
+        (row.rd_status === "draft" || row.rd_status === "submitted")
+          ? button("Reset RD", `data-reset-zm-rd="${esc(code)}" data-reset-zm-rd-scope="rd"`, true)
+          : "",
+        row.learning_locked
+          ? button("Reset courses", `data-reset-courses="${esc(code)}"`, true)
+          : "",
+        row.aspiration
+          ? button("Reset aspiration", `data-reset="${esc(code)}"`, true)
+          : "",
+      ].filter(Boolean).join("") : "";
+
+      render(`<div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        <aside class="lg:col-span-3 bg-white border border-[#e7bdb9] rounded-xl overflow-hidden sticky top-4">
+          <div class="p-4 border-b border-[#e7bdb9] space-y-3">
+            <div class="flex items-center justify-between gap-2">
+              <h2 class="text-base font-extrabold text-[#291716]">Employees</h2>
+              <span class="text-[11px] font-semibold text-[#5d3f3d]">${list.length}${filterActive || searchTerm ? `/${total}` : ""}</span>
+            </div>
+            <label class="relative block">
+              <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-[#926e6c] text-[18px]">search</span>
+              <input data-search value="${esc(searchRaw)}" class="w-full pl-10 pr-3 py-2.5 border border-[#e7bdb9] rounded-full text-sm outline-none focus:border-[#df162b] bg-[#fff8f7]" placeholder="Search team...">
+            </label>
+            <div class="flex gap-2 flex-wrap">
               <div class="relative">
                 <button type="button" data-toggle-filter class="${chipBase} ${filterActive || filterOpen ? chipOn : chipOff}">
                   <span class="material-symbols-outlined text-[16px]">filter_list</span>
@@ -4871,54 +4926,72 @@ Before you begin, we encourage you to take a few minutes to understand the philo
               <div class="relative">
                 <button type="button" data-toggle-sort class="${chipBase} ${sortMode !== "code-asc" || sortOpen ? chipOn : chipOff}">
                   <span class="material-symbols-outlined text-[16px]">sort</span>
-                  Sort: ${esc(sortLabel[sortMode])}
+                  Sort
                 </button>
                 ${sortOpen ? `<div class="absolute left-0 top-full mt-2 z-20 min-w-[220px] bg-white border border-[#e7bdb9] rounded-xl shadow-lg py-1">
                   ${Object.entries(sortLabel).map(([key, label]) => `<button type="button" data-sort="${key}" class="w-full text-left px-4 py-2 text-sm font-semibold hover:bg-[#fff0ef] ${sortMode === key ? "text-[#df162b]" : "text-[#291716]"}">${esc(label)}</button>`).join("")}
                 </div>` : ""}
               </div>
             </div>
-            <span class="text-xs text-[#5d3f3d]">Showing ${list.length}${filterActive || searchTerm ? ` of ${total}` : ""} employee${list.length === 1 ? "" : "s"}</span>
           </div>
-          <div class="overflow-x-auto">
-            <table class="w-full min-w-[1000px] text-sm text-left">
-              <thead class="bg-slate-50"><tr>
-                <th class="p-4">Employee</th><th class="p-4">Role</th><th class="p-4">ZM</th><th class="p-4">RD</th>
-                <th class="p-4">Assessment status</th><th class="p-4">ZM career move</th><th class="p-4">RD career move</th>
-                <th class="p-4">Assessments</th><th class="p-4">Aspiration</th>
-                <th class="p-4">Courses</th><th class="p-4">Feedback</th><th class="p-4">Actions</th>
-              </tr></thead>
-              <tbody>
-                ${list.map((row) => {
-                  const fbCount = Number(row.feedback_count) || 0;
-                  const zmMove = {
-                    kam: "KAM", zm: "ZM", bdfe: "BDFE", category: "Category", continue: "Continue in Current Profile",
-                  }[row.zm_career_recommendation] || row.zm_career_recommendation || "—";
-                  const rdMove = {
-                    kam: "KAM", zm: "ZM", bdfe: "BDFE", category: "Category", continue: "Continue in Current Profile",
-                  }[row.rd_career_recommendation] || row.rd_career_recommendation || "—";
-                  return `<tr class="border-t border-[#e7bdb9] hover:bg-[#fff0ef]">
-                  <td class="p-4"><strong>${esc(row.name)}</strong><div class="text-xs text-[#5d3f3d]">${esc(row.employee_code)}</div></td>
-                  <td class="p-4">${esc(row.designation)}<div class="text-xs text-[#5d3f3d]">${esc(row.grade)}</div></td>
-                  <td class="p-4">${esc(row.zm_name)}</td>
-                  <td class="p-4">${esc(row.rd_name)}</td>
-                  <td class="p-4">${statusChip(row.zm_status)} ${statusChip(row.rd_status)}</td>
-                  <td class="p-4 text-xs font-semibold text-[#291716]">${esc(zmMove)}</td>
-                  <td class="p-4 text-xs font-semibold text-[#291716]">${esc(rdMove)}</td>
-                  <td class="p-4">${row.roleplays_completed}/${row.roleplays_total}</td>
-                  <td class="p-4">${esc(row.aspiration?.aspiration_role ? String(row.aspiration.aspiration_role).toUpperCase() : "Not selected")}</td>
-                  <td class="p-4">${row.learning_locked ? statusChip("locked") : statusChip("open")}</td>
-                  <td class="p-4">${button(fbCount ? `Log (${fbCount})` : "Log", `data-feedback="${row.employee_code}"`, true)}</td>
-                  <td class="p-4 flex flex-wrap gap-2">${button("Profile", `data-profile="${row.employee_code}"`, true)}${button("Assessments", `data-roleplay-review="${row.employee_code}"`, true)}${(row.roleplays_completed || 0) > 0 ? button("Reset Assessments", `data-reset-assessments="${row.employee_code}"`, true) : ""}${(row.zm_status === "draft" || row.zm_status === "submitted" || row.rd_status === "draft" || row.rd_status === "submitted") ? `${(row.zm_status === "draft" || row.zm_status === "submitted") ? button("Reset ZM", `data-reset-zm-rd="${row.employee_code}" data-reset-zm-rd-scope="zm"`, true) : ""}${(row.rd_status === "draft" || row.rd_status === "submitted") ? button("Reset RD", `data-reset-zm-rd="${row.employee_code}" data-reset-zm-rd-scope="rd"`, true) : ""}` : ""}${row.learning_locked ? button("Reset Courses", `data-reset-courses="${row.employee_code}"`, true) : ""}${row.aspiration ? button("Reset Aspiration", `data-reset="${row.employee_code}"`, true) : ""}</td>
-                </tr>`;
-                }).join("") || empty("No matching employees.", 12)}
-              </tbody>
-            </table>
+          <div class="max-h-[70vh] overflow-y-auto p-2 space-y-1">
+            ${list.map((item) => {
+              const active = item.employee_code === selected;
+              return `<button type="button" data-emp="${esc(item.employee_code)}" class="w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold flex items-center justify-between gap-2 transition-colors ${active ? "bg-[#df162b] text-white shadow-sm" : "text-[#291716] hover:bg-[#fff0ef]"}">
+                <span class="truncate">${esc(item.name)} <span class="${active ? "text-white/80" : "text-[#5d3f3d]"} font-normal">(${esc(item.employee_code)})</span></span>
+                ${active ? `<span class="material-symbols-outlined text-[18px] shrink-0" style="font-variation-settings:'FILL' 1">check</span>` : ""}
+              </button>`;
+            }).join("") || `<p class="p-3 text-sm text-[#5d3f3d]">No matches.</p>`}
           </div>
-          <div class="p-4 border-t border-[#e7bdb9] text-xs text-[#5d3f3d]">Filter and sort apply with live search across the employee master.</div>
-        </div>`);
+        </aside>
 
-      bindRowActions();
+        <section class="lg:col-span-9 min-w-0">
+          <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-6">
+            <div>
+              <h1 class="text-3xl md:text-4xl font-extrabold tracking-tight text-[#df162b]">Employee Master</h1>
+              <p class="text-base text-[#5d3f3d] mt-2 max-w-3xl">Workbook identity plus persisted workflow status for the selected employee.</p>
+            </div>
+            ${button("Export CSV", "data-export", true)}
+          </div>
+
+          ${row ? `
+          <div class="bg-white border border-[#e7bdb9] rounded-xl p-5 md:p-6 mb-6">
+            <div class="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+              <div class="min-w-0">
+                <p class="text-[11px] font-bold uppercase tracking-wider text-[#5d3f3d]">Selected employee</p>
+                <h2 class="text-2xl md:text-3xl font-extrabold text-[#291716] mt-1 truncate">${esc(row.name)}</h2>
+                <p class="text-sm text-[#5d3f3d] mt-1">${esc(row.employee_code)}${row.designation ? ` · ${esc(row.designation)}` : ""}${row.grade ? ` · ${esc(row.grade)}` : ""}</p>
+              </div>
+              <div class="flex flex-wrap gap-2 shrink-0">
+                ${statusChip(row.zm_status)}
+                ${statusChip(row.rd_status)}
+                ${row.learning_locked ? statusChip("locked") : statusChip("open")}
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
+            ${detailMeta("ZM", esc(row.zm_name || "—"))}
+            ${detailMeta("RD", esc(row.rd_name || "—"))}
+            ${detailMeta("Assessment status", `${statusChip(row.zm_status)} <span class="inline-block w-2"></span> ${statusChip(row.rd_status)}`)}
+            ${detailMeta("ZM career move", esc(zmMove))}
+            ${detailMeta("RD career move", esc(rdMove))}
+            ${detailMeta("Voice assessments", `${esc(String(row.roleplays_completed || 0))}/${esc(String(row.roleplays_total || 0))}`)}
+            ${detailMeta("Aspiration", esc(aspiration))}
+            ${detailMeta("Courses", row.learning_locked ? statusChip("locked") : statusChip("open"))}
+            ${detailMeta("Feedback entries", esc(String(fbCount)))}
+          </div>
+
+          <div class="bg-white border border-[#e7bdb9] rounded-xl p-5 md:p-6">
+            <h3 class="text-lg font-extrabold text-[#291716]">Actions</h3>
+            <p class="text-sm text-[#5d3f3d] mt-1 mb-5">Review profile and assessments, or reset workflow steps for this employee.</p>
+            <div class="flex flex-wrap gap-3">${actionButtons}</div>
+          </div>
+          ` : `<div class="bg-white border border-[#e7bdb9] rounded-xl p-8 text-[#5d3f3d]">No employee selected.</div>`}
+        </section>
+      </div>`);
+
+      bindDetailActions();
       qs("[data-export]").onclick = () => exportEmployees(list);
       qs("[data-toggle-filter]").onclick = (event) => {
         event.stopPropagation();
@@ -4946,6 +5019,13 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           event.stopPropagation();
           sortMode = control.dataset.sort;
           sortOpen = false;
+          persistView();
+          draw();
+        };
+      });
+      qsa("[data-emp]").forEach((control) => {
+        control.onclick = () => {
+          selected = control.dataset.emp;
           persistView();
           draw();
         };
