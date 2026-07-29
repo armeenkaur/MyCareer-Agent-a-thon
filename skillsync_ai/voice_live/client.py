@@ -22,7 +22,7 @@ from ..core.config import (
     VOICE_INPUT_SAMPLE_RATE,
 )
 from ..core.logging_setup import get_logger
-from . import ROLEPLAY_STRONG, ROLEPLAY_SUPPORTING, load_prompt, scoring_instruction
+from . import ALL_ROLEPLAY_SKILLS, ROLEPLAY_STRONG, ROLEPLAY_SUPPORTING, load_prompt, scoring_instruction
 
 log = get_logger("skillsync.voice_live")
 
@@ -247,23 +247,39 @@ def _is_default_male_voice(applied: Any) -> bool:
     return not name or name in maleish or name.startswith("alloy")
 
 
-def _score_payload(kind: str, *, strict: bool = False) -> dict[str, Any]:
+def _score_payload(
+    kind: str,
+    *,
+    strict: bool = False,
+    modalities: list[str] | None = None,
+) -> dict[str, Any]:
+    mods = list(modalities or ["text"])
     return {
         "type": "response.create",
         "response": {
-            "modalities": ["text"],
+            "modalities": mods,
             "instructions": scoring_instruction(kind, strict=strict),
+            "temperature": 0.6,
         },
     }
 
 
-def parse_ratings_json(text: str, kind: str) -> ScoreMap:
-    """Extract per-skill level+confidence map; supporting skills may be null."""
+def _sanitize_score_text(text: str) -> str:
+    """Strip Voice Live audio tokens / fences / smart quotes before JSON parse."""
     raw = (text or "").strip()
     if not raw:
+        return ""
+    raw = re.sub(r"<\|[^|>]*\|>", " ", raw)
+    raw = raw.replace("\u201c", '"').replace("\u201d", '"').replace("\u2018", "'").replace("\u2019", "'")
+    raw = re.sub(r"```(?:json)?", "", raw, flags=re.IGNORECASE)
+    return raw.strip()
+
+
+def parse_ratings_json(text: str, kind: str) -> ScoreMap:
+    """Extract per-skill level+confidence map; supporting skills may be null."""
+    raw = _sanitize_score_text(text)
+    if not raw:
         raise ValueError("Empty scoring response.")
-    raw = re.sub(r"^```(?:json)?\s*", "", raw, flags=re.IGNORECASE)
-    raw = re.sub(r"\s*```$", "", raw)
     payload = _first_ratings_object(raw)
     ratings = payload.get("ratings") if isinstance(payload, dict) else None
     if not isinstance(ratings, dict):
@@ -275,6 +291,8 @@ def parse_ratings_json(text: str, kind: str) -> ScoreMap:
     for skill in expected:
         entry = ratings.get(skill)
         if entry is None:
+            entry = _lookup_rating(ratings, skill)
+        if entry is None:
             if skill in required:
                 raise ValueError(f"Missing required rating for {skill}.")
             cleaned[skill] = None
@@ -284,9 +302,10 @@ def parse_ratings_json(text: str, kind: str) -> ScoreMap:
             level = entry.strip()
             confidence = 0.7
         elif isinstance(entry, dict):
-            level = str(entry.get("level") or "").strip()
+            level = str(entry.get("level") or entry.get("proficiency") or "").strip()
+            conf_raw = entry.get("confidence", entry.get("conf"))
             try:
-                confidence = float(entry.get("confidence"))
+                confidence = float(conf_raw) if conf_raw is not None else 0.7
             except (TypeError, ValueError) as exc:
                 raise ValueError(f"Invalid confidence for {skill}.") from exc
         else:
@@ -298,8 +317,15 @@ def parse_ratings_json(text: str, kind: str) -> ScoreMap:
     return cleaned
 
 
+def _lookup_rating(ratings: dict[str, Any], skill: str) -> Any:
+    if skill in ratings:
+        return ratings[skill]
+    lowered = {str(k).strip().lower(): v for k, v in ratings.items()}
+    return lowered.get(skill.lower())
+
+
 def _first_ratings_object(raw: str) -> dict[str, Any]:
-    """Parse first JSON object that contains ratings (handles duplicated / trailing junk)."""
+    """Parse first JSON object that contains ratings (handles prose / duplicated junk)."""
     decoder = json.JSONDecoder()
     idx = 0
     while idx < len(raw):
@@ -313,8 +339,29 @@ def _first_ratings_object(raw: str) -> dict[str, Any]:
             continue
         if isinstance(obj, dict) and isinstance(obj.get("ratings"), dict):
             return obj
+        # Sometimes model returns ratings at top level without wrapper.
+        if isinstance(obj, dict) and _looks_like_ratings_map(obj):
+            return {"ratings": obj}
         idx = end
+    # Last resort: slice from "ratings" key.
+    match = re.search(r'\{\s*"ratings"\s*:', raw)
+    if match:
+        try:
+            obj, _ = decoder.raw_decode(raw, match.start())
+            if isinstance(obj, dict) and isinstance(obj.get("ratings"), dict):
+                return obj
+        except json.JSONDecodeError:
+            pass
     raise ValueError("Scoring response was not JSON.")
+
+
+def _looks_like_ratings_map(obj: dict[str, Any]) -> bool:
+    """True when object keys look like competency ratings (no nested ratings key)."""
+    if not obj or "ratings" in obj:
+        return False
+    known = {s.lower() for s in ALL_ROLEPLAY_SKILLS}
+    hits = sum(1 for k in obj if str(k).strip().lower() in known)
+    return hits >= 3
 
 
 class AzureVoiceLiveBridge:
@@ -561,7 +608,11 @@ class AzureVoiceLiveBridge:
                 self._awaiting_user_before_sense = False
                 log.info("Employee finished answer; will insert standalone continue-check")
             return
-        if etype in {"response.audio_transcript.delta", "response.text.delta"}:
+        if etype in {
+            "response.audio_transcript.delta",
+            "response.text.delta",
+            "response.output_text.delta",
+        }:
             part = event.get("delta") or ""
             if not part:
                 return
@@ -571,7 +622,11 @@ class AzureVoiceLiveBridge:
             elif not self._mute_output:
                 self.on_event({"type": "transcript", "delta": str(part), "role": "assistant"})
             return
-        if etype in {"response.audio_transcript.done", "response.text.done"}:
+        if etype in {
+            "response.audio_transcript.done",
+            "response.text.done",
+            "response.output_text.done",
+        }:
             if self._scoring and not self._score_text_parts:
                 transcript = event.get("transcript") or event.get("text")
                 if transcript:
@@ -616,7 +671,7 @@ class AzureVoiceLiveBridge:
                 ratings = parse_ratings_json(text, self.kind)
                 future.set_result(ratings)
             except Exception as exc:  # noqa: BLE001
-                log.warning("Voice score parse failed: %s raw=%r", exc, text[:500])
+                log.warning("Voice score parse failed: %s raw=%r", exc, text[:800])
                 future.set_exception(exc)
             return
         if etype == "error":
@@ -632,6 +687,11 @@ class AzureVoiceLiveBridge:
                     self._sense_check_sent = False
                     self._pending_timing_cue = "sense"
                 return
+            # Scoring modality rejected — fail score future so retry can switch modalities.
+            if self._scoring and self._score_future and not self._score_future.done():
+                if "modalit" in lowered or "unsupported" in lowered:
+                    self._score_future.set_exception(RuntimeError(message))
+                    return
             if await self._maybe_fallback_voice(message):
                 return
             self.on_event({"type": "error", "message": message})
@@ -784,7 +844,7 @@ class AzureVoiceLiveBridge:
             self._response_active = False
             self._closing_speech = False
 
-    def request_scores(self, timeout: float = 60.0) -> ScoreMap:
+    def request_scores(self, timeout: float = 120.0) -> ScoreMap:
         if not self._loop or self._closed.is_set():
             raise RuntimeError("Voice session is not connected.")
         future: asyncio.Future[ScoreMap] = asyncio.run_coroutine_threadsafe(
@@ -793,26 +853,66 @@ class AzureVoiceLiveBridge:
         return future.result(timeout=timeout)
 
     async def _score_async(self) -> ScoreMap:
+        """Ask model for JSON ratings. Retry text→strict→muted-audio (Render often rejects text)."""
         self._scoring = True
         self._mute_output = True
+        self._closing_speech = True
+        assert self._ws is not None
+        with contextlib.suppress(Exception):
+            await self._ws.send(json.dumps({"type": "response.cancel"}))
+        await asyncio.sleep(0.15)
+        with contextlib.suppress(Exception):
+            await self._ws.send(json.dumps({"type": "input_audio_buffer.clear"}))
+
+        attempts: list[tuple[list[str], bool]] = [
+            (["text"], False),
+            (["text"], True),
+            (["audio"], True),
+        ]
+        last_error: Exception | None = None
+        for modalities, strict in attempts:
+            try:
+                ratings = await self._score_once(modalities=modalities, strict=strict)
+                log.info(
+                    "Voice score ok kind=%s modalities=%s strict=%s",
+                    self.kind,
+                    modalities,
+                    strict,
+                )
+                return ratings
+            except Exception as exc:  # noqa: BLE001
+                last_error = exc
+                log.warning(
+                    "Voice score attempt failed kind=%s modalities=%s strict=%s err=%s",
+                    self.kind,
+                    modalities,
+                    strict,
+                    exc,
+                )
+                await asyncio.sleep(0.2)
+        assert last_error is not None
+        raise last_error
+
+    async def _score_once(self, *, modalities: list[str], strict: bool) -> ScoreMap:
         self._score_text_parts = []
         self._score_generation += 1
         generation = self._score_generation
         loop = asyncio.get_running_loop()
         self._score_future = loop.create_future()
         assert self._ws is not None
-        await self._ws.send(json.dumps(_score_payload(self.kind)))
+        with contextlib.suppress(Exception):
+            await self._ws.send(json.dumps({"type": "response.cancel"}))
+        await asyncio.sleep(0.1)
+        self._response_active = True
+        await self._ws.send(
+            json.dumps(_score_payload(self.kind, strict=strict, modalities=modalities))
+        )
         try:
-            return await asyncio.wait_for(self._score_future, timeout=45)
-        except Exception:
+            return await asyncio.wait_for(self._score_future, timeout=40)
+        finally:
             if self._score_future and not self._score_future.done() and generation == self._score_generation:
                 self._score_future.cancel()
-            self._score_text_parts = []
-            self._score_generation += 1
-            generation = self._score_generation
-            self._score_future = loop.create_future()
-            await self._ws.send(json.dumps(_score_payload(self.kind, strict=True)))
-            return await asyncio.wait_for(self._score_future, timeout=30)
+            self._response_active = False
 
     def _send_raw(self, payload: str) -> None:
         if not self._loop or self._closed.is_set() or not self._ws:

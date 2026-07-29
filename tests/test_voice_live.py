@@ -40,6 +40,37 @@ class VoiceLiveParseTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             parse_ratings_json(text, "functional")
 
+    def test_parse_messy_prose_and_audio_tokens(self) -> None:
+        text = (
+            "Sure, here is the score <|vq_hbr_audio_1|> "
+            '```json\n{"ratings":{'
+            '"Consultative Selling":{"level":"Intermediate","confidence":0.8},'
+            '"Data Analytics":{"level":"Beginner","confidence":0.6},'
+            '"Stakeholder Relationship":{"level":"Proficient","confidence":0.9},'
+            '"Communication":{"level":"Proficient","confidence":0.7},'
+            '"Executive Presence":{"level":"Advanced","confidence":0.5},'
+            '"Ownership & Accountability":null,'
+            '"Team Management":null'
+            "}}\n``` thanks"
+        )
+        result = parse_ratings_json(text, "functional")
+        self.assertEqual(result["Consultative Selling"]["level"], "Intermediate")
+
+    def test_parse_top_level_ratings_map(self) -> None:
+        text = (
+            "{"
+            '"Consultative Selling":{"level":"Intermediate","confidence":0.8},'
+            '"Data Analytics":{"level":"Beginner","confidence":0.6},'
+            '"Stakeholder Relationship":{"level":"Proficient","confidence":0.9},'
+            '"Communication":{"level":"Proficient","confidence":0.7},'
+            '"Executive Presence":{"level":"Advanced","confidence":0.5},'
+            '"Ownership & Accountability":null,'
+            '"Team Management":null'
+            "}"
+        )
+        result = parse_ratings_json(text, "functional")
+        self.assertEqual(result["Data Analytics"]["level"], "Beginner")
+
     def test_parse_legacy_flat_strings(self) -> None:
         text = (
             '{"ratings":{'

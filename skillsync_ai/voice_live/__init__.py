@@ -110,6 +110,7 @@ def scoring_instruction(kind: str, *, strict: bool = False) -> str:
         "confidence must be a number from 0.0 to 1.0. "
         "Output a single JSON object only, no markdown fences, no commentary: "
         '{"ratings":{' + skill_schema + "}}"
+        " If you must use audio modality, speak ONLY the JSON characters with no other words."
     )
     if strict:
         return (
