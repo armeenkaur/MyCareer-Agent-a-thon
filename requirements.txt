@@ -3,3 +3,4 @@ pillow
 pytesseract
 websockets
 wsproto
+pymysql

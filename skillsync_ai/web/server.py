@@ -8,7 +8,8 @@ import mimetypes
 import re
 
 from ..backend import MyCareerBackend
-from ..core.config import DATABASE_PATH, STATIC_DIR, STITCH_DIR
+from ..core.config import DATABASE_PATH, STATIC_DIR, STITCH_DIR, database_is_ephemeral
+from ..database import Database
 from ..core.logging_setup import get_logger
 from ..data_sources import WorkbookData
 from ..database import Database
@@ -63,14 +64,26 @@ def prepare_stitch_html(html: str, route: str) -> str:
 class MyCareerServer:
     def __init__(self) -> None:
         self.data = WorkbookData()
-        self.database = Database(DATABASE_PATH)
+        self.database = Database.open()
         self.backend = MyCareerBackend(self.data, self.database)
         self.api = BackendAPI(self.backend)
-        log.info(
-            "Backend ready employees=%s database=%s (SQLite persists assessments/roleplays/career/evidence)",
-            len(self.data.employees),
-            DATABASE_PATH.resolve(),
+        db_label = (
+            f"mysql://{self.database.mysql['host']}:{self.database.mysql['port']}/{self.database.mysql['database']}"
+            if self.database.engine == "mysql" and self.database.mysql
+            else str((self.database.path or DATABASE_PATH).resolve())
         )
+        log.info(
+            "Backend ready employees=%s engine=%s database=%s",
+            len(self.data.employees),
+            self.database.engine,
+            db_label,
+        )
+        if self.database.engine == "sqlite" and database_is_ephemeral():
+            log.error(
+                "DATABASE ON EPHEMERAL RENDER DISK (%s). ZM/RD assessments WILL BE LOST on "
+                "redeploy or free-tier spin-down. Use MySQL (MYSQL_HOST/...) or attach Persistent Disk.",
+                db_label,
+            )
 
     def handler(self) -> type[BaseHTTPRequestHandler]:
         app = self

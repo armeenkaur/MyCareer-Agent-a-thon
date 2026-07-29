@@ -72,8 +72,7 @@ class AssessmentsMixin:
             self._validate_career_recommendation(employee_code, recommendation)
         if submit and role == "zm":
             self._validate_ai_override_notes(employee_code, ratings, notes or {}, "zm_suggested_rating")
-        if submit and role == "rd":
-            self._validate_ai_override_notes(employee_code, ratings, notes or {}, "suggested_rating")
+        # RD may deviate from AI suggestion without a required note.
         existing = self.assessment(employee_code, role)
         if existing and existing["status"] == "submitted":
             raise BackendError("Submitted assessment is locked.", "assessment_locked", 409)

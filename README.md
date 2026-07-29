@@ -26,7 +26,17 @@ Binds `HOST` (default `0.0.0.0`) and `PORT` (default `5050`). Render sets `PORT`
 5. Open `https://<service>.onrender.com/app/login` (not bare `/` only)
 
 Or use `render.yaml` in repo root.
-Database: `data/mycareer.db` (created and seeded automatically; gitignored).
+
+**Database**
+
+- **Local/tests:** SQLite file (`data/mycareer.db`) when MySQL env is unset.
+- **Company / Docker:** MySQL 8 via `MYSQL_HOST`, `MYSQL_USER`, `MYSQL_PASSWORD`, `MYSQL_DATABASE` (or `DATABASE_URL=mysql://...`).
+
+```bash
+docker compose up --build
+```
+
+App: `http://127.0.0.1:5050/app/login` · health: `/api/health` (`database_engine` should be `mysql`).
 
 ## Authentication seed
 

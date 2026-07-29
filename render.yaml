@@ -2,16 +2,30 @@ services:
   - type: web
     name: mycareer-compass
     runtime: python
-    plan: free
+    # Free plan disk is ephemeral — ZM/RD data wipes on restart.
+    # Use starter (or higher) + disk below so SQLite survives.
+    plan: starter
     buildCommand: pip install -r requirements.txt
     startCommand: python -m skillsync_ai.app
     healthCheckPath: /api/health
+    disk:
+      name: mycareer-data
+      mountPath: /var/data
+      sizeGB: 1
     envVars:
       - key: PYTHON_VERSION
         value: "3.12.8"
       - key: HOST
         value: "0.0.0.0"
+      - key: MYCAREER_DATABASE_PATH
+        value: /var/data/mycareer.db
+      - key: OPEN_ALL_PHASES_BY_DEFAULT
+        value: "1"
       - key: OPENAI_API_KEY
         sync: false
       - key: OPENAI_MODEL
         value: gpt-5.4-mini
+      - key: AZURE_OPENAI_API_KEY
+        sync: false
+      - key: AZURE_VOICE_LIVE_URL
+        sync: false

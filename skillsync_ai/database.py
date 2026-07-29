@@ -7,8 +7,11 @@ import hmac
 import json
 from pathlib import Path
 import secrets
-import sqlite3
 from typing import Any, Iterator
+import os
+from urllib.parse import unquote, urlparse
+
+from .db_conn import CompatConnection, connect_mysql, connect_sqlite
 
 
 ROLES = {"admin", "zm", "rd", "employee", "lteam"}
@@ -58,24 +61,72 @@ def _password_matches(password: str, salt_hex: str, expected_hex: str) -> bool:
 
 
 class Database:
-    def __init__(self, path: str | Path) -> None:
-        self.path = Path(path)
+    """Persistent store. MySQL when MYSQL_* / DATABASE_URL set; else SQLite file."""
+
+    def __init__(
+        self,
+        path: str | Path | None = None,
+        *,
+        engine: str | None = None,
+        mysql: dict[str, Any] | None = None,
+    ) -> None:
+        # Explicit MySQL
+        if engine == "mysql" or mysql is not None:
+            cfg = mysql or mysql_config_from_env()
+            if not cfg:
+                raise RuntimeError("MySQL requested but MYSQL_* / DATABASE_URL not configured.")
+            self.engine = "mysql"
+            self.mysql = cfg
+            self.path = None
+            self.migrate()
+            return
+        # Explicit SQLite path (unit tests / local file)
+        if path is not None or engine == "sqlite":
+            from .core.config import DATABASE_PATH
+
+            self.engine = "sqlite"
+            self.mysql = None
+            self.path = Path(path if path is not None else DATABASE_PATH)
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            self.migrate()
+            return
+        # Auto: env MySQL else SQLite file
+        cfg = mysql_config_from_env()
+        if cfg:
+            self.engine = "mysql"
+            self.mysql = cfg
+            self.path = None
+            self.migrate()
+            return
+        from .core.config import DATABASE_PATH
+
+        self.engine = "sqlite"
+        self.mysql = None
+        self.path = Path(DATABASE_PATH)
         self.path.parent.mkdir(parents=True, exist_ok=True)
         self.migrate()
 
-    def connect(self) -> sqlite3.Connection:
-        connection = sqlite3.connect(self.path, timeout=30)
-        connection.row_factory = sqlite3.Row
-        connection.execute("PRAGMA foreign_keys = ON")
-        connection.execute("PRAGMA journal_mode = WAL")
-        connection.execute("PRAGMA synchronous = NORMAL")
-        return connection
+    @classmethod
+    def open(cls) -> Database:
+        """Production entry: MySQL if configured, otherwise local SQLite."""
+        cfg = mysql_config_from_env()
+        if cfg:
+            return cls(engine="mysql", mysql=cfg)
+        return cls(engine="sqlite")
+
+    def connect(self) -> CompatConnection:
+        if self.engine == "mysql":
+            assert self.mysql is not None
+            return connect_mysql(self.mysql)
+        assert self.path is not None
+        return connect_sqlite(str(self.path))
 
     @contextmanager
-    def transaction(self) -> Iterator[sqlite3.Connection]:
+    def transaction(self) -> Iterator[CompatConnection]:
         connection = self.connect()
         try:
-            connection.execute("BEGIN IMMEDIATE")
+            if self.engine == "sqlite":
+                connection.execute("BEGIN IMMEDIATE")
             yield connection
             connection.commit()
         except Exception:
@@ -86,239 +137,48 @@ class Database:
 
     def migrate(self) -> None:
         with self.connect() as connection:
-            connection.executescript(
-                """
-                CREATE TABLE IF NOT EXISTS employees (
-                    employee_code TEXT PRIMARY KEY,
-                    name TEXT NOT NULL,
-                    designation TEXT NOT NULL DEFAULT '',
-                    role_name TEXT NOT NULL DEFAULT '',
-                    grade TEXT NOT NULL DEFAULT '',
-                    location TEXT NOT NULL DEFAULT '',
-                    cohort TEXT NOT NULL DEFAULT '',
-                    zm_code TEXT NOT NULL DEFAULT '',
-                    zm_name TEXT NOT NULL DEFAULT '',
-                    rd_code TEXT NOT NULL DEFAULT '',
-                    rd_name TEXT NOT NULL DEFAULT '',
-                    updated_at TEXT NOT NULL
-                );
+            if self.engine == "mysql":
+                self._migrate_mysql(connection)
+            else:
+                self._migrate_sqlite(connection)
 
-                CREATE TABLE IF NOT EXISTS users (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    login_id TEXT NOT NULL,
-                    role TEXT NOT NULL CHECK(role IN ('admin','zm','rd','employee','lteam')),
-                    display_name TEXT NOT NULL,
-                    employee_code TEXT,
-                    password_salt TEXT NOT NULL,
-                    password_hash TEXT NOT NULL,
-                    active INTEGER NOT NULL DEFAULT 1,
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL,
-                    UNIQUE(login_id, role)
-                );
-
-                CREATE TABLE IF NOT EXISTS sessions (
-                    token_hash TEXT PRIMARY KEY,
-                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-                    expires_at TEXT NOT NULL,
-                    created_at TEXT NOT NULL
-                );
-
-                CREATE TABLE IF NOT EXISTS phases (
-                    phase TEXT PRIMARY KEY CHECK(phase IN ('zm','rd','employee','feedback')),
-                    status TEXT NOT NULL CHECK(status IN ('closed','open','complete')) DEFAULT 'closed',
-                    opened_at TEXT,
-                    closed_at TEXT,
-                    opened_by TEXT,
-                    override_used INTEGER NOT NULL DEFAULT 0
-                );
-
-                CREATE TABLE IF NOT EXISTS journey_feedback (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
-                    zm_login_id TEXT NOT NULL,
-                    zm_name TEXT NOT NULL DEFAULT '',
-                    question TEXT NOT NULL,
-                    answer TEXT NOT NULL,
-                    created_at TEXT NOT NULL
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_journey_feedback_employee
-                    ON journey_feedback(employee_code, created_at DESC);
-
-                CREATE TABLE IF NOT EXISTS learning_kudos (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
-                    from_login_id TEXT NOT NULL, 
-                    from_name TEXT NOT NULL DEFAULT '',
-                    message TEXT NOT NULL,
-                    created_at TEXT NOT NULL
-                );
-
-                CREATE INDEX IF NOT EXISTS idx_learning_kudos_employee
-                    ON learning_kudos(employee_code, created_at DESC);
-
-                CREATE TABLE IF NOT EXISTS assessments (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
-                    assessor_role TEXT NOT NULL CHECK(assessor_role IN ('zm','rd')),
-                    assessor_login_id TEXT NOT NULL,
-                    status TEXT NOT NULL CHECK(status IN ('draft','submitted')) DEFAULT 'draft',
-                    created_at TEXT NOT NULL,
-                    updated_at TEXT NOT NULL,
-                    submitted_at TEXT,
-                    UNIQUE(employee_code, assessor_role)
-                );
-
-                CREATE TABLE IF NOT EXISTS assessment_ratings (
-                    assessment_id INTEGER NOT NULL REFERENCES assessments(id) ON DELETE CASCADE,
-                    competency TEXT NOT NULL,
-                    proficiency TEXT NOT NULL CHECK(proficiency IN ('Beginner','Intermediate','Proficient','Advanced')),
-                    note TEXT NOT NULL DEFAULT '',
-                    PRIMARY KEY(assessment_id, competency)
-                );
-
-                CREATE TABLE IF NOT EXISTS curated_evidence (
-                    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
-                    competency TEXT NOT NULL,
-                    evidence_json TEXT NOT NULL,
-                    generated_at TEXT NOT NULL,
-                    PRIMARY KEY(employee_code, competency)
-                );
-
-                CREATE TABLE IF NOT EXISTS roleplay_assessments (
-                    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
-                    competency TEXT NOT NULL,
-                    filename TEXT NOT NULL DEFAULT '',
-                    file_path TEXT NOT NULL DEFAULT '',
-                    status TEXT NOT NULL CHECK(status IN ('not_started','processing','completed','reupload_required','service_unavailable')),
-                    ai_proficiency TEXT,
-                    rationale TEXT NOT NULL DEFAULT '',
-                    ocr_text TEXT NOT NULL DEFAULT '',
-                    error TEXT NOT NULL DEFAULT '',
-                    updated_at TEXT NOT NULL,
-                    PRIMARY KEY(employee_code, competency)
-                );
-
-                CREATE TABLE IF NOT EXISTS career_choices (
-                    employee_code TEXT PRIMARY KEY REFERENCES employees(employee_code),
-                    aspiration_role TEXT NOT NULL,
-                    target_key TEXT NOT NULL,
-                    locked_at TEXT NOT NULL,
-                    reset_at TEXT,
-                    reset_by TEXT
-                );
-
-                CREATE TABLE IF NOT EXISTS course_recommendations (
-                    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
-                    target_key TEXT NOT NULL,
-                    competency TEXT NOT NULL,
-                    current_level TEXT NOT NULL,
-                    target_level TEXT NOT NULL,
-                    candidate_ids_json TEXT NOT NULL,
-                    courses_json TEXT NOT NULL,
-                    generated_at TEXT NOT NULL,
-                    PRIMARY KEY(employee_code, target_key, competency)
-                );
-
-                CREATE TABLE IF NOT EXISTS learning_selections (
-                    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
-                    competency TEXT NOT NULL,
-                    course_id TEXT NOT NULL,
-                    selected_at TEXT NOT NULL,
-                    PRIMARY KEY(employee_code, course_id)
-                );
-
-                CREATE TABLE IF NOT EXISTS external_learning (
-                    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
-                    resource_id TEXT NOT NULL,
-                    competency TEXT NOT NULL,
-                    resource_json TEXT NOT NULL,
-                    clicked_at TEXT,
-                    completed_at TEXT,
-                    PRIMARY KEY(employee_code, resource_id)
-                );
-
-                CREATE TABLE IF NOT EXISTS other_source_recommendations (
-                    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
-                    target_key TEXT NOT NULL,
-                    competency TEXT NOT NULL,
-                    picks_json TEXT NOT NULL,
-                    generated_at TEXT NOT NULL,
-                    PRIMARY KEY(employee_code, target_key, competency)
-                );
-
-                CREATE TABLE IF NOT EXISTS linkedin_activity (
-                    employee_code TEXT PRIMARY KEY REFERENCES employees(employee_code),
-                    learning_hours REAL NOT NULL DEFAULT 0,
-                    completions INTEGER NOT NULL DEFAULT 0,
-                    synced_at TEXT NOT NULL
-                );
-
-                CREATE TABLE IF NOT EXISTS employee_badges (
-                    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
-                    badge_id TEXT NOT NULL,
-                    title TEXT NOT NULL DEFAULT '',
-                    earned_at TEXT NOT NULL,
-                    meta_json TEXT NOT NULL DEFAULT '{}',
-                    PRIMARY KEY(employee_code, badge_id)
-                );
-
-                CREATE TABLE IF NOT EXISTS learning_activity_days (
-                    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
-                    activity_date TEXT NOT NULL,
-                    PRIMARY KEY(employee_code, activity_date)
-                );
-
-                CREATE TABLE IF NOT EXISTS course_progress (
-                    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
-                    course_id TEXT NOT NULL,
-                    status TEXT NOT NULL CHECK(status IN ('not_started','in_progress','completed')) DEFAULT 'not_started',
-                    progress_pct INTEGER NOT NULL DEFAULT 0 CHECK(progress_pct >= 0 AND progress_pct <= 100),
-                    launched_at TEXT,
-                    completed_at TEXT,
-                    PRIMARY KEY(employee_code, course_id)
-                );
-
-                CREATE TABLE IF NOT EXISTS agent_audit (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    employee_code TEXT NOT NULL,
-                    agent TEXT NOT NULL,
-                    competency TEXT NOT NULL DEFAULT '',
-                    input_summary TEXT NOT NULL DEFAULT '',
-                    output_json TEXT NOT NULL DEFAULT '{}',
-                    status TEXT NOT NULL,
-                    created_at TEXT NOT NULL
-                );
-                """
-            )
-            self._migrate_phases_feedback(connection)
-            self._migrate_users_lteam(connection)
-            self._migrate_employee_mentors(connection)
-            self._migrate_voice_roleplay_sessions(connection)
-            self._migrate_assessment_career_recommendation(connection)
-            self._migrate_leaderboard_snapshots(connection)
-            self._migrate_disclaimer_acks(connection)
-            for phase in PHASES:
-                connection.execute(
-                    "INSERT OR IGNORE INTO phases(phase, status) VALUES (?, 'open')",
-                    (phase,),
-                )
+    def _migrate_mysql(self, connection: CompatConnection) -> None:
+        connection.executescript(MYSQL_SCHEMA)
+        for phase in PHASES:
             connection.execute(
-                """
-                CREATE TABLE IF NOT EXISTS course_progress (
-                    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
-                    course_id TEXT NOT NULL,
-                    status TEXT NOT NULL CHECK(status IN ('not_started','in_progress','completed')) DEFAULT 'not_started',
-                    progress_pct INTEGER NOT NULL DEFAULT 0 CHECK(progress_pct >= 0 AND progress_pct <= 100),
-                    launched_at TEXT,
-                    completed_at TEXT,
-                    PRIMARY KEY(employee_code, course_id)
-                )
-                """
+                "INSERT OR IGNORE INTO phases(phase, status) VALUES (?, 'closed')",
+                (phase,),
             )
 
-    def _migrate_employee_mentors(self, connection: sqlite3.Connection) -> None:
+    def _migrate_sqlite(self, connection: CompatConnection) -> None:
+        connection.executescript(SQLITE_SCHEMA)
+        self._migrate_phases_feedback(connection)
+        self._migrate_users_lteam(connection)
+        self._migrate_employee_mentors(connection)
+        self._migrate_voice_roleplay_sessions(connection)
+        self._migrate_assessment_career_recommendation(connection)
+        self._migrate_leaderboard_snapshots(connection)
+        self._migrate_disclaimer_acks(connection)
+        for phase in PHASES:
+            connection.execute(
+                "INSERT OR IGNORE INTO phases(phase, status) VALUES (?, 'closed')",
+                (phase,),
+            )
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS course_progress (
+                employee_code TEXT NOT NULL REFERENCES employees(employee_code),
+                course_id TEXT NOT NULL,
+                status TEXT NOT NULL CHECK(status IN ('not_started','in_progress','completed')) DEFAULT 'not_started',
+                progress_pct INTEGER NOT NULL DEFAULT 0 CHECK(progress_pct >= 0 AND progress_pct <= 100),
+                launched_at TEXT,
+                completed_at TEXT,
+                PRIMARY KEY(employee_code, course_id)
+            )
+            """
+        )
+
+    def _migrate_employee_mentors(self, connection: CompatConnection) -> None:
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS employee_mentors (
@@ -330,7 +190,7 @@ class Database:
             """
         )
 
-    def _migrate_disclaimer_acks(self, connection: sqlite3.Connection) -> None:
+    def _migrate_disclaimer_acks(self, connection: CompatConnection) -> None:
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS employee_disclaimer_acks (
@@ -341,14 +201,14 @@ class Database:
             """
         )
 
-    def _migrate_assessment_career_recommendation(self, connection: sqlite3.Connection) -> None:
+    def _migrate_assessment_career_recommendation(self, connection: CompatConnection) -> None:
         columns = {row["name"] for row in connection.execute("PRAGMA table_info(assessments)").fetchall()}
         if "career_recommendation" not in columns:
             connection.execute(
                 "ALTER TABLE assessments ADD COLUMN career_recommendation TEXT NOT NULL DEFAULT ''"
             )
 
-    def _migrate_leaderboard_snapshots(self, connection: sqlite3.Connection) -> None:
+    def _migrate_leaderboard_snapshots(self, connection: CompatConnection) -> None:
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS leaderboard_snapshots (
@@ -361,7 +221,7 @@ class Database:
             """
         )
 
-    def _migrate_voice_roleplay_sessions(self, connection: sqlite3.Connection) -> None:
+    def _migrate_voice_roleplay_sessions(self, connection: CompatConnection) -> None:
         connection.execute(
             """
             CREATE TABLE IF NOT EXISTS voice_roleplay_sessions (
@@ -377,7 +237,7 @@ class Database:
             """
         )
 
-    def _migrate_phases_feedback(self, connection: sqlite3.Connection) -> None:
+    def _migrate_phases_feedback(self, connection: CompatConnection) -> None:
         """Widen phases CHECK to include feedback; create journey_feedback if missing."""
         connection.execute(
             """
@@ -421,7 +281,7 @@ class Database:
             """
         )
 
-    def _migrate_users_lteam(self, connection: sqlite3.Connection) -> None:
+    def _migrate_users_lteam(self, connection: CompatConnection) -> None:
         """Widen users CHECK for lteam; ensure learning_kudos exists."""
         connection.execute(
             """
@@ -554,7 +414,7 @@ class Database:
 
     def _force_password(
         self,
-        connection: sqlite3.Connection,
+        connection: CompatConnection,
         login_id: str,
         role: str,
         password: str,
@@ -570,7 +430,7 @@ class Database:
 
     def _upsert_user(
         self,
-        connection: sqlite3.Connection,
+        connection: CompatConnection,
         login_id: str,
         role: str,
         display_name: str,
@@ -700,7 +560,7 @@ class Database:
             connection.execute("DELETE FROM sessions WHERE token_hash=?", (token_hash,))
 
     @staticmethod
-    def _row(row: sqlite3.Row | None) -> dict[str, Any]:
+    def _row(row: Any) -> dict[str, Any]:
         return dict(row) if row else {}
 
     @staticmethod
@@ -709,3 +569,475 @@ class Database:
             return json.loads(value or "")
         except json.JSONDecodeError:
             return default
+
+
+def mysql_config_from_env() -> dict[str, Any] | None:
+    """Parse DATABASE_URL=mysql://... or MYSQL_HOST/USER/PASSWORD/DATABASE."""
+    url = (os.environ.get("DATABASE_URL") or os.environ.get("MYSQL_URL") or "").strip()
+    if url.startswith("mysql://") or url.startswith("mysql+pymysql://"):
+        parsed = urlparse(url.replace("mysql+pymysql://", "mysql://", 1))
+        if not parsed.hostname or not parsed.path.strip("/"):
+            return None
+        return {
+            "host": parsed.hostname,
+            "port": parsed.port or 3306,
+            "user": unquote(parsed.username or "root"),
+            "password": unquote(parsed.password or ""),
+            "database": parsed.path.strip("/").split("/")[0],
+        }
+    host = (os.environ.get("MYSQL_HOST") or "").strip()
+    database = (os.environ.get("MYSQL_DATABASE") or os.environ.get("MYSQL_DB") or "").strip()
+    user = (os.environ.get("MYSQL_USER") or "").strip()
+    if not (host and database and user):
+        return None
+    return {
+        "host": host,
+        "port": int(os.environ.get("MYSQL_PORT") or 3306),
+        "user": user,
+        "password": os.environ.get("MYSQL_PASSWORD") or "",
+        "database": database,
+    }
+
+
+
+
+SQLITE_SCHEMA = """
+CREATE TABLE IF NOT EXISTS employees (
+    employee_code TEXT PRIMARY KEY,
+    name TEXT NOT NULL,
+    designation TEXT NOT NULL DEFAULT '',
+    role_name TEXT NOT NULL DEFAULT '',
+    grade TEXT NOT NULL DEFAULT '',
+    location TEXT NOT NULL DEFAULT '',
+    cohort TEXT NOT NULL DEFAULT '',
+    zm_code TEXT NOT NULL DEFAULT '',
+    zm_name TEXT NOT NULL DEFAULT '',
+    rd_code TEXT NOT NULL DEFAULT '',
+    rd_name TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    login_id TEXT NOT NULL,
+    role TEXT NOT NULL CHECK(role IN ('admin','zm','rd','employee','lteam')),
+    display_name TEXT NOT NULL,
+    employee_code TEXT,
+    password_salt TEXT NOT NULL,
+    password_hash TEXT NOT NULL,
+    active INTEGER NOT NULL DEFAULT 1,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(login_id, role)
+);
+CREATE TABLE IF NOT EXISTS sessions (
+    token_hash TEXT PRIMARY KEY,
+    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    expires_at TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS phases (
+    phase TEXT PRIMARY KEY CHECK(phase IN ('zm','rd','employee','feedback')),
+    status TEXT NOT NULL CHECK(status IN ('closed','open','complete')) DEFAULT 'closed',
+    opened_at TEXT,
+    closed_at TEXT,
+    opened_by TEXT,
+    override_used INTEGER NOT NULL DEFAULT 0
+);
+CREATE TABLE IF NOT EXISTS journey_feedback (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
+    zm_login_id TEXT NOT NULL,
+    zm_name TEXT NOT NULL DEFAULT '',
+    question TEXT NOT NULL,
+    answer TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_journey_feedback_employee
+    ON journey_feedback(employee_code, created_at DESC);
+CREATE TABLE IF NOT EXISTS learning_kudos (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
+    from_login_id TEXT NOT NULL,
+    from_name TEXT NOT NULL DEFAULT '',
+    message TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_learning_kudos_employee
+    ON learning_kudos(employee_code, created_at DESC);
+CREATE TABLE IF NOT EXISTS assessments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
+    assessor_role TEXT NOT NULL CHECK(assessor_role IN ('zm','rd')),
+    assessor_login_id TEXT NOT NULL,
+    status TEXT NOT NULL CHECK(status IN ('draft','submitted')) DEFAULT 'draft',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    submitted_at TEXT,
+    career_recommendation TEXT NOT NULL DEFAULT '',
+    UNIQUE(employee_code, assessor_role)
+);
+CREATE TABLE IF NOT EXISTS assessment_ratings (
+    assessment_id INTEGER NOT NULL REFERENCES assessments(id) ON DELETE CASCADE,
+    competency TEXT NOT NULL,
+    proficiency TEXT NOT NULL CHECK(proficiency IN ('Beginner','Intermediate','Proficient','Advanced')),
+    note TEXT NOT NULL DEFAULT '',
+    PRIMARY KEY(assessment_id, competency)
+);
+CREATE TABLE IF NOT EXISTS curated_evidence (
+    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
+    competency TEXT NOT NULL,
+    evidence_json TEXT NOT NULL,
+    generated_at TEXT NOT NULL,
+    PRIMARY KEY(employee_code, competency)
+);
+CREATE TABLE IF NOT EXISTS roleplay_assessments (
+    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
+    competency TEXT NOT NULL,
+    filename TEXT NOT NULL DEFAULT '',
+    file_path TEXT NOT NULL DEFAULT '',
+    status TEXT NOT NULL CHECK(status IN ('not_started','processing','completed','reupload_required','service_unavailable')),
+    ai_proficiency TEXT,
+    rationale TEXT NOT NULL DEFAULT '',
+    ocr_text TEXT NOT NULL DEFAULT '',
+    error TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY(employee_code, competency)
+);
+CREATE TABLE IF NOT EXISTS career_choices (
+    employee_code TEXT PRIMARY KEY REFERENCES employees(employee_code),
+    aspiration_role TEXT NOT NULL,
+    target_key TEXT NOT NULL,
+    locked_at TEXT NOT NULL,
+    reset_at TEXT,
+    reset_by TEXT
+);
+CREATE TABLE IF NOT EXISTS course_recommendations (
+    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
+    target_key TEXT NOT NULL,
+    competency TEXT NOT NULL,
+    current_level TEXT NOT NULL,
+    target_level TEXT NOT NULL,
+    candidate_ids_json TEXT NOT NULL,
+    courses_json TEXT NOT NULL,
+    generated_at TEXT NOT NULL,
+    PRIMARY KEY(employee_code, target_key, competency)
+);
+CREATE TABLE IF NOT EXISTS learning_selections (
+    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
+    competency TEXT NOT NULL,
+    course_id TEXT NOT NULL,
+    selected_at TEXT NOT NULL,
+    PRIMARY KEY(employee_code, course_id)
+);
+CREATE TABLE IF NOT EXISTS external_learning (
+    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
+    resource_id TEXT NOT NULL,
+    competency TEXT NOT NULL,
+    resource_json TEXT NOT NULL,
+    clicked_at TEXT,
+    completed_at TEXT,
+    PRIMARY KEY(employee_code, resource_id)
+);
+CREATE TABLE IF NOT EXISTS other_source_recommendations (
+    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
+    target_key TEXT NOT NULL,
+    competency TEXT NOT NULL,
+    picks_json TEXT NOT NULL,
+    generated_at TEXT NOT NULL,
+    PRIMARY KEY(employee_code, target_key, competency)
+);
+CREATE TABLE IF NOT EXISTS linkedin_activity (
+    employee_code TEXT PRIMARY KEY REFERENCES employees(employee_code),
+    learning_hours REAL NOT NULL DEFAULT 0,
+    completions INTEGER NOT NULL DEFAULT 0,
+    synced_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS employee_badges (
+    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
+    badge_id TEXT NOT NULL,
+    title TEXT NOT NULL DEFAULT '',
+    earned_at TEXT NOT NULL,
+    meta_json TEXT NOT NULL DEFAULT '{}',
+    PRIMARY KEY(employee_code, badge_id)
+);
+CREATE TABLE IF NOT EXISTS learning_activity_days (
+    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
+    activity_date TEXT NOT NULL,
+    PRIMARY KEY(employee_code, activity_date)
+);
+CREATE TABLE IF NOT EXISTS course_progress (
+    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
+    course_id TEXT NOT NULL,
+    status TEXT NOT NULL CHECK(status IN ('not_started','in_progress','completed')) DEFAULT 'not_started',
+    progress_pct INTEGER NOT NULL DEFAULT 0 CHECK(progress_pct >= 0 AND progress_pct <= 100),
+    launched_at TEXT,
+    completed_at TEXT,
+    PRIMARY KEY(employee_code, course_id)
+);
+CREATE TABLE IF NOT EXISTS agent_audit (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    employee_code TEXT NOT NULL,
+    agent TEXT NOT NULL,
+    competency TEXT NOT NULL DEFAULT '',
+    input_summary TEXT NOT NULL DEFAULT '',
+    output_json TEXT NOT NULL DEFAULT '{}',
+    status TEXT NOT NULL,
+    created_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS employee_mentors (
+    employee_code TEXT PRIMARY KEY REFERENCES employees(employee_code),
+    mentor_login_id TEXT NOT NULL,
+    mentor_name TEXT NOT NULL DEFAULT '',
+    selected_at TEXT NOT NULL
+);
+CREATE TABLE IF NOT EXISTS employee_disclaimer_acks (
+    employee_code TEXT PRIMARY KEY REFERENCES employees(employee_code),
+    acknowledged_at TEXT NOT NULL,
+    login_id TEXT NOT NULL DEFAULT ''
+);
+CREATE TABLE IF NOT EXISTS leaderboard_snapshots (
+    cache_key TEXT NOT NULL,
+    snapshot_date TEXT NOT NULL,
+    payload_json TEXT NOT NULL,
+    computed_at TEXT NOT NULL,
+    PRIMARY KEY(cache_key, snapshot_date)
+);
+CREATE TABLE IF NOT EXISTS voice_roleplay_sessions (
+    employee_code TEXT NOT NULL REFERENCES employees(employee_code),
+    kind TEXT NOT NULL CHECK(kind IN ('functional','behavioural')),
+    status TEXT NOT NULL CHECK(status IN ('not_started','in_progress','completed','failed')) DEFAULT 'not_started',
+    scores_json TEXT NOT NULL DEFAULT '{}',
+    error TEXT NOT NULL DEFAULT '',
+    updated_at TEXT NOT NULL,
+    PRIMARY KEY(employee_code, kind)
+);
+"""
+
+MYSQL_SCHEMA = """
+CREATE TABLE IF NOT EXISTS employees (
+    employee_code VARCHAR(64) PRIMARY KEY,
+    name VARCHAR(255) NOT NULL,
+    designation VARCHAR(255) NOT NULL DEFAULT '',
+    role_name VARCHAR(255) NOT NULL DEFAULT '',
+    grade VARCHAR(64) NOT NULL DEFAULT '',
+    location VARCHAR(255) NOT NULL DEFAULT '',
+    cohort VARCHAR(255) NOT NULL DEFAULT '',
+    zm_code VARCHAR(64) NOT NULL DEFAULT '',
+    zm_name VARCHAR(255) NOT NULL DEFAULT '',
+    rd_code VARCHAR(64) NOT NULL DEFAULT '',
+    rd_name VARCHAR(255) NOT NULL DEFAULT '',
+    updated_at VARCHAR(64) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    login_id VARCHAR(64) NOT NULL,
+    role VARCHAR(32) NOT NULL,
+    display_name VARCHAR(255) NOT NULL,
+    employee_code VARCHAR(64) NULL,
+    password_salt VARCHAR(128) NOT NULL,
+    password_hash VARCHAR(128) NOT NULL,
+    active TINYINT NOT NULL DEFAULT 1,
+    created_at VARCHAR(64) NOT NULL,
+    updated_at VARCHAR(64) NOT NULL,
+    UNIQUE KEY uq_users_login_role (login_id, role)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS sessions (
+    token_hash VARCHAR(128) PRIMARY KEY,
+    user_id INT NOT NULL,
+    expires_at VARCHAR(64) NOT NULL,
+    created_at VARCHAR(64) NOT NULL,
+    CONSTRAINT fk_sessions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS phases (
+    phase VARCHAR(32) PRIMARY KEY,
+    status VARCHAR(32) NOT NULL DEFAULT 'closed',
+    opened_at VARCHAR(64) NULL,
+    closed_at VARCHAR(64) NULL,
+    opened_by VARCHAR(64) NULL,
+    override_used TINYINT NOT NULL DEFAULT 0
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS journey_feedback (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    employee_code VARCHAR(64) NOT NULL,
+    zm_login_id VARCHAR(64) NOT NULL,
+    zm_name VARCHAR(255) NOT NULL DEFAULT '',
+    question TEXT NOT NULL,
+    answer TEXT NOT NULL,
+    created_at VARCHAR(64) NOT NULL,
+    KEY idx_journey_feedback_employee (employee_code, created_at),
+    CONSTRAINT fk_jf_emp FOREIGN KEY (employee_code) REFERENCES employees(employee_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS learning_kudos (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    employee_code VARCHAR(64) NOT NULL,
+    from_login_id VARCHAR(64) NOT NULL,
+    from_name VARCHAR(255) NOT NULL DEFAULT '',
+    message TEXT NOT NULL,
+    created_at VARCHAR(64) NOT NULL,
+    KEY idx_learning_kudos_employee (employee_code, created_at),
+    CONSTRAINT fk_kudos_emp FOREIGN KEY (employee_code) REFERENCES employees(employee_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS assessments (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    employee_code VARCHAR(64) NOT NULL,
+    assessor_role VARCHAR(8) NOT NULL,
+    assessor_login_id VARCHAR(64) NOT NULL,
+    status VARCHAR(32) NOT NULL DEFAULT 'draft',
+    created_at VARCHAR(64) NOT NULL,
+    updated_at VARCHAR(64) NOT NULL,
+    submitted_at VARCHAR(64) NULL,
+    career_recommendation VARCHAR(64) NOT NULL DEFAULT '',
+    UNIQUE KEY uq_assessment_emp_role (employee_code, assessor_role),
+    CONSTRAINT fk_assess_emp FOREIGN KEY (employee_code) REFERENCES employees(employee_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS assessment_ratings (
+    assessment_id INT NOT NULL,
+    competency VARCHAR(128) NOT NULL,
+    proficiency VARCHAR(32) NOT NULL,
+    note TEXT NOT NULL,
+    PRIMARY KEY (assessment_id, competency),
+    CONSTRAINT fk_ar_assess FOREIGN KEY (assessment_id) REFERENCES assessments(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS curated_evidence (
+    employee_code VARCHAR(64) NOT NULL,
+    competency VARCHAR(128) NOT NULL,
+    evidence_json MEDIUMTEXT NOT NULL,
+    generated_at VARCHAR(64) NOT NULL,
+    PRIMARY KEY (employee_code, competency),
+    CONSTRAINT fk_ce_emp FOREIGN KEY (employee_code) REFERENCES employees(employee_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS roleplay_assessments (
+    employee_code VARCHAR(64) NOT NULL,
+    competency VARCHAR(128) NOT NULL,
+    filename VARCHAR(512) NOT NULL DEFAULT '',
+    file_path VARCHAR(1024) NOT NULL DEFAULT '',
+    status VARCHAR(64) NOT NULL,
+    ai_proficiency VARCHAR(32) NULL,
+    rationale TEXT NOT NULL,
+    ocr_text MEDIUMTEXT NOT NULL,
+    error TEXT NOT NULL,
+    updated_at VARCHAR(64) NOT NULL,
+    PRIMARY KEY (employee_code, competency),
+    CONSTRAINT fk_ra_emp FOREIGN KEY (employee_code) REFERENCES employees(employee_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS career_choices (
+    employee_code VARCHAR(64) PRIMARY KEY,
+    aspiration_role VARCHAR(64) NOT NULL,
+    target_key VARCHAR(128) NOT NULL,
+    locked_at VARCHAR(64) NOT NULL,
+    reset_at VARCHAR(64) NULL,
+    reset_by VARCHAR(64) NULL,
+    CONSTRAINT fk_cc_emp FOREIGN KEY (employee_code) REFERENCES employees(employee_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS course_recommendations (
+    employee_code VARCHAR(64) NOT NULL,
+    target_key VARCHAR(128) NOT NULL,
+    competency VARCHAR(128) NOT NULL,
+    current_level VARCHAR(32) NOT NULL,
+    target_level VARCHAR(32) NOT NULL,
+    candidate_ids_json MEDIUMTEXT NOT NULL,
+    courses_json MEDIUMTEXT NOT NULL,
+    generated_at VARCHAR(64) NOT NULL,
+    PRIMARY KEY (employee_code, target_key, competency),
+    CONSTRAINT fk_cr_emp FOREIGN KEY (employee_code) REFERENCES employees(employee_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS learning_selections (
+    employee_code VARCHAR(64) NOT NULL,
+    competency VARCHAR(128) NOT NULL,
+    course_id VARCHAR(128) NOT NULL,
+    selected_at VARCHAR(64) NOT NULL,
+    PRIMARY KEY (employee_code, course_id),
+    CONSTRAINT fk_ls_emp FOREIGN KEY (employee_code) REFERENCES employees(employee_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS external_learning (
+    employee_code VARCHAR(64) NOT NULL,
+    resource_id VARCHAR(255) NOT NULL,
+    competency VARCHAR(128) NOT NULL,
+    resource_json MEDIUMTEXT NOT NULL,
+    clicked_at VARCHAR(64) NULL,
+    completed_at VARCHAR(64) NULL,
+    PRIMARY KEY (employee_code, resource_id),
+    CONSTRAINT fk_el_emp FOREIGN KEY (employee_code) REFERENCES employees(employee_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS other_source_recommendations (
+    employee_code VARCHAR(64) NOT NULL,
+    target_key VARCHAR(128) NOT NULL,
+    competency VARCHAR(128) NOT NULL,
+    picks_json MEDIUMTEXT NOT NULL,
+    generated_at VARCHAR(64) NOT NULL,
+    PRIMARY KEY (employee_code, target_key, competency),
+    CONSTRAINT fk_osr_emp FOREIGN KEY (employee_code) REFERENCES employees(employee_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS linkedin_activity (
+    employee_code VARCHAR(64) PRIMARY KEY,
+    learning_hours DOUBLE NOT NULL DEFAULT 0,
+    completions INT NOT NULL DEFAULT 0,
+    synced_at VARCHAR(64) NOT NULL,
+    CONSTRAINT fk_la_emp FOREIGN KEY (employee_code) REFERENCES employees(employee_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS employee_badges (
+    employee_code VARCHAR(64) NOT NULL,
+    badge_id VARCHAR(64) NOT NULL,
+    title VARCHAR(255) NOT NULL DEFAULT '',
+    earned_at VARCHAR(64) NOT NULL,
+    meta_json TEXT NOT NULL,
+    PRIMARY KEY (employee_code, badge_id),
+    CONSTRAINT fk_eb_emp FOREIGN KEY (employee_code) REFERENCES employees(employee_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS learning_activity_days (
+    employee_code VARCHAR(64) NOT NULL,
+    activity_date VARCHAR(32) NOT NULL,
+    PRIMARY KEY (employee_code, activity_date),
+    CONSTRAINT fk_lad_emp FOREIGN KEY (employee_code) REFERENCES employees(employee_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS course_progress (
+    employee_code VARCHAR(64) NOT NULL,
+    course_id VARCHAR(128) NOT NULL,
+    status VARCHAR(32) NOT NULL DEFAULT 'not_started',
+    progress_pct INT NOT NULL DEFAULT 0,
+    launched_at VARCHAR(64) NULL,
+    completed_at VARCHAR(64) NULL,
+    PRIMARY KEY (employee_code, course_id),
+    CONSTRAINT fk_cp_emp FOREIGN KEY (employee_code) REFERENCES employees(employee_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS agent_audit (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    employee_code VARCHAR(64) NOT NULL,
+    agent VARCHAR(128) NOT NULL,
+    competency VARCHAR(128) NOT NULL DEFAULT '',
+    input_summary TEXT NOT NULL,
+    output_json MEDIUMTEXT NOT NULL,
+    status VARCHAR(64) NOT NULL,
+    created_at VARCHAR(64) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS employee_mentors (
+    employee_code VARCHAR(64) PRIMARY KEY,
+    mentor_login_id VARCHAR(64) NOT NULL,
+    mentor_name VARCHAR(255) NOT NULL DEFAULT '',
+    selected_at VARCHAR(64) NOT NULL,
+    CONSTRAINT fk_em_emp FOREIGN KEY (employee_code) REFERENCES employees(employee_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS employee_disclaimer_acks (
+    employee_code VARCHAR(64) PRIMARY KEY,
+    acknowledged_at VARCHAR(64) NOT NULL,
+    login_id VARCHAR(64) NOT NULL DEFAULT '',
+    CONSTRAINT fk_eda_emp FOREIGN KEY (employee_code) REFERENCES employees(employee_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS leaderboard_snapshots (
+    cache_key VARCHAR(128) NOT NULL,
+    snapshot_date VARCHAR(32) NOT NULL,
+    payload_json MEDIUMTEXT NOT NULL,
+    computed_at VARCHAR(64) NOT NULL,
+    PRIMARY KEY (cache_key, snapshot_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE IF NOT EXISTS voice_roleplay_sessions (
+    employee_code VARCHAR(64) NOT NULL,
+    kind VARCHAR(32) NOT NULL,
+    status VARCHAR(32) NOT NULL DEFAULT 'not_started',
+    scores_json MEDIUMTEXT NOT NULL,
+    error TEXT NOT NULL,
+    updated_at VARCHAR(64) NOT NULL,
+    PRIMARY KEY (employee_code, kind),
+    CONSTRAINT fk_vrs_emp FOREIGN KEY (employee_code) REFERENCES employees(employee_code)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+"""
