@@ -1,0 +1,441 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Competency Validation | MyCareer Compass</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-primary": "#ffffff",
+                        "error": "#ba1a1a",
+                        "surface-container-low": "#f2f3ff",
+                        "surface-bright": "#faf8ff",
+                        "primary-container": "#1464f4",
+                        "error-container": "#ffdad6",
+                        "on-surface": "#191b24",
+                        "on-secondary": "#ffffff",
+                        "inverse-primary": "#b3c5ff",
+                        "inverse-on-surface": "#eff0fc",
+                        "background": "#faf8ff",
+                        "primary": "#004dc6",
+                        "surface": "#faf8ff",
+                        "tertiary": "#9b3400",
+                        "outline": "#737687",
+                        "outline-variant": "#c2c6d8",
+                        "surface-container-highest": "#e1e2ee",
+                        "on-tertiary-fixed": "#380d00",
+                        "tertiary-container": "#c44400",
+                        "on-surface-variant": "#424655",
+                        "on-tertiary-container": "#fff0ec",
+                        "surface-dim": "#d8d9e5",
+                        "surface-container-high": "#e7e7f3",
+                        "surface-container": "#ecedf9",
+                        "on-background": "#191b24",
+                        "on-secondary-fixed": "#001849",
+                        "on-tertiary-fixed-variant": "#802a00",
+                        "primary-fixed": "#dbe1ff",
+                        "on-primary-fixed-variant": "#003fa5",
+                        "inverse-surface": "#2e3039",
+                        "surface-tint": "#0054d7",
+                        "on-secondary-container": "#003183",
+                        "on-error-container": "#93000a",
+                        "on-tertiary": "#ffffff",
+                        "tertiary-fixed-dim": "#ffb59a",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-container": "#799dfe",
+                        "on-primary-fixed": "#001849",
+                        "secondary-fixed-dim": "#b3c5ff",
+                        "primary-fixed-dim": "#b3c5ff",
+                        "secondary-fixed": "#dae2ff",
+                        "on-secondary-fixed-variant": "#0e409d",
+                        "on-primary-container": "#f1f2ff",
+                        "on-error": "#ffffff",
+                        "secondary": "#3159b6",
+                        "surface-variant": "#e1e2ee",
+                        "tertiary-fixed": "#ffdbcf"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "canvas-max-width": "1440px",
+                        "content-max-width": "1280px",
+                        "stack-gap-md": "16px",
+                        "margin-desktop": "32px",
+                        "card-padding": "24px",
+                        "gutter": "24px",
+                        "stack-gap-sm": "8px",
+                        "margin-mobile": "16px",
+                        "stack-gap-lg": "24px",
+                        "grid-columns": "12"
+                    },
+                    "fontFamily": {
+                        "section-title": ["Inter"],
+                        "page-title-mobile": ["Inter"],
+                        "button": ["Inter"],
+                        "body-md": ["Inter"],
+                        "page-title": ["Inter"],
+                        "card-title": ["Inter"],
+                        "display-lg": ["Inter"],
+                        "metadata": ["Inter"],
+                        "body-sm": ["Inter"],
+                        "display-lg-mobile": ["Inter"]
+                    },
+                    "fontSize": {
+                        "section-title": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "page-title-mobile": ["24px", {"lineHeight": "30px", "fontWeight": "600"}],
+                        "button": ["14px", {"lineHeight": "20px", "fontWeight": "600"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "page-title": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "card-title": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                        "display-lg": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                        "metadata": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                        "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "display-lg-mobile": ["28px", {"lineHeight": "34px", "fontWeight": "600"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #F5F7FA; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .active-nav-link { font-variation-settings: 'FILL' 1; }
+        .card-shadow { box-shadow: 0px 4px 12px rgba(23, 32, 51, 0.05); }
+        .sidebar-transition { transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+    </style>
+</head>
+<body class="bg-background text-on-surface">
+<div class="flex min-h-screen overflow-hidden">
+<!-- SideNavBar -->
+<aside class="hidden md:flex flex-col h-screen w-72 bg-surface-container-low dark:bg-surface-container-highest border-r border-outline-variant dark:border-outline py-6 px-4 gap-stack-gap-md z-50">
+<div class="flex items-center gap-3 px-2 mb-8">
+<div class="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">rocket_launch</span>
+</div>
+<div>
+<h1 class="font-section-title text-section-title font-black text-primary">MyCareer Compass</h1>
+<p class="text-[10px] uppercase tracking-widest text-outline font-bold">Enterprise Edition</p>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-dim transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined group-hover:scale-110 transition-transform">dashboard</span>
+<span class="font-body-md text-body-md">Dashboard</span>
+</a>
+<!-- Active Navigation: Competency Validation (Mapped from intent) -->
+<a class="flex items-center gap-3 px-3 py-2 bg-primary-container text-on-primary-container font-bold rounded-lg group" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">verified_user</span>
+<span class="font-body-md text-body-md">Competency Validation</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-dim transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined">psychology</span>
+<span class="font-body-md text-body-md">Skills Lab</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-dim transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined">groups</span>
+<span class="font-body-md text-body-md">Mentorship</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-dim transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined">school</span>
+<span class="font-body-md text-body-md">Learning</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-dim transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined">leaderboard</span>
+<span class="font-body-md text-body-md">Analytics</span>
+</a>
+</nav>
+<div class="mt-auto space-y-1 pt-6 border-t border-outline-variant">
+<div class="px-3 py-4 mb-4 bg-primary/5 rounded-xl">
+<p class="text-xs font-bold text-primary mb-1 uppercase tracking-tight">Q3 Review Cycle</p>
+<div class="w-full bg-outline-variant h-1.5 rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[65%]"></div>
+</div>
+<p class="text-[10px] text-outline mt-2">65% Team Validation Complete</p>
+</div>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-dim transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined">help</span>
+<span class="font-body-md text-body-md">Support</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-dim transition-all rounded-lg" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-body-md text-body-md">Sign Out</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col h-screen overflow-y-auto overflow-x-hidden">
+<!-- TopNavBar -->
+<header class="flex justify-between items-center h-16 px-margin-desktop w-full bg-surface dark:bg-surface-dim sticky top-0 z-40 border-b border-outline-variant dark:border-outline">
+<div class="flex items-center gap-4">
+<button class="md:hidden p-2 text-on-surface-variant">
+<span class="material-symbols-outlined">menu</span>
+</button>
+<h2 class="font-page-title text-page-title text-primary dark:text-primary-fixed-dim">Competency Validation</h2>
+</div>
+<div class="flex items-center gap-stack-gap-md">
+<div class="hidden sm:flex relative">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="pl-10 pr-4 py-2 bg-surface-container-low border border-outline-variant rounded-lg text-body-sm focus:ring-2 focus:ring-primary/20 focus:border-primary outline-none transition-all w-64" placeholder="Search employees..." type="text"/>
+</div>
+<div class="flex items-center gap-2">
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low transition-colors rounded-full relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border-2 border-surface"></span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low transition-colors rounded-full">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-[1px] bg-outline-variant mx-1"></div>
+<div class="flex items-center gap-3 pl-2">
+<div class="text-right hidden lg:block">
+<p class="text-xs font-bold leading-none">Sarah Jenkins</p>
+<p class="text-[10px] text-outline">Regional Director</p>
+</div>
+<img class="w-9 h-9 rounded-full object-cover ring-2 ring-primary/10" data-alt="A professional headshot of a corporate woman in her late 30s with a confident, warm smile. She is wearing a structured navy blazer in a modern, bright office setting with soft, natural lighting. The image conveys leadership, expertise, and trust, aligning with a high-end HR technology brand aesthetic of stability and professional growth." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAQRvzoEGvCE7h_-s2zyKJ29eNr0UqFa1bjLgV1YsiH07sj42N7G_fs-AuQW6dMggHikrwHT0AW2-_WI8bXUh_VSfGYC1hMrM-aVIzzQf9nmuvQvqkm-6I4lmRPneN2VOGi0SpNTeOhenlx-ckUgqsbnWo3HkHrIg9ij0nWspBB9vXFHpHqQnRqH8IL_P75QmuFiDCrCAUvSU8LA1LUxI0XHJYUGJEughiHJmqd75TNz0e0PvUL8FG7"/>
+</div>
+</div>
+</div>
+</header>
+<!-- Page Content -->
+<div class="p-margin-desktop max-w-content-max-width mx-auto w-full">
+<!-- Stats / Bento Row -->
+<div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-gutter mb-gutter">
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-card-padding card-shadow">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-primary/10 rounded-lg text-primary">
+<span class="material-symbols-outlined">pending_actions</span>
+</div>
+<span class="text-xs font-bold text-primary bg-primary/5 px-2 py-1 rounded">Update</span>
+</div>
+<h4 class="text-outline text-metadata uppercase tracking-wider mb-1">Pending Validation</h4>
+<p class="text-display-lg font-display-lg leading-tight">24</p>
+<p class="text-body-sm text-outline mt-2">Skip-level assessments awaiting your review</p>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-card-padding card-shadow">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-tertiary/10 rounded-lg text-tertiary">
+<span class="material-symbols-outlined">history</span>
+</div>
+</div>
+<h4 class="text-outline text-metadata uppercase tracking-wider mb-1">Avg. Response Time</h4>
+<p class="text-display-lg font-display-lg leading-tight">1.2d</p>
+<p class="text-body-sm text-outline mt-2">0.3 days faster than last month</p>
+</div>
+<div class="md:col-span-1 lg:col-span-2 bg-primary text-on-primary rounded-xl p-card-padding relative overflow-hidden flex flex-col justify-center">
+<div class="relative z-10">
+<h3 class="font-section-title text-section-title mb-2">Quarterly Review Goal</h3>
+<p class="text-primary-fixed-dim max-w-xs mb-4">You have 5 business days remaining to complete all regional competency validations.</p>
+<button class="bg-white text-primary px-6 py-2 rounded-lg font-button text-button hover:bg-primary-fixed transition-colors">Start Bulk Validation</button>
+</div>
+<!-- Abstract decorative element -->
+<div class="absolute -right-10 -bottom-10 opacity-20 transform rotate-12">
+<span class="material-symbols-outlined text-[160px]">verified</span>
+</div>
+</div>
+</div>
+<!-- Table Container -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl card-shadow overflow-hidden">
+<div class="px-card-padding py-5 border-b border-outline-variant flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+<div>
+<h3 class="font-section-title text-section-title text-on-surface">Employees Pending Validation</h3>
+<p class="text-body-sm text-on-surface-variant">Review and validate Zonal Manager assessments for your direct skip-level reports.</p>
+</div>
+<div class="flex gap-2">
+<button class="flex items-center gap-2 px-4 py-2 border border-outline-variant rounded-lg text-body-sm font-medium hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[18px]">filter_list</span>
+                                Filter
+                            </button>
+<button class="flex items-center gap-2 px-4 py-2 border border-outline-variant rounded-lg text-body-sm font-medium hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[18px]">download</span>
+                                Export
+                            </button>
+</div>
+</div>
+<!-- Enhanced Responsive Table -->
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead class="bg-surface-container-low">
+<tr>
+<th class="px-card-padding py-4 text-metadata font-bold text-outline uppercase tracking-wider">Employee ID</th>
+<th class="px-card-padding py-4 text-metadata font-bold text-outline uppercase tracking-wider">Employee</th>
+<th class="px-card-padding py-4 text-metadata font-bold text-outline uppercase tracking-wider">ZM Name</th>
+<th class="px-card-padding py-4 text-metadata font-bold text-outline uppercase tracking-wider">Assessment Date</th>
+<th class="px-card-padding py-4 text-metadata font-bold text-outline uppercase tracking-wider">Status</th>
+<th class="px-card-padding py-4 text-metadata font-bold text-outline uppercase tracking-wider text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors group">
+<td class="px-card-padding py-4 font-mono text-body-sm text-outline">#EMP-2048</td>
+<td class="px-card-padding py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-secondary-container text-on-secondary-container flex items-center justify-center font-bold text-xs">RJ</div>
+<div>
+<p class="text-body-sm font-bold text-on-surface">Robert J. Wilson</p>
+<p class="text-metadata text-outline">Senior Sales Executive</p>
+</div>
+</div>
+</td>
+<td class="px-card-padding py-4 text-body-sm text-on-surface-variant">Michael Thorne</td>
+<td class="px-card-padding py-4 text-body-sm text-on-surface-variant">Oct 12, 2023</td>
+<td class="px-card-padding py-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-tertiary-fixed text-on-tertiary-fixed-variant">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse"></span>
+                                            Pending
+                                        </span>
+</td>
+<td class="px-card-padding py-4 text-right">
+<button class="bg-primary text-on-primary px-4 py-1.5 rounded-lg text-button font-button hover:bg-primary-container transition-all active:scale-95">Validate</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors group">
+<td class="px-card-padding py-4 font-mono text-body-sm text-outline">#EMP-2102</td>
+<td class="px-card-padding py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-primary-fixed text-on-primary-fixed flex items-center justify-center font-bold text-xs">AL</div>
+<div>
+<p class="text-body-sm font-bold text-on-surface">Amanda Lee</p>
+<p class="text-metadata text-outline">Operations Lead</p>
+</div>
+</div>
+</td>
+<td class="px-card-padding py-4 text-body-sm text-on-surface-variant">David Chang</td>
+<td class="px-card-padding py-4 text-body-sm text-on-surface-variant">Oct 14, 2023</td>
+<td class="px-card-padding py-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-tertiary-fixed text-on-tertiary-fixed-variant">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse"></span>
+                                            Pending
+                                        </span>
+</td>
+<td class="px-card-padding py-4 text-right">
+<button class="bg-primary text-on-primary px-4 py-1.5 rounded-lg text-button font-button hover:bg-primary-container transition-all active:scale-95">Validate</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors group">
+<td class="px-card-padding py-4 font-mono text-body-sm text-outline">#EMP-1988</td>
+<td class="px-card-padding py-4">
+<div class="flex items-center gap-3">
+<img class="w-8 h-8 rounded-full object-cover ring-1 ring-outline-variant" data-alt="A profile portrait of a smiling young professional man with short groomed hair, wearing a grey polo shirt. The background is a clean, neutral office wall with high-key lighting. The style is modern, professional, and trustworthy, fitting within a corporate HR platform dashboard." src="https://lh3.googleusercontent.com/aida-public/AB6AXuB_N9DTs6rM7GxhBePVbAcgtK3ZU8avnaAE61Ho52F6nUOMskNhbaTvaprqa-yWcPOJFtlSAjdaV611pGX9yt3jiqUkxgcV6ZMPbnnlMEP6izO95w7se_M_WyM8s39glN9bHo5wqUTxvue9y1H1K1eP8D5jFtUq3mRfZxhr-FL8SUUCv3EMzcnpXvmFsIlFGH3tSzLdCoPxzKmShqW2sf1tIN1qNHwQL9NJWq97KupEYryTt_cMb_MG"/>
+<div>
+<p class="text-body-sm font-bold text-on-surface">Kevin Patel</p>
+<p class="text-metadata text-outline">Account Manager</p>
+</div>
+</div>
+</td>
+<td class="px-card-padding py-4 text-body-sm text-on-surface-variant">Sarah Jenkins</td>
+<td class="px-card-padding py-4 text-body-sm text-on-surface-variant">Oct 15, 2023</td>
+<td class="px-card-padding py-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-tertiary-fixed text-on-tertiary-fixed-variant">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse"></span>
+                                            Pending
+                                        </span>
+</td>
+<td class="px-card-padding py-4 text-right">
+<button class="bg-primary text-on-primary px-4 py-1.5 rounded-lg text-button font-button hover:bg-primary-container transition-all active:scale-95">Validate</button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors group">
+<td class="px-card-padding py-4 font-mono text-body-sm text-outline">#EMP-2215</td>
+<td class="px-card-padding py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-variant text-on-surface-variant flex items-center justify-center font-bold text-xs">ES</div>
+<div>
+<p class="text-body-sm font-bold text-on-surface">Elena Sorova</p>
+<p class="text-metadata text-outline">Data Scientist</p>
+</div>
+</div>
+</td>
+<td class="px-card-padding py-4 text-body-sm text-on-surface-variant">Michael Thorne</td>
+<td class="px-card-padding py-4 text-body-sm text-on-surface-variant">Oct 16, 2023</td>
+<td class="px-card-padding py-4">
+<span class="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wide bg-tertiary-fixed text-on-tertiary-fixed-variant">
+<span class="w-1.5 h-1.5 rounded-full bg-tertiary animate-pulse"></span>
+                                            Pending
+                                        </span>
+</td>
+<td class="px-card-padding py-4 text-right">
+<button class="bg-primary text-on-primary px-4 py-1.5 rounded-lg text-button font-button hover:bg-primary-container transition-all active:scale-95">Validate</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination -->
+<div class="px-card-padding py-4 bg-surface-container border-t border-outline-variant flex items-center justify-between">
+<p class="text-metadata text-on-surface-variant">Showing <span class="font-bold">1-4</span> of <span class="font-bold">24</span> employees</p>
+<div class="flex gap-1">
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant hover:bg-surface transition-colors disabled:opacity-50" disabled="">
+<span class="material-symbols-outlined text-[18px]">chevron_left</span>
+</button>
+<button class="w-8 h-8 flex items-center justify-center rounded bg-primary text-on-primary font-bold text-xs">1</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant hover:bg-surface transition-colors text-xs">2</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant hover:bg-surface transition-colors text-xs">3</button>
+<button class="w-8 h-8 flex items-center justify-center rounded border border-outline-variant hover:bg-surface transition-colors">
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Guidance Card -->
+<div class="mt-gutter grid grid-cols-1 md:grid-cols-2 gap-gutter">
+<div class="bg-surface-container-low border border-outline-variant p-card-padding rounded-xl flex gap-4">
+<div class="shrink-0 w-12 h-12 bg-white rounded-full flex items-center justify-center text-primary shadow-sm">
+<span class="material-symbols-outlined">lightbulb</span>
+</div>
+<div>
+<h4 class="font-card-title text-card-title mb-1">RD Review Best Practices</h4>
+<p class="text-body-sm text-on-surface-variant">Ensure you check the "Gap Analysis" section during validation to identify potential development programs for your region.</p>
+<a class="inline-block mt-3 text-primary font-button text-button hover:underline" href="#">View Guidelines</a>
+</div>
+</div>
+<div class="bg-surface-container-low border border-outline-variant p-card-padding rounded-xl flex gap-4">
+<div class="shrink-0 w-12 h-12 bg-white rounded-full flex items-center justify-center text-tertiary shadow-sm">
+<span class="material-symbols-outlined">rule</span>
+</div>
+<div>
+<h4 class="font-card-title text-card-title mb-1">Calibration Requirement</h4>
+<p class="text-body-sm text-on-surface-variant">Assessments with a "High Variance" flag (indicated by a red exclamation mark) require a 15-minute sync with the reporting ZM.</p>
+<a class="inline-block mt-3 text-primary font-button text-button hover:underline" href="#">View Variance Policy</a>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer Meta -->
+<footer class="mt-auto px-margin-desktop py-6 text-center text-metadata text-outline">
+<p>© 2023 MyCareer Compass. All regional data is strictly confidential and protected by enterprise encryption.</p>
+</footer>
+</main>
+</div>
+<!-- Micro-interaction script -->
+<script>
+        document.querySelectorAll('button').forEach(button => {
+            button.addEventListener('mousedown', () => {
+                button.classList.add('scale-95');
+            });
+            button.addEventListener('mouseup', () => {
+                button.classList.remove('scale-95');
+            });
+            button.addEventListener('mouseleave', () => {
+                button.classList.remove('scale-95');
+            });
+        });
+    </script>
+</body></html>

@@ -144,6 +144,7 @@ class Database:
 
     def _migrate_mysql(self, connection: CompatConnection) -> None:
         connection.executescript(MYSQL_SCHEMA)
+        self._migrate_assessment_career_recommendation_note(connection)
         for phase in PHASES:
             connection.execute(
                 "INSERT OR IGNORE INTO phases(phase, status) VALUES (?, 'closed')",
@@ -157,6 +158,7 @@ class Database:
         self._migrate_employee_mentors(connection)
         self._migrate_voice_roleplay_sessions(connection)
         self._migrate_assessment_career_recommendation(connection)
+        self._migrate_assessment_career_recommendation_note(connection)
         self._migrate_leaderboard_snapshots(connection)
         self._migrate_disclaimer_acks(connection)
         for phase in PHASES:
@@ -206,6 +208,28 @@ class Database:
         if "career_recommendation" not in columns:
             connection.execute(
                 "ALTER TABLE assessments ADD COLUMN career_recommendation TEXT NOT NULL DEFAULT ''"
+            )
+
+    def _migrate_assessment_career_recommendation_note(self, connection: CompatConnection) -> None:
+        if self.engine == "mysql":
+            row = connection.execute(
+                """
+                SELECT COUNT(*) AS c FROM information_schema.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = 'assessments'
+                  AND COLUMN_NAME = 'career_recommendation_note'
+                """
+            ).fetchone()
+            count = int((row["c"] if row else 0) or 0)
+            if count == 0:
+                connection.execute(
+                    "ALTER TABLE assessments ADD COLUMN career_recommendation_note VARCHAR(2000) NOT NULL DEFAULT ''"
+                )
+            return
+        columns = {row["name"] for row in connection.execute("PRAGMA table_info(assessments)").fetchall()}
+        if "career_recommendation_note" not in columns:
+            connection.execute(
+                "ALTER TABLE assessments ADD COLUMN career_recommendation_note TEXT NOT NULL DEFAULT ''"
             )
 
     def _migrate_leaderboard_snapshots(self, connection: CompatConnection) -> None:
@@ -674,6 +698,7 @@ CREATE TABLE IF NOT EXISTS assessments (
     updated_at TEXT NOT NULL,
     submitted_at TEXT,
     career_recommendation TEXT NOT NULL DEFAULT '',
+    career_recommendation_note TEXT NOT NULL DEFAULT '',
     UNIQUE(employee_code, assessor_role)
 );
 CREATE TABLE IF NOT EXISTS assessment_ratings (
@@ -887,6 +912,7 @@ CREATE TABLE IF NOT EXISTS assessments (
     updated_at VARCHAR(64) NOT NULL,
     submitted_at VARCHAR(64) NULL,
     career_recommendation VARCHAR(64) NOT NULL DEFAULT '',
+    career_recommendation_note VARCHAR(2000) NOT NULL DEFAULT '',
     UNIQUE KEY uq_assessment_emp_role (employee_code, assessor_role),
     CONSTRAINT fk_assess_emp FOREIGN KEY (employee_code) REFERENCES employees(employee_code)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

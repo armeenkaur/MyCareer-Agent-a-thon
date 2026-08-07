@@ -1,0 +1,426 @@
+<!DOCTYPE html><html lang="en" class="light"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&amp;display=swap" rel="stylesheet"><link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=block" rel="stylesheet"><script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script><script id="tailwind-config">try{
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-error": "#ffffff",
+                    "on-secondary": "#ffffff",
+                    "surface-tint": "#0054d7",
+                    "error-container": "#ffdad6",
+                    "on-tertiary-fixed-variant": "#802a00",
+                    "secondary-fixed": "#dae2ff",
+                    "on-primary-fixed-variant": "#003fa5",
+                    "secondary-fixed-dim": "#b3c5ff",
+                    "on-secondary-fixed": "#001849",
+                    "primary-container": "#1464f4",
+                    "on-surface-variant": "#424655",
+                    "inverse-surface": "#2e3039",
+                    "on-surface": "#191b24",
+                    "on-secondary-fixed-variant": "#0e409d",
+                    "on-tertiary": "#ffffff",
+                    "surface-container-low": "#f2f3ff",
+                    "background": "#faf8ff",
+                    "surface-container": "#ecedf9",
+                    "on-tertiary-container": "#fff0ec",
+                    "on-error-container": "#93000a",
+                    "on-primary-container": "#f1f2ff",
+                    "inverse-on-surface": "#eff0fc",
+                    "surface-container-high": "#e7e7f3",
+                    "tertiary-fixed-dim": "#ffb59a",
+                    "surface-container-highest": "#e1e2ee",
+                    "surface-bright": "#faf8ff",
+                    "tertiary-fixed": "#ffdbcf",
+                    "on-tertiary-fixed": "#380d00",
+                    "outline-variant": "#c2c6d8",
+                    "on-secondary-container": "#003183",
+                    "primary-fixed-dim": "#b3c5ff",
+                    "on-background": "#191b24",
+                    "inverse-primary": "#b3c5ff",
+                    "surface-dim": "#d8d9e5",
+                    "on-primary-fixed": "#001849",
+                    "error": "#ba1a1a",
+                    "surface": "#faf8ff",
+                    "primary-fixed": "#dbe1ff",
+                    "primary": "#004dc6",
+                    "outline": "#737687",
+                    "surface-container-lowest": "#ffffff",
+                    "tertiary-container": "#c44400",
+                    "surface-variant": "#e1e2ee",
+                    "secondary-container": "#799dfe",
+                    "on-primary": "#ffffff",
+                    "tertiary": "#9b3400",
+                    "secondary": "#3159b6"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "margin-mobile": "16px",
+                    "stack-gap-sm": "8px",
+                    "grid-columns": "12",
+                    "content-max-width": "1280px",
+                    "margin-desktop": "32px",
+                    "stack-gap-md": "16px",
+                    "stack-gap-lg": "24px",
+                    "gutter": "24px",
+                    "canvas-max-width": "1440px",
+                    "card-padding": "24px"
+            },
+            "fontFamily": {
+                    "page-title": ["Inter"],
+                    "display-lg-mobile": ["Inter"],
+                    "card-title": ["Inter"],
+                    "body-md": ["Inter"],
+                    "section-title": ["Inter"],
+                    "page-title-mobile": ["Inter"],
+                    "metadata": ["Inter"],
+                    "body-sm": ["Inter"],
+                    "button": ["Inter"],
+                    "display-lg": ["Inter"]
+            },
+            "fontSize": {
+                    "page-title": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "display-lg-mobile": ["28px", {"lineHeight": "34px", "fontWeight": "600"}],
+                    "card-title": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "section-title": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "page-title-mobile": ["24px", {"lineHeight": "30px", "fontWeight": "600"}],
+                    "metadata": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                    "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "button": ["14px", {"lineHeight": "20px", "fontWeight": "600"}],
+                    "display-lg": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    }catch(_e){}</script><meta charset="utf-8"></head><body class="bg-background text-on-surface">
+<div class="flex min-h-screen">
+<!-- Sidebar Navigation -->
+<aside class="hidden md:flex flex-col w-72 h-screen fixed left-0 top-0 bg-surface-container-low border-r border-outline-variant py-6 px-4 gap-stack-gap-md z-50">
+<div class="flex flex-col gap-2 mb-8">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 bg-primary rounded-lg flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined">rocket_launch</span>
+</div>
+<div class="flex flex-col">
+<span class="font-section-title text-section-title font-black text-primary leading-tight">MyCareer Compass</span>
+<span class="text-xs font-medium text-outline">Enterprise Edition</span>
+</div>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a href="#" class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg group">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-md text-body-md">Dashboard</span>
+</a>
+<a href="#" class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg group">
+<span class="material-symbols-outlined">explore</span>
+<span class="font-body-md text-body-md">Career Lattice</span>
+</a>
+<a href="#" class="flex items-center gap-3 px-4 py-3 bg-primary-container text-on-primary-container font-bold rounded-lg transition-all">
+<span class="material-symbols-outlined">shopping_cart</span>
+<span class="font-body-md text-body-md">Select Your Courses</span>
+</a>
+<a href="#" class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg group">
+<span class="material-symbols-outlined">school</span>
+<span class="font-body-md text-body-md">Learning Journey</span>
+</a>
+<a href="#" class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg group">
+<span class="material-symbols-outlined">leaderboard</span>
+<span class="font-body-md text-body-md">Leaderboard</span>
+</a>
+<a href="#" class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg group">
+<span class="material-symbols-outlined">analytics</span>
+<span class="font-body-md text-body-md">Analytics</span>
+</a>
+</nav>
+<div class="mt-auto border-t border-outline-variant pt-4 space-y-1">
+<button class="w-full bg-primary text-on-primary py-3 rounded-lg font-button text-button shadow-sm hover:opacity-90 transition-opacity mb-4">View Progress</button>
+<a href="#" class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined">help</span>
+<span class="text-sm">Support</span>
+</a>
+<a href="#" class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:text-on-surface transition-colors">
+<span class="material-symbols-outlined">logout</span>
+<span class="text-sm">Sign Out</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 md:ml-72 min-h-screen">
+<!-- Top App Bar -->
+<header class="sticky top-0 z-40 h-16 bg-surface border-b border-outline-variant flex justify-between items-center px-margin-desktop w-full">
+<div class="flex items-center gap-stack-gap-md flex-1">
+<div class="relative max-w-md w-full">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input type="text" placeholder="Search competencies or courses..." class="w-full bg-surface-container-low border border-outline-variant rounded-full py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-primary focus:outline-none">
+</div>
+</div>
+<div class="flex items-center gap-4">
+<button class="p-2 text-outline hover:bg-surface-container-low rounded-full transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="p-2 text-outline hover:bg-surface-container-low rounded-full transition-colors">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-8 rounded-full overflow-hidden border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="Professional headshot of a young business woman in her early 30s, smiling warmly, wearing a smart casual blazer. The background is a blurred office interior with soft blue and grey tones to match the corporate light-mode theme. High quality photography, crisp focus on facial features, neutral lighting." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD3havNs2NKUOGf-rjAKI86kKE5md0PrGOAXmfV90xu3ccvnxQGUBtKqauaLC7E8uf7ZDhYfUj6V9nXPeuo37hioWEyepm-a_GYMA8sMZ8oOO4-NbbmzEETF2gxKIAqhHIVMR3hG5Uv9n9NS9txiLtCR_cBCOwT0MAScRvd9RZkkANwl9v-l11xNRBb0kbstzIouz3b2IMmi6gYOJYs40hTM0yKGGWW7X5NjRGvm5Aw2Mig3LB5nP6H">
+</div>
+</div>
+</header>
+<div class="p-margin-desktop max-w-content-max-width mx-auto">
+<div class="flex flex-col lg:flex-row gap-gutter">
+<!-- Marketplace Content -->
+<div class="flex-1 space-y-stack-gap-lg">
+<section>
+<h1 class="font-page-title text-page-title text-primary mb-2">Select Your Courses</h1>
+<p class="text-on-surface-variant font-body-md max-w-2xl">Browse and select curated learning content designed to close your specific skill gaps and accelerate your career path at Enterprise.</p>
+</section>
+<!-- Competency Section: Communication -->
+<div class="space-y-stack-gap-md">
+<div class="flex items-end justify-between border-b border-outline-variant pb-4">
+<div>
+<h2 class="font-section-title text-section-title text-on-surface">Communication</h2>
+<p class="text-sm text-on-surface-variant">Master the art of clear, persuasive, and empathetic workplace interaction.</p>
+</div>
+<div class="text-right">
+<div class="flex gap-2 items-center mb-1">
+<span class="text-xs font-bold text-outline">CURRENT: LEVEL 2</span>
+<div class="w-24 h-2 bg-surface-container-high rounded-full overflow-hidden">
+<div class="bg-secondary h-full w-[40%]"></div>
+</div>
+</div>
+<div class="flex gap-2 items-center">
+<span class="text-xs font-bold text-primary">TARGET: LEVEL 4</span>
+<div class="w-24 h-2 bg-surface-container-high rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[80%]"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-stack-gap-md">
+<!-- Course Card 1 -->
+<div class="bg-surface border border-outline-variant rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col h-full group">
+<div class="relative h-40">
+<img class="w-full h-full object-cover" data-alt="A professional digital illustration representing 'Effective Communication'. It features clean lines, minimalist figures interacting in a modern workspace, and a calm blue and teal color palette. The style is modern, corporate-friendly, and high-fidelity, using soft gradients and geometric shapes to convey professional growth and synergy." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDCzpTpXGgBoEQ9_1FToMNVwNaaIVRBJfxRNf96qr7IzK3V0Qou07SXVWD-Z1_zIyFsgC1h5Gug6Ke5ewJdBE47f62BHg45rTK5iAr9EkUL2FVzeonc4b5ukPXH7sq_T79mlKeKDK1LNyfcrDEKXd8ygKaWinKdK2yB5i0Dg7o79mPCkZHZ_OBf-5xYqZgGgbcRNIrxxLIVE7lusamka1paTkk0zLRiUUsmVz8R6VLUEjyOInphD7nj">
+<div class="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg text-[10px] font-bold text-primary border border-primary/20">LinkedIn Learning</div>
+</div>
+<div class="p-5 flex-1 flex flex-col">
+<h3 class="font-card-title text-card-title mb-2 group-hover:text-primary transition-colors">Interpersonal Communication</h3>
+<p class="text-sm text-on-surface-variant line-clamp-2 mb-4">Learn how to communicate more effectively in a professional setting by mastering verbal and nonverbal cues.</p>
+<div class="mt-auto flex items-center justify-between">
+<div class="flex items-center gap-1 text-metadata text-outline">
+<span class="material-symbols-outlined text-sm">schedule</span>
+<span class="">1h 45m</span>
+</div>
+<button class="bg-primary-container text-on-primary-container font-button text-xs px-4 py-2 rounded-lg hover:bg-primary hover:text-on-primary transition-all flex items-center gap-1" onclick="addToBasket('Interpersonal Communication', 'Communication', '1h 45m')">
+<span class="material-symbols-outlined text-sm">add_shopping_cart</span>
+                                                Add to Path
+                                            </button>
+</div>
+</div>
+</div>
+<!-- Course Card 2 -->
+<div class="bg-surface border border-outline-variant rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col h-full group">
+<div class="relative h-40">
+<img class="w-full h-full object-cover" data-alt="A clean, minimalist 3D rendering of speech bubbles and connected nodes, representing global communication networks. The color palette consists of whites, soft greys, and vibrant blues, fitting a professional light-mode UI. The lighting is bright and airy, symbolizing clarity and effective information exchange in a corporate environment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDgn847c9JhEWzgNDJn9F99RIDUZ-V8u68_pyJh8alX6NetrQ1p16w4lEErX-xy52obmGTukc-JRUCwodzthpf4kPJIefg-PYbcuKe1wSABbxEppvxiX8IANxklD4FOwuRs8CDFjTXla8_FRw9FrLMyn4WdwfB4IEdobku0dZcgZLMGrlNn7WCouJQvg4b_JZosEU6wTFMTwuHgFgWZ6FoaS9fNFedU9YIVHd_35YhxFh-1lY1wJ6jB">
+<div class="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg text-[10px] font-bold text-primary border border-primary/20">LinkedIn Learning</div>
+</div>
+<div class="p-5 flex-1 flex flex-col">
+<h3 class="font-card-title text-card-title mb-2 group-hover:text-primary transition-colors">Communication within Teams</h3>
+<p class="text-sm text-on-surface-variant line-clamp-2 mb-4">Discover strategies to improve collaboration and transparency within high-performing technical teams.</p>
+<div class="mt-auto flex items-center justify-between">
+<div class="flex items-center gap-1 text-metadata text-outline">
+<span class="material-symbols-outlined text-sm">schedule</span>
+<span class="">2h 10m</span>
+</div>
+<button class="bg-primary-container text-on-primary-container font-button text-xs px-4 py-2 rounded-lg hover:bg-primary hover:text-on-primary transition-all flex items-center gap-1" onclick="addToBasket('Comm. within Teams', 'Communication', '2h 10m')">
+<span class="material-symbols-outlined text-sm">add_shopping_cart</span>
+                                                Add to Path
+                                            </button>
+</div>
+</div>
+</div>
+</div>
+<div class="pt-6 mt-4 border-t border-outline-variant/50"><h4 class="text-sm font-bold text-on-surface mb-4">Supplemental Resources</h4><div class="grid grid-cols-1 md:grid-cols-3 gap-4"><div class="bg-surface-container-low p-4 rounded-xl border border-outline-variant hover:border-primary transition-colors cursor-pointer group"><div class="flex items-center gap-2 mb-2"><span class="material-symbols-outlined text-error text-lg">play_circle</span><span class="font-bold text-xs">YouTube</span></div><p class="text-[11px] text-on-surface-variant">Communication deep-dives.</p></div><div class="bg-surface-container-low p-4 rounded-xl border border-outline-variant hover:border-primary transition-colors cursor-pointer group"><div class="flex items-center gap-2 mb-2"><span class="material-symbols-outlined text-secondary text-lg">description</span><span class="font-bold text-xs">Case Study</span></div><p class="text-[11px] text-on-surface-variant">Internal success stories.</p></div><div class="bg-surface-container-low p-4 rounded-xl border border-outline-variant hover:border-primary transition-colors cursor-pointer group"><div class="flex items-center gap-2 mb-2"><span class="material-symbols-outlined text-tertiary text-lg">podcasts</span><span class="font-bold text-xs">Podcast</span></div><p class="text-[11px] text-on-surface-variant">Leadership insights.</p></div></div></div></div>
+<!-- Competency Section: Stakeholder Relationship -->
+<div class="space-y-stack-gap-md pt-8">
+<div class="flex items-end justify-between border-b border-outline-variant pb-4">
+<div>
+<h2 class="font-section-title text-section-title text-on-surface">Stakeholder Relationship</h2>
+<p class="text-sm text-on-surface-variant">Learn to navigate complex relationships and manage expectations across the organization.</p>
+</div>
+<div class="text-right">
+<div class="flex gap-2 items-center mb-1">
+<span class="text-xs font-bold text-outline">CURRENT: LEVEL 1</span>
+<div class="w-24 h-2 bg-surface-container-high rounded-full overflow-hidden">
+<div class="bg-secondary h-full w-[20%]"></div>
+</div>
+</div>
+<div class="flex gap-2 items-center">
+<span class="text-xs font-bold text-primary">TARGET: LEVEL 3</span>
+<div class="w-24 h-2 bg-surface-container-high rounded-full overflow-hidden">
+<div class="bg-primary h-full w-[60%]"></div>
+</div>
+</div>
+</div>
+</div>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-stack-gap-md">
+<!-- Course Card 3 -->
+<div class="bg-surface border border-outline-variant rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col h-full group">
+<div class="relative h-40">
+<img class="w-full h-full object-cover" data-alt="A modern office scene showing diverse professionals engaged in a collaborative meeting around a glass table. The lighting is high-key and natural, highlighting a professional and inclusive atmosphere. The style is crisp and commercial, with a color palette of navy, soft white, and slate grey, suggesting corporate leadership and strategy." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBfHjVWqzPpxHn_anNfCCauESWaqWvnHZSRhrQ5RlcxipS6_AFdgMmV_5luGPUA62zP5cB3FsmVRB-Q8jWilxR4-j1CR5YWFQxcXIQGD1J7dhyzkivrfRX0k9KXFbp1uvO48F7rk4OmCmF2kJrv9zK9dSVPIrRswz33OvsqlA3vtJsFHoc3U2VzkY6lSHp4i4MbPRcHRQ_I_zUfCtLThHYZ9DVA97hhgO88v3xyjZUc2ppdixcg_rbS">
+<div class="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg text-[10px] font-bold text-primary border border-primary/20">LinkedIn Learning</div>
+</div>
+<div class="p-5 flex-1 flex flex-col">
+<h3 class="font-card-title text-card-title mb-2 group-hover:text-primary transition-colors">Stakeholder Relationship 101</h3>
+<p class="text-sm text-on-surface-variant line-clamp-2 mb-4">Master the foundational skills for identifying, analyzing, and engaging key project stakeholders.</p>
+<div class="mt-auto flex items-center justify-between">
+<div class="flex items-center gap-1 text-metadata text-outline">
+<span class="material-symbols-outlined text-sm">schedule</span>
+<span class="">3h 05m</span>
+</div>
+<button class="bg-primary-container text-on-primary-container font-button text-xs px-4 py-2 rounded-lg hover:bg-primary hover:text-on-primary transition-all flex items-center gap-1" onclick="addToBasket('Stakeholder Mgmt 101', 'Stakeholder Relationship', '3h 05m')">
+<span class="material-symbols-outlined text-sm">add_shopping_cart</span>
+                                                Add to Path
+                                            </button>
+</div>
+</div>
+</div>
+<!-- Course Card 4 -->
+<div class="bg-surface border border-outline-variant rounded-xl overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col h-full group">
+<div class="relative h-40">
+<img class="w-full h-full object-cover" data-alt="An abstract visualization of interconnected light paths or nodes representing a complex organizational network. The lighting is sophisticated, with blue and teal glows against a clean white and light grey background. This high-end digital art style represents strategic influence and navigation of corporate structures, maintaining a professional light-mode aesthetic." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBcfJatu365ZNfqoq78dX8pNpGgsdhMc0qrhHmSbXbzSNbuDu2-TulsWyXt9UzYO6NsRalbcqLsZhEzVp1YDGSJxpbpuTpmy0wcPpplguSqNbtI3yA2Um1izGoDLe_cmRLBR-gc8NbdU-Sa8oYuGmLpYVrCAiithBNdbZ_oGUa2Xf33CSbsEw_bkTILvA3Sh2JIArFVq_xCMYH4SqnAvFHH-zNAFTBAFXeIMtWz6fe-NjoaOegRhXfA">
+<div class="absolute top-2 right-2 bg-white/90 backdrop-blur-sm px-2 py-1 rounded-lg text-[10px] font-bold text-primary border border-primary/20">LinkedIn Learning</div>
+</div>
+<div class="p-5 flex-1 flex flex-col">
+<h3 class="font-card-title text-card-title mb-2 group-hover:text-primary transition-colors">Strategic Influence</h3>
+<p class="text-sm text-on-surface-variant line-clamp-2 mb-4">Advanced techniques for persuading decision-makers and building long-term organizational trust.</p>
+<div class="mt-auto flex items-center justify-between">
+<div class="flex items-center gap-1 text-metadata text-outline">
+<span class="material-symbols-outlined text-sm">schedule</span>
+<span class="">2h 45m</span>
+</div>
+<button class="bg-primary-container text-on-primary-container font-button text-xs px-4 py-2 rounded-lg hover:bg-primary hover:text-on-primary transition-all flex items-center gap-1" onclick="addToBasket('Strategic Influence', 'Stakeholder Relationship', '2h 45m')">
+<span class="material-symbols-outlined text-sm">add_shopping_cart</span>
+                                                Add to Path
+                                            </button>
+</div>
+</div>
+</div>
+</div>
+<div class="pt-6 mt-4 border-t border-outline-variant/50"><h4 class="text-sm font-bold text-on-surface mb-4">Supplemental Resources</h4><div class="grid grid-cols-1 md:grid-cols-3 gap-4"><div class="bg-surface-container-low p-4 rounded-xl border border-outline-variant hover:border-primary transition-colors cursor-pointer group"><div class="flex items-center gap-2 mb-2"><span class="material-symbols-outlined text-error text-lg">play_circle</span><span class="font-bold text-xs">YouTube</span></div><p class="text-[11px] text-on-surface-variant">Stakeholder strategy videos.</p></div><div class="bg-surface-container-low p-4 rounded-xl border border-outline-variant hover:border-primary transition-colors cursor-pointer group"><div class="flex items-center gap-2 mb-2"><span class="material-symbols-outlined text-secondary text-lg">description</span><span class="font-bold text-xs">Case Study</span></div><p class="text-[11px] text-on-surface-variant">Project post-mortems.</p></div><div class="bg-surface-container-low p-4 rounded-xl border border-outline-variant hover:border-primary transition-colors cursor-pointer group"><div class="flex items-center gap-2 mb-2"><span class="material-symbols-outlined text-tertiary text-lg">podcasts</span><span class="font-bold text-xs">Podcast</span></div><p class="text-[11px] text-on-surface-variant">Expert interviews.</p></div></div></div></div>
+<!-- Other-->
+
+</div>
+<!-- Learning Basket Summary -->
+<aside class="w-full lg:w-80">
+<div class="basket-sticky sticky p-6 bg-surface-container-highest border border-outline-variant rounded-2xl flex flex-col shadow-sm">
+<div class="flex items-center gap-2 mb-6">
+<span class="material-symbols-outlined text-primary">shopping_basket</span>
+<h2 class="font-section-title text-lg text-on-surface">Learning Basket</h2>
+</div>
+<div class="flex-1 overflow-y-auto space-y-3 mb-6 pr-2" id="basket-items">
+<!-- Empty State -->
+<div class="text-center py-10 opacity-50" id="basket-empty">
+<span class="material-symbols-outlined text-4xl block mb-2">inbox</span>
+<p class="text-xs font-medium">Your basket is empty</p>
+<p class="text-[10px]">Add courses to see your summary</p>
+</div>
+</div>
+<div class="mt-auto pt-6 border-t border-outline-variant space-y-4">
+<div class="flex justify-between items-center">
+<span class="text-xs font-medium text-on-surface-variant">Comp. Covered</span>
+<span class="text-sm font-bold text-on-surface" id="comp-count">0/7</span>
+</div>
+<div class="flex justify-between items-center">
+<span class="text-xs font-medium text-on-surface-variant">Est. Duration</span>
+<span class="text-sm font-bold text-on-surface" id="total-duration">0h 0m</span>
+</div>
+<button class="w-full py-3 bg-primary text-on-primary rounded-xl font-bold text-sm shadow-sm disabled:bg-outline-variant disabled:cursor-not-allowed hover:opacity-90 transition-opacity" disabled="" id="checkout-btn">
+                                    Finalize Journey
+                                </button>
+<p class="text-[10px] text-center text-outline leading-tight">By finalizing, these courses will be added to your mandatory learning record.</p>
+</div>
+</div>
+</aside>
+</div>
+</div>
+</main>
+</div>
+<script>
+        let basket = [];
+        const competencies = new Set();
+
+        function addToBasket(name, competency, duration) {
+            // Check if already in basket
+            if(basket.find(item => item.name === name)) return;
+
+            basket.push({ name, competency, duration });
+            competencies.add(competency);
+            updateUI();
+        }
+
+        function removeFromBasket(name) {
+            basket = basket.filter(item => item.name !== name);
+            // Recalculate competencies
+            competencies.clear();
+            basket.forEach(item => competencies.add(item.competency));
+            updateUI();
+        }
+
+        function updateUI() {
+            const basketContainer = document.getElementById('basket-items');
+            const emptyState = document.getElementById('basket-empty');
+            const compDisplay = document.getElementById('comp-count');
+            const durationDisplay = document.getElementById('total-duration');
+            const checkoutBtn = document.getElementById('checkout-btn');
+
+            if (basket.length === 0) {
+                emptyState.style.display = 'block';
+                checkoutBtn.disabled = true;
+                basketContainer.querySelectorAll('.basket-item').forEach(el => el.remove());
+            } else {
+                emptyState.style.display = 'none';
+                checkoutBtn.disabled = false;
+                
+                // Clear existing items but keep empty state hidden
+                basketContainer.querySelectorAll('.basket-item').forEach(el => el.remove());
+
+                basket.forEach(item => {
+                    const div = document.createElement('div');
+                    div.className = 'basket-item bg-surface p-3 rounded-lg border border-outline-variant flex justify-between items-start animate-in fade-in slide-in-from-right-2 duration-300';
+                    div.innerHTML = `
+                        <div class="flex flex-col gap-1 overflow-hidden">
+                            <span class="text-xs font-bold text-on-surface truncate">${item.name}</span>
+                            <span class="text-[10px] text-primary bg-primary-container/20 self-start px-1.5 rounded">${item.competency}</span>
+                        </div>
+                        <button onclick="removeFromBasket('${item.name}')" class="text-outline hover:text-error transition-colors">
+                            <span class="material-symbols-outlined text-sm">close</span>
+                        </button>
+                    `;
+                    basketContainer.appendChild(div);
+                });
+            }
+
+            compDisplay.innerText = `${competencies.size}/7`;
+            
+            // Calc total duration (crude math for demo)
+            let totalMins = 0;
+            basket.forEach(item => {
+                const parts = item.duration.split(' ');
+                const h = parseInt(parts[0]) || 0;
+                const m = parseInt(parts[1]) || 0;
+                totalMins += (h * 60) + m;
+            });
+            const hTotal = Math.floor(totalMins / 60);
+            const mTotal = totalMins % 60;
+            durationDisplay.innerText = `${hTotal}h ${mTotal}m`;
+        }
+    </script>
+
+</body></html>

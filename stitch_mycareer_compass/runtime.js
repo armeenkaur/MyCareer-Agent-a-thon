@@ -284,7 +284,8 @@
       : `<div class="max-w-[1440px] mx-auto p-5 md:p-8">${content}</div>`;
   }
 
-  function loading() {
+  function loading(message) {
+    const copy = message || "Heading to your next milestone…";
     render(`<style>
       .mc-loader-wrap{max-width:40rem;margin:0 auto}
       .mc-loader-dot{animation:mc-pulse-dot 1.2s ease-in-out infinite}
@@ -354,7 +355,7 @@
           </g>
         </svg>
       </div>
-      <p class="text-base font-bold text-[#291716] mt-2">Heading to your next milestone…</p>
+      <p class="text-base font-bold text-[#291716] mt-2">${esc(copy)}</p>
       <div class="flex items-center justify-center gap-1.5 mt-3" aria-hidden="true">
         <span class="mc-loader-dot w-2 h-2 rounded-full bg-[#df162b]"></span>
         <span class="mc-loader-dot w-2 h-2 rounded-full bg-[#df162b]"></span>
@@ -983,7 +984,7 @@
     ];
     const steps = [
       ["1", "#005cab", "Review ZM's Input", "Assess the competency profile of the team member submitted by the ZM."],
-      ["2", "#005cab", "Calibrate Performance", "Callibrate the competency profile of the team member with the observed performance and objective data."],
+      ["2", "#005cab", "Calibrate Performance", "Calibrate the competency profile of the team member with the observed performance and objective data."],
       ["3", "#df162b", "Finalize Profile", "Help the team member navigate their professional journey."],
     ];
     render(`<div class="relative overflow-hidden">
@@ -1629,9 +1630,9 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           </td>
           <td class="p-4">${statusBadge(row)}</td>
           <td class="p-4">${careerPathCell(row)}</td>
-          <td class="p-4">${feedbackBtn}</td>
-          <td class="p-4 text-right">
-            <div class="inline-flex flex-wrap justify-end gap-2">
+          <td class="p-4 text-center">${feedbackBtn}</td>
+          <td class="p-4 text-left">
+            <div class="inline-flex flex-wrap justify-start gap-2">
               ${actionBtn}
               ${finalBtn}
             </div>
@@ -1732,8 +1733,8 @@ Before you begin, we encourage you to take a few minutes to understand the philo
                 <th class="p-4 text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Employee Name</th>
                 <th class="p-4 text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Assessment Status</th>
                 <th class="p-4 text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Career path (RD)</th>
-                <th class="p-4 text-xs font-bold uppercase tracking-wider text-[#5d3f3d]">Feedback</th>
-                <th class="p-4 text-xs font-bold uppercase tracking-wider text-[#5d3f3d] text-right">Action</th>
+                <th class="p-4 text-xs font-bold uppercase tracking-wider text-[#5d3f3d] text-center">Progress Feedback</th>
+                <th class="p-4 text-xs font-bold uppercase tracking-wider text-[#5d3f3d] text-left">Action</th>
               </tr></thead>
               <tbody>${tableRows}</tbody>
             </table>
@@ -1893,8 +1894,9 @@ Before you begin, we encourage you to take a few minutes to understand the philo
             const careerMove = evidenceCtx.career_move || {};
             const options = careerMove.options || [];
             const selected = assessment?.career_recommendation || "";
+            const lobNote = assessment?.career_recommendation_note || "";
             if (!options.length) return "";
-            return `<section class="bg-white rounded-xl border border-gray-200 p-5 md:p-6 shadow-sm">
+            return `<section class="bg-white rounded-xl border border-gray-200 p-5 md:p-6 shadow-sm" data-career-move-section>
               <h2 class="text-lg font-bold text-gray-900">${esc(careerMove.question || "What career move do you recommend for the employee?")}</h2>
               <p class="text-sm text-gray-500 mt-1">Required before submit. Your choice is private to Admin.</p>
               <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 mt-4">
@@ -1912,6 +1914,10 @@ Before you begin, we encourage you to take a few minutes to understand the philo
                     </div>
                   </label>`;
                 }).join("")}
+              </div>
+              <div data-lob-note-wrap class="mt-4 ${selected === "lob_change" ? "" : "hidden"}">
+                <label class="block text-xs font-bold uppercase tracking-wide text-gray-500 mb-1">LOB change details <span class="text-[#df162b]">(required)</span></label>
+                <textarea data-lob-note ${locked ? "disabled" : ""} rows="3" class="w-full border border-gray-200 rounded-lg text-sm p-3 focus:ring-[#df162b] focus:border-[#df162b] placeholder:text-gray-400 disabled:bg-gray-50" placeholder="Describe the LOB change you recommend…">${esc(lobNote)}</textarea>
               </div>
             </section>`;
           })()}
@@ -1955,6 +1961,16 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           });
         });
         meta.competencies.forEach((item) => syncZmNoteRequirement(item.competency));
+        const syncLobNote = () => {
+          const pick = qs('input[name="career-move"]:checked', modal);
+          const wrap = qs("[data-lob-note-wrap]", modal);
+          if (!wrap) return;
+          wrap.classList.toggle("hidden", !(pick && pick.value === "lob_change"));
+        };
+        qsa('input[name="career-move"]', modal).forEach((input) => {
+          input.addEventListener("change", syncLobNote);
+        });
+        syncLobNote();
       }
       const closeAssessment = () => {
         modal.remove();
@@ -1977,6 +1993,11 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         const careerPick = qs('input[name="career-move"]:checked', modal);
         if (submit && !careerPick) {
           toast("Select a career move recommendation before submission.", "error");
+          return;
+        }
+        const lobNote = String(qs("[data-lob-note]", modal)?.value || "").trim();
+        if (submit && careerPick?.value === "lob_change" && !lobNote) {
+          toast("Describe the LOB change before submission.", "error");
           return;
         }
         const notes = Object.fromEntries(qsa("[data-note]", modal).map((node) => [node.dataset.note, node.value]));
@@ -2002,6 +2023,10 @@ Before you begin, we encourage you to take a few minutes to understand the philo
             notes,
             submit,
             career_recommendation: careerPick ? careerPick.value : (assessment?.career_recommendation || ""),
+            career_recommendation_note: (() => {
+              const move = careerPick ? careerPick.value : (assessment?.career_recommendation || "");
+              return move === "lob_change" ? lobNote : "";
+            })(),
           }),
         });
         if (!submit) {
@@ -2109,14 +2134,22 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       return;
     }
     const locked = context.rd_assessment?.status === "submitted";
-    const ratings = { ...(context.rd_assessment?.ratings || {}) };
+    const savedRatings = context.rd_assessment?.ratings || {};
+    const ratings = {};
+    Object.entries(context.evidence || {}).forEach(([competency, bundle]) => {
+      const saved = savedRatings[competency];
+      const suggested = String(bundle?.suggested_rating || "").trim();
+      if (saved) ratings[competency] = saved;
+      else if (suggested) ratings[competency] = suggested;
+    });
     const notes = { ...(context.rd_assessment?.notes || {}) };
     const rubric = context.rubric || {};
     const careerMove = context.career_move || {};
     const careerOptions = careerMove.options || [];
     let careerRecommendation = context.rd_assessment?.career_recommendation || "";
+    let careerRecommendationNote = context.rd_assessment?.career_recommendation_note || "";
     const careerMoveHtml = careerOptions.length
-      ? `<section class="bg-white border border-[#e7bdb9] rounded-xl p-5">
+      ? `<section class="bg-white border border-[#e7bdb9] rounded-xl p-5" data-rd-career-section>
         <h2 class="text-lg font-bold text-[#291716]">${esc(careerMove.question || "What career move do you recommend for the employee?")}</h2>
         <p class="text-sm text-[#5d3f3d] mt-1">Required before submit. Your choice is private to Admin.</p>
         <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 mt-4">
@@ -2126,6 +2159,10 @@ Before you begin, we encourage you to take a few minutes to understand the philo
               selected ? "bg-[#df162b] text-white border-[#df162b]" : "border-[#e7bdb9] bg-white hover:border-[#df162b]/50"
             }"><strong class="block text-sm">${esc(opt.label)}</strong></button>`;
           }).join("")}
+        </div>
+        <div data-lob-note-wrap class="mt-4 ${careerRecommendation === "lob_change" ? "" : "hidden"}">
+          <label class="block text-xs font-bold uppercase tracking-wide text-[#926e6c] mb-1">LOB change details <span class="text-[#df162b]">(required)</span></label>
+          <textarea data-lob-note ${locked ? "disabled" : ""} rows="3" class="w-full border border-[#e7bdb9] rounded-lg p-3 text-sm" placeholder="Describe the LOB change you recommend…">${esc(careerRecommendationNote)}</textarea>
         </div>
       </section>`
       : "";
@@ -2140,13 +2177,13 @@ Before you begin, we encourage you to take a few minutes to understand the philo
             <p class="text-sm mt-2 text-[#5d3f3d]">ZM rating: <strong class="text-[#291716]">${esc(context.zm_assessment.ratings?.[competency] || "Not rated")}</strong></p>
             <p class="text-sm text-[#926e6c] mt-1">${esc(context.zm_assessment.notes?.[competency] || "No ZM note.")}</p>
             ${suggested ? `<div class="mt-3 p-3 rounded-lg border border-[#d5e3ff] bg-[#f5f8ff]">
-              <p class="text-xs font-bold uppercase tracking-wide text-[#1464F4]">Suggested rating</p>
+              <p class="text-xs font-bold uppercase tracking-wide text-[#1464F4]">AI suggested rating</p>
               <p class="text-sm font-bold text-[#291716] mt-1">${esc(suggested)}</p>
-              <p class="text-[10px] text-[#926e6c] mt-2">Advisory only — final rating is yours. Notes are optional.</p>
+              <p class="text-[10px] text-[#926e6c] mt-2">Pre-filled from evidence + ZM rating — edit if needed. Final rating is yours.</p>
             </div>` : ""}
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-4">
               ${levels.map((level) => {
-                const selected = ratings[competency] === level;
+                const selected = activeRating === level;
                 const definition = rubric[competency]?.[level] || "";
                 return `<button type="button" data-rating="${esc(competency)}" data-level="${level}" ${locked ? "disabled" : ""} class="text-left p-3 border rounded-lg transition-colors ${
                   selected ? "bg-[#df162b] text-white border-[#df162b]" : "border-[#e7bdb9] bg-white hover:border-[#df162b]/50"
@@ -2169,6 +2206,11 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       <div class="mt-6 flex justify-end gap-3">${locked ? '<strong class="text-emerald-700">Final profile submitted and locked</strong>' : `${button("Save Draft", "data-draft", true)}${button("Submit Final Profile", "data-final")}`}</div>`);
     qs("[data-back]").onclick = () => go("rd/dashboard");
     if (locked) return;
+    const syncRdLobNote = () => {
+      const wrap = qs("[data-lob-note-wrap]");
+      if (!wrap) return;
+      wrap.classList.toggle("hidden", careerRecommendation !== "lob_change");
+    };
     qsa("[data-career-move]").forEach((control) => {
       control.onclick = () => {
         careerRecommendation = control.dataset.careerMove;
@@ -2178,8 +2220,10 @@ Before you begin, we encourage you to take a few minutes to understand the philo
             active ? "bg-[#df162b] text-white border-[#df162b]" : "border-[#e7bdb9] bg-white hover:border-[#df162b]/50"
           }`;
         });
+        syncRdLobNote();
       };
     });
+    syncRdLobNote();
     qsa("[data-rating]").forEach((control) => {
       control.onclick = () => {
         ratings[control.dataset.rating] = control.dataset.level;
@@ -2202,6 +2246,12 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         toast("Select a career move recommendation before submission.", "error");
         return;
       }
+      const lobNote = String(qs("[data-lob-note]")?.value || "").trim();
+      if (submit && careerRecommendation === "lob_change" && !lobNote) {
+        toast("Describe the LOB change before submission.", "error");
+        return;
+      }
+      careerRecommendationNote = lobNote;
       qsa("[data-rd-note]").forEach((node) => { notes[node.dataset.rdNote] = node.value; });
       if (submit && !confirm("Submit and lock final RD profile?")) return;
       await api("/api/assessment", {
@@ -2212,6 +2262,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           notes,
           submit,
           career_recommendation: careerRecommendation,
+          career_recommendation_note: careerRecommendation === "lob_change" ? careerRecommendationNote : "",
         }),
       });
       if (!submit) {
@@ -2397,6 +2448,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     nextPlay: 0,
     sources: [],
     acceptAudio: false,
+    ending: false,
     playbackSampleRate: 24000,
     inputSampleRate: 16000,
     stage: null,
@@ -2668,8 +2720,10 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     voiceRuntime.kind = kind;
     voiceRuntime.ws = ws;
     voiceRuntime.acceptAudio = true;
+    voiceRuntime.ending = false;
     voiceRuntime.playbackSampleRate = Number(started.playback_sample_rate) || 24000;
     voiceRuntime.inputSampleRate = Number(started.input_sample_rate) || 16000;
+    let intentionalClose = false;
     const startBtn = qs(`[data-voice-start="${CSS.escape(kind)}"]`);
     const endBtn = qs(`[data-voice-end="${CSS.escape(kind)}"]`);
     if (startBtn) startBtn.disabled = true;
@@ -2679,40 +2733,64 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       let msg;
       try { msg = JSON.parse(event.data); } catch { return; }
       if (msg.type === "ready") setVoiceStatus(kind, "");
-      else if (msg.type === "audio" && msg.data) playPcm16Base64(msg.data);
-      else if (msg.type === "transcript" && msg.delta) {
+      else if (msg.type === "audio" && msg.data) {
+        if (!voiceRuntime.ending) playPcm16Base64(msg.data);
+      } else if (msg.type === "transcript" && msg.delta) {
+        if (voiceRuntime.ending) return;
         setVoiceSpeaking("assistant");
         appendVoiceTranscript(msg.delta);
       } else if (msg.type === "transcript_done") {
-        finalizeVoiceTranscriptTurn();
+        if (!voiceRuntime.ending) finalizeVoiceTranscriptTurn();
       } else if (msg.type === "speech") {
-        setVoiceSpeaking(msg.who || "idle");
+        if (!voiceRuntime.ending) setVoiceSpeaking(msg.who || "idle");
       } else if (msg.type === "status") {
         // Do not show timing / continue / voice status to the employee.
       } else if (msg.type === "complete") {
         toast("Roleplay session complete.");
+        intentionalClose = true;
         cleanupVoiceRuntime();
         initRoleplays().catch((err) => toast(err.message, "error"));
       } else if (msg.type === "incomplete") {
         toast(msg.message || "Session ended early — not saved. Start again when ready.");
+        intentionalClose = true;
         cleanupVoiceRuntime();
         initRoleplays().catch((err) => toast(err.message, "error"));
       } else if (msg.type === "error") {
         toast(msg.message || "Voice session error", "error");
         setVoiceStatus(kind, "");
+        intentionalClose = true;
         cleanupVoiceRuntime();
         initRoleplays().catch(() => {});
       }
     };
     ws.onerror = () => {
+      if (intentionalClose) return;
       toast("Voice WebSocket failed.", "error");
+      intentionalClose = true;
+      const wasEnding = voiceRuntime.ending;
       cleanupVoiceRuntime();
+      if (wasEnding) initRoleplays().catch(() => {});
     };
     ws.onclose = () => {
-      if (voiceRuntime.ws === ws) cleanupVoiceRuntime();
+      if (intentionalClose) return;
+      if (voiceRuntime.ws !== ws) return;
+      const wasEnding = voiceRuntime.ending;
+      cleanupVoiceRuntime();
+      if (wasEnding) {
+        toast("Session closed before scoring finished. Check Assessments or try again.", "error");
+        initRoleplays().catch(() => {});
+      }
     };
 
     try {
+      // Mic needs secure context (HTTPS or localhost). Plain http://VM-IP is blocked by Chrome.
+      if (!window.isSecureContext && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+        intentionalClose = true;
+        cleanupVoiceRuntime();
+        throw new Error(
+          "Microphone blocked on HTTP. Open the app via HTTPS, or use localhost. Chrome only allows mic on secure origins."
+        );
+      }
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
       const source = audioCtx.createMediaStreamSource(stream);
@@ -2734,26 +2812,35 @@ Before you begin, we encourage you to take a few minutes to understand the philo
       voiceRuntime.capture = { stream, audioCtx, source, processor };
       setVoiceStatus(kind, "Mic live — waiting for assessor…");
     } catch (error) {
+      intentionalClose = true;
       cleanupVoiceRuntime();
+      const msg = String(error?.message || error || "Microphone access failed");
+      toast(msg, "error");
       throw error;
     }
   }
 
   function endVoiceRoleplay(kind) {
     if (!voiceRuntime.ws || voiceRuntime.kind !== kind) return;
+    if (voiceRuntime.ending) return;
+    voiceRuntime.ending = true;
     setVoiceStatus(kind, "");
     setVoiceSpeaking("idle");
     stopMicCapture();
     stopBotPlayback();
-    try {
-      voiceRuntime.ws.send(JSON.stringify({ type: "end" }));
-    } catch {
-      cleanupVoiceRuntime();
-    }
     const endBtn = qs(`[data-voice-end="${CSS.escape(kind)}"]`);
     if (endBtn) endBtn.disabled = true;
     const stageEnd = qs("[data-voice-stage-end]");
     if (stageEnd) stageEnd.disabled = true;
+    try {
+      voiceRuntime.ws.send(JSON.stringify({ type: "end" }));
+    } catch {
+      cleanupVoiceRuntime();
+      initRoleplays().catch((err) => toast(err.message, "error"));
+      return;
+    }
+    closeVoiceStage();
+    loading("Wrapping up your session…");
   }
 
   function cleanupVoiceRuntime() {
@@ -2765,6 +2852,7 @@ Before you begin, we encourage you to take a few minutes to understand the philo
     voiceRuntime.ws = null;
     voiceRuntime.kind = null;
     voiceRuntime.acceptAudio = false;
+    voiceRuntime.ending = false;
     closeVoiceStage();
   }
 
@@ -5146,14 +5234,11 @@ Before you begin, we encourage you to take a few minutes to understand the philo
         </div>
         <h3 class="font-bold text-lg mt-6">Voice sessions</h3>
         ${sessionBlock || '<p class="text-sm text-slate-500 mt-2">No voice sessions yet.</p>'}
-        <div data-screenshot-preview class="hidden mt-6"></div>
         <h3 class="font-bold text-lg mt-8">Competency scores</h3>
         <div class="grid md:grid-cols-2 gap-4 mt-4">${result.roleplays.map((row) => `<article class="border border-slate-200 rounded-xl p-5">
           <div class="flex justify-between gap-3"><h3 class="font-bold">${esc(row.competency)}</h3>${statusChip(row.status)}</div>
           <p class="text-sm mt-3">Assessed level: <strong>${esc(row.ai_proficiency || "Pending")}</strong></p>
           <p class="text-sm text-slate-600 mt-2">${esc(row.rationale || "No assessed behavior available.")}</p>
-          ${row.ocr_text ? `<details class="mt-3"><summary class="text-sm font-bold text-blue-700 cursor-pointer">Extracted behavior text</summary><p class="text-xs whitespace-pre-wrap mt-2 text-slate-600">${esc(row.ocr_text)}</p></details>` : ""}
-          ${row.screenshot_available ? `<div class="mt-4">${button("View Screenshot", `data-view-screenshot="${esc(row.competency)}"`, true)}</div>` : ""}
         </article>`).join("")}</div>
       </section>`;
       document.body.appendChild(modal);
@@ -5175,21 +5260,6 @@ Before you begin, we encourage you to take a few minutes to understand the philo
           }
         };
       }
-      qsa("[data-view-screenshot]", modal).forEach((control) => {
-        control.onclick = async () => {
-          try {
-            const detail = await api(`/api/admin/roleplays?employee_code=${encodeURIComponent(employeeCode)}&competency=${encodeURIComponent(control.dataset.viewScreenshot)}`);
-            const screenshot = detail.screenshot;
-            const preview = qs("[data-screenshot-preview]", modal);
-            preview.classList.remove("hidden");
-            preview.innerHTML = `<div class="border rounded-xl p-4 bg-slate-50"><div class="flex justify-between gap-3 mb-3"><strong>${esc(screenshot.competency)} screenshot</strong><button data-hide-preview class="material-symbols-outlined">close</button></div><img class="max-h-[65vh] mx-auto rounded border" src="data:${esc(screenshot.content_type)};base64,${screenshot.content_base64}" alt="${esc(screenshot.competency)} assessment screenshot"></div>`;
-            qs("[data-hide-preview]", preview).onclick = () => preview.classList.add("hidden");
-            preview.scrollIntoView({ behavior: "smooth" });
-          } catch (error) {
-            toast(error.message, "error");
-          }
-        };
-      });
     } catch (error) {
       toast(error.message, "error");
     }

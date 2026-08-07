@@ -4,7 +4,7 @@ import json
 from typing import Any
 from ..core.logging_setup import get_logger
 from ..database import Database, FEEDBACK_QUESTION, KUDOS_PRESET, PHASES, PHASE_FREE_ROLES, ist_today, utc_now
-from .constants import BADGE_CATALOG, SCREENSHOT_EXTENSIONS, VOICE_TICKET_TTL_SECONDS, _VOICE_TICKETS, _VOICE_TICKETS_LOCK
+from .constants import BADGE_CATALOG, VOICE_TICKET_TTL_SECONDS, _VOICE_TICKETS, _VOICE_TICKETS_LOCK
 log = get_logger('skillsync.backend')
 
 class LeaderboardMixin:
@@ -18,11 +18,30 @@ class LeaderboardMixin:
         if not force_refresh:
             cached = self._leaderboard_snapshot(cache_key, snapshot_date)
             if cached is not None:
-                return cached
+                return self._refresh_leaderboard_gap_badges(cached)
         payload = self._compute_leaderboard(user)
         payload["snapshot_date"] = snapshot_date
         payload["ranking"] = "dense"
         self._save_leaderboard_snapshot(cache_key, snapshot_date, payload)
+        return payload
+
+
+    def _refresh_leaderboard_gap_badges(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Ranks/hours stay daily-frozen; focus areas + Gap Closer stay live."""
+        rows = payload.get("leaderboard") or []
+        for row in rows:
+            code = str(row.get("employee_code") or "")
+            if not code:
+                continue
+            gap_state = self._leaderboard_gap_state(code)
+            row["focus_areas"] = gap_state["focus_areas"]
+            row["gaps"] = gap_state["gaps"]
+            row["severity_band"] = gap_state["severity_band"]
+            row["gap_cohort"] = gap_state["severity_band"]
+            row["gap_closer_eligible"] = gap_state["gap_closer_eligible"]
+            row["badges"] = self._sync_badges_for_row(row)
+        if payload.get("stats") is not None:
+            payload["stats"] = self._leaderboard_stats(rows)
         return payload
 
 
@@ -87,21 +106,7 @@ class LeaderboardMixin:
                     continue
 
                 metrics = self._learning_completion_metrics(code, connection, catalog_by_id)
-                gaps: list[dict[str, Any]] = []
-                focus_areas = 0
-                severity = 0
-                if has_profile:
-                    target = self.learning_target(code)
-                    severity = int(target["total_gap_levels"])
-                    gaps = [
-                        {
-                            "competency": gap["competency"],
-                            "gap_levels": int(gap.get("gap_levels") or 0),
-                        }
-                        for gap in (target.get("gaps") or [])
-                    ]
-                    focus_areas = len(gaps)
-
+                gap_state = self._leaderboard_gap_state(code)
                 activity = connection.execute(
                     "SELECT learning_hours,completions FROM linkedin_activity WHERE employee_code=?",
                     (code,),
@@ -113,10 +118,11 @@ class LeaderboardMixin:
                     {
                         "employee_code": code,
                         "name": employee["name"],
-                        "severity_band": severity,
-                        "focus_areas": focus_areas,
-                        "gaps": gaps,
-                        "gap_cohort": severity,
+                        "severity_band": gap_state["severity_band"],
+                        "focus_areas": gap_state["focus_areas"],
+                        "gaps": gap_state["gaps"],
+                        "gap_cohort": gap_state["severity_band"],
+                        "gap_closer_eligible": gap_state["gap_closer_eligible"],
                         "learning_hours": linkedin_hours,
                         "completions": linkedin_completions,
                         "hours_pct": metrics["hours_pct"],
@@ -296,6 +302,68 @@ class LeaderboardMixin:
         }
 
 
+    def _leaderboard_gap_state(self, employee_code: str) -> dict[str, Any]:
+        """Focus-area gaps for leaderboard + Gap Closer eligibility.
+
+        Gap Closer requires an active learning target (current_role or future_role)
+        with zero remaining gaps — not merely empty focus metadata.
+        When aspiration is still required, surface gaps vs the next enabled path
+        so managers see real development needs (badge still withheld).
+        """
+        empty = {
+            "focus_areas": 0,
+            "severity_band": 0,
+            "gaps": [],
+            "gap_closer_eligible": False,
+        }
+        if not self.final_profile(employee_code):
+            return empty
+
+        target = self.learning_target(employee_code)
+        mode = str(target.get("mode") or "")
+        if mode == "aspiration_required":
+            next_gaps = self._preview_next_path_gaps(employee_code)
+            return {
+                "focus_areas": len(next_gaps),
+                "severity_band": sum(int(g.get("gap_levels") or 0) for g in next_gaps),
+                "gaps": next_gaps,
+                "gap_closer_eligible": False,
+            }
+
+        gaps = [
+            {
+                "competency": gap["competency"],
+                "gap_levels": int(gap.get("gap_levels") or 0),
+            }
+            for gap in (target.get("gaps") or [])
+        ]
+        severity = int(target.get("total_gap_levels") or 0)
+        has_target = bool(str(target.get("target_key") or "").strip())
+        return {
+            "focus_areas": len(gaps),
+            "severity_band": severity,
+            "gaps": gaps,
+            "gap_closer_eligible": bool(has_target and not gaps and severity == 0),
+        }
+
+    def _preview_next_path_gaps(self, employee_code: str) -> list[dict[str, Any]]:
+        """Gaps vs first enabled next career path (display only; aspiration not locked)."""
+        employee = self.employee(employee_code)
+        next_path = next(
+            (path for path in self._career_paths(employee) if path.get("enabled")),
+            None,
+        )
+        if not next_path:
+            return []
+        return [
+            {
+                "competency": gap["competency"],
+                "gap_levels": int(gap.get("gap_levels") or 0),
+            }
+            for gap in self.deterministic_gaps(employee_code, next_path["target_key"])
+        ]
+
+
     def badges_for(self, employee_code: str) -> list[dict[str, Any]]:
         with self.db.connect() as connection:
             rows = connection.execute(
@@ -326,7 +394,9 @@ class LeaderboardMixin:
             earned.append(("five_day_streak", "5-Day Streak", {"streak_days": streak}))
         if row.get("full_circuit"):
             earned.append(("full_circuit", "Full Circuit", {}))
-        if int(row.get("focus_areas") or 0) == 0 and int(row.get("severity_band") or 0) == 0:
+        # Gap Closer only after closing gaps vs an active learning target — never for
+        # "no profile yet" / "aspiration not locked" (those also show focus_areas=0).
+        if row.get("gap_closer_eligible"):
             earned.append(("gap_closer", "Gap Closer", {"focus_areas": 0}))
 
         earned_ids = {badge_id for badge_id, _, _ in earned}

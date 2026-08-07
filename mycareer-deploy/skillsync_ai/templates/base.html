@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{title}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="/static/styles.css">
+  </head>
+  <body data-role="{page_role}">
+    <div class="app-canvas">
+      <header class="topbar">
+        <a class="event-name" href="/">MYCAREER COMPASS</a>
+        <nav class="top-nav">
+          <a href="/api/health">API Health</a>
+          <a href="/api/meta">API Metadata</a>
+        </nav>
+        <div class="agent-status">Backend online</div>
+      </header>
+      <main class="main-area">{body}</main>
+      <footer class="app-footer">
+        <span>MYCAREER COMPASS</span>
+        <span>Stitch frontend integration pending</span>
+      </footer>
+    </div>
+  </body>
+</html>

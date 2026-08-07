@@ -45,12 +45,20 @@ class BackendBase:
             raise BackendError("All seven competency ratings are required before submission.")
 
 
-    def _validate_career_recommendation(self, employee_code: str, recommendation: str) -> None:
+    def _validate_career_recommendation(
+        self, employee_code: str, recommendation: str, note: str = ""
+    ) -> None:
         allowed = {row["id"] for row in self.data.manager_career_move_options(self.employee(employee_code))}
         if recommendation not in allowed:
             raise BackendError(
                 "Select a valid career move recommendation before submission.",
                 "career_recommendation_required",
+                400,
+            )
+        if recommendation == "lob_change" and not str(note or "").strip():
+            raise BackendError(
+                "Describe the LOB change before submission.",
+                "career_recommendation_note_required",
                 400,
             )
 
@@ -73,6 +81,16 @@ class BackendBase:
 
 
     def _cached_evidence(self, employee_code: str, competency: str) -> dict[str, Any] | None:
+        payload = self._evidence_json_raw(employee_code, competency)
+        if not isinstance(payload, dict):
+            return None
+        # Bust stale curator output so RD always sees competency-scoped evidence.
+        if payload.get("curator_version") != CURATOR_VERSION:
+            return None
+        return payload
+
+    def _evidence_json_raw(self, employee_code: str, competency: str) -> dict[str, Any] | None:
+        """Read curated evidence JSON without curator-version gating (for stored AI ratings)."""
         with self.db.connect() as connection:
             row = connection.execute(
                 "SELECT evidence_json FROM curated_evidence WHERE employee_code=? AND competency=?",
@@ -81,12 +99,7 @@ class BackendBase:
         if not row:
             return None
         payload = self.db.decode_json(row["evidence_json"], None)
-        if not isinstance(payload, dict):
-            return None
-        # Bust stale curator output so RD always sees competency-scoped evidence.
-        if payload.get("curator_version") != CURATOR_VERSION:
-            return None
-        return payload
+        return payload if isinstance(payload, dict) else None
 
 
     def _save_evidence(self, employee_code: str, competency: str, payload: dict[str, Any]) -> None:

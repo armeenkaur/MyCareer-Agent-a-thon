@@ -63,10 +63,27 @@ def load_prompt(kind: str) -> str:
             f"You are a MyCareer Compass roleplay assessor for the {kind} competency bucket. "
             "Conduct a professional spoken roleplay. Do not invent tools. Keep turns concise."
         )
-    return path.read_text(encoding="utf-8").strip()
+    body = path.read_text(encoding="utf-8").strip()
+    lang_sticky = (
+        "LANGUAGE LOCK (highest priority every turn): "
+        "Answer ONLY in the language of the learner's most recent utterance. "
+        "Full English line from them → your entire reply in English (no Hindi). "
+        "Full Hindi line from them → your entire reply in Hindi. "
+        "Do not keep the previous language after they switch.\n\n"
+    )
+    shared = PROMPTS_DIR / "voice_naturalness.md"
+    if shared.is_file():
+        return f"{lang_sticky}{shared.read_text(encoding='utf-8').strip()}\n\n---\n\n{body}"
+    return f"{lang_sticky}{body}"
 
 
-def scoring_instruction(kind: str, *, strict: bool = False) -> str:
+def scoring_instruction(
+    kind: str,
+    *,
+    strict: bool = False,
+    user_turns: int = 0,
+    elapsed_sec: float = 0.0,
+) -> str:
     strong = ROLEPLAY_STRONG[kind]
     supporting = ROLEPLAY_SUPPORTING[kind]
     all_skills = ROLEPLAY_BUCKETS[kind]
@@ -87,8 +104,6 @@ def scoring_instruction(kind: str, *, strict: bool = False) -> str:
             "Strong skills (must rate): Communication, Ownership & Accountability, Team Management, "
             "Executive Presence, Stakeholder Relationship. "
             "Supporting (null only if no usable signal): Data Analytics, Consultative Selling. "
-            "confidence = how much spoken evidence you have for that skill (0=none, 1=rich multi-turn proof). "
-            "Weight confidence by number and quality of learner answers that touch the skill. "
         )
     elif kind == "functional":
         scenario_hint = (
@@ -96,14 +111,30 @@ def scoring_instruction(kind: str, *, strict: bool = False) -> str:
             "Strong skills (must rate): Consultative Selling, Data Analytics, Stakeholder Relationship, "
             "Communication, Executive Presence. "
             "Supporting (null only if no usable signal): Ownership & Accountability, Team Management. "
-            "confidence = how much spoken evidence you have for that skill (0=none, 1=rich multi-turn proof). "
-            "Weight confidence by number and quality of learner answers that touch the skill. "
         )
+    evidence_rules = (
+        f"SESSION STATS (ground truth): learner speaking turns≈{max(0, int(user_turns))}, "
+        f"elapsed≈{max(0.0, float(elapsed_sec)):.0f}s. "
+        "EVIDENCE RULES — mandatory, non-negotiable: "
+        "Rate ONLY from what the learner actually said in THIS call. Never invent evidence. "
+        "confidence = strength of spoken evidence for that skill (0.0=none, 1.0=rich multi-turn proof). "
+        "Thin talk / greetings / one short answer is NOT enough for Intermediate or above. "
+        "If evidence for a skill is weak or missing: strong skills → level Beginner and confidence ≤0.30; "
+        "supporting skills → null (preferred) or Beginner with confidence ≤0.25. "
+        "Intermediate requires clear relevant content across multiple learner turns on that skill. "
+        "Proficient/Advanced require rich, specific, multi-turn demonstration — never use them on a short/thin call. "
+        "If learner turns < 6 OR the discussion barely covered the scenario: "
+        "most strong skills must be Beginner with confidence ≤0.35; supporting almost all null; "
+        "do NOT output Intermediate/Proficient/Advanced with confidence >0.40. "
+        "Do not give five skills Intermediate/Proficient just because the call happened — "
+        "under-score when unsure. "
+    )
     base = (
         "SCORING MODE. The live roleplay has ended. Do not continue the roleplay. "
         "Do not apologize. Do not refuse. Do not write prose. "
         "Respond in English keys/levels only (JSON). "
         f"{scenario_hint}"
+        f"{evidence_rules}"
         f"Rate ALL competencies: strong must be objects; supporting may be null. "
         f"Strong required: {strong_list}. Supporting optional: {supporting_list}. "
         "Allowed levels exactly: Beginner, Intermediate, Proficient, Advanced. "

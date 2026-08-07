@@ -1,0 +1,17 @@
+.git
+.venv
+venv
+__pycache__
+**/__pycache__
+*.pyc
+.env
+.env.local
+logs
+uploads
+*.db
+.DS_Store
+.cursor
+.tokensaver
+mycareer-compass.tar
+.pytest_cache
+.mypy_cache

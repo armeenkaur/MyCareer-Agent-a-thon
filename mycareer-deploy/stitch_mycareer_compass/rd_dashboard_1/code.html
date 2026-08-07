@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MyCareer Compass - RD Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      "on-primary": "#ffffff",
+                      "error": "#ba1a1a",
+                      "surface-container-low": "#f2f3ff",
+                      "surface-bright": "#faf8ff",
+                      "primary-container": "#1464f4",
+                      "error-container": "#ffdad6",
+                      "on-surface": "#191b24",
+                      "on-secondary": "#ffffff",
+                      "inverse-primary": "#b3c5ff",
+                      "inverse-on-surface": "#eff0fc",
+                      "background": "#faf8ff",
+                      "primary": "#004dc6",
+                      "surface": "#faf8ff",
+                      "tertiary": "#9b3400",
+                      "outline": "#737687",
+                      "outline-variant": "#c2c6d8",
+                      "surface-container-highest": "#e1e2ee",
+                      "on-tertiary-fixed": "#380d00",
+                      "tertiary-container": "#c44400",
+                      "on-surface-variant": "#424655",
+                      "on-tertiary-container": "#fff0ec",
+                      "surface-dim": "#d8d9e5",
+                      "surface-container-high": "#e7e7f3",
+                      "surface-container": "#ecedf9",
+                      "on-background": "#191b24",
+                      "on-secondary-fixed": "#001849",
+                      "on-tertiary-fixed-variant": "#802a00",
+                      "primary-fixed": "#dbe1ff",
+                      "on-primary-fixed-variant": "#003fa5",
+                      "inverse-surface": "#2e3039",
+                      "surface-tint": "#0054d7",
+                      "on-secondary-container": "#003183",
+                      "on-error-container": "#93000a",
+                      "on-tertiary": "#ffffff",
+                      "tertiary-fixed-dim": "#ffb59a",
+                      "surface-container-lowest": "#ffffff",
+                      "secondary-container": "#799dfe",
+                      "on-primary-fixed": "#001849",
+                      "secondary-fixed-dim": "#b3c5ff",
+                      "primary-fixed-dim": "#b3c5ff",
+                      "secondary-fixed": "#dae2ff",
+                      "on-secondary-fixed-variant": "#0e409d",
+                      "on-primary-container": "#f1f2ff",
+                      "on-error": "#ffffff",
+                      "secondary": "#3159b6",
+                      "surface-variant": "#e1e2ee",
+                      "tertiary-fixed": "#ffdbcf"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "canvas-max-width": "1440px",
+                      "content-max-width": "1280px",
+                      "stack-gap-md": "16px",
+                      "margin-desktop": "32px",
+                      "card-padding": "24px",
+                      "gutter": "24px",
+                      "stack-gap-sm": "8px",
+                      "margin-mobile": "16px",
+                      "stack-gap-lg": "24px",
+                      "grid-columns": "12"
+              },
+              "fontFamily": {
+                      "section-title": ["Inter"],
+                      "page-title-mobile": ["Inter"],
+                      "button": ["Inter"],
+                      "body-md": ["Inter"],
+                      "page-title": ["Inter"],
+                      "card-title": ["Inter"],
+                      "display-lg": ["Inter"],
+                      "metadata": ["Inter"],
+                      "body-sm": ["Inter"],
+                      "display-lg-mobile": ["Inter"]
+              },
+              "fontSize": {
+                      "section-title": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                      "page-title-mobile": ["24px", {"lineHeight": "30px", "fontWeight": "600"}],
+                      "button": ["14px", {"lineHeight": "20px", "fontWeight": "600"}],
+                      "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "page-title": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                      "card-title": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                      "display-lg": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                      "metadata": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                      "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                      "display-lg-mobile": ["28px", {"lineHeight": "34px", "fontWeight": "600"}]
+              }
+            },
+          },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-surface">
+<div class="flex min-h-screen">
+<!-- SideNavBar (Authority: JSON & Design System) -->
+<aside class="hidden md:flex flex-col h-screen w-72 fixed left-0 top-0 bg-surface-container-low dark:bg-surface-container-highest border-r border-outline-variant dark:border-outline py-6 px-4 gap-stack-gap-md z-50">
+<div class="flex items-center gap-3 px-2 mb-6">
+<div class="w-10 h-10 bg-primary-container rounded-lg flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">rocket_launch</span>
+</div>
+<div>
+<h1 class="font-section-title text-section-title font-black text-primary">MyCareer Compass</h1>
+<p class="text-[10px] text-on-surface-variant uppercase tracking-widest font-bold">Enterprise Edition</p>
+</div>
+</div>
+<nav class="flex-grow space-y-1">
+<!-- Competency Validation (Mapped from JSON) -->
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-dim transition-all group" href="#">
+<span class="material-symbols-outlined text-outline group-hover:text-primary">psychology</span>
+<span class="font-body-md text-body-md">Competency Validation</span>
+</a>
+<!-- Dashboard - ACTIVE (Mapped from JSON logic) -->
+<a class="flex items-center gap-3 px-4 py-3 bg-primary-container text-on-primary-container font-bold rounded-lg transition-transform scale-95 active:scale-90" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-md text-body-md">Dashboard</span>
+</a>
+<!-- Learning Leaderboard (Mapped from JSON) -->
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high dark:hover:bg-surface-dim transition-all group" href="#">
+<span class="material-symbols-outlined text-outline group-hover:text-primary">leaderboard</span>
+<span class="font-body-md text-body-md">Leaderboard</span>
+</a>
+<!-- Other implied navigation from side menu -->
+<div class="pt-4 pb-2 px-4">
+<span class="text-[11px] font-bold text-outline uppercase tracking-wider">Resources</span>
+</div>
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-container-high transition-all" href="#">
+<span class="material-symbols-outlined">school</span>
+<span class="font-body-md text-body-md">Learning</span>
+</a>
+</nav>
+<div class="mt-auto space-y-1">
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all" href="#">
+<span class="material-symbols-outlined">help</span>
+<span class="font-body-md text-body-md">Support</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-body-md text-body-md">Sign Out</span>
+</a>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-grow md:ml-72 bg-surface">
+<!-- TopNavBar (Authority: JSON & Design System) -->
+<header class="flex justify-between items-center h-16 px-margin-desktop w-full bg-surface dark:bg-surface-dim border-b border-outline-variant dark:border-outline sticky top-0 z-40">
+<div class="flex items-center gap-4 flex-grow max-w-xl">
+<div class="relative w-full">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline">search</span>
+<input class="w-full pl-10 pr-4 py-2 bg-surface-container rounded-lg border-none focus:ring-2 focus:ring-primary-container text-body-sm transition-all" placeholder="Search employees, skills, or reports..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-stack-gap-lg ml-gutter">
+<button class="relative p-2 text-on-surface-variant hover:bg-surface-container-low transition-colors rounded-full">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full border-2 border-surface"></span>
+</button>
+<button class="p-2 text-on-surface-variant hover:bg-surface-container-low transition-colors rounded-full">
+<span class="material-symbols-outlined">settings</span>
+</button>
+<div class="h-8 w-[1px] bg-outline-variant mx-2"></div>
+<div class="flex items-center gap-3">
+<div class="text-right hidden sm:block">
+<p class="font-card-title text-card-title leading-none">Dinesh Babu (RD)</p>
+<p class="font-metadata text-metadata text-on-surface-variant">Regional Director</p>
+</div>
+<img class="w-10 h-10 rounded-full object-cover border border-outline-variant" data-alt="A professional headshot of a senior executive in a corporate environment. The person is an Indian male with a friendly yet professional expression, wearing a crisp light blue shirt. The background is a blurred high-end office lobby with soft morning light and a blue and white corporate color palette." src="https://lh3.googleusercontent.com/aida-public/AB6AXuAWTfm92zqFnpEyU5IinIoLxh7Q7MvnHhJMlXpm1cGVb5Hmcxj_5MRIAooqEKKPW2yBvQosGmldjLsx5OwQhRJZVLGMuC3TO4XAvzuluZpZXE6z-cZJtFn7-MzYAYmjOsOfYCPhdX6FuvzMCuhPbvbnCqDR6unZck_uxNiNuuYeAeKTyCWIvIATqqWt8kPE0nXJVCLJEjj6lTIPXjnzpPh-BYJtwDnL16eTKfmDSBtGTUxILMD6Ss8M"/>
+</div>
+</div>
+</header>
+<!-- Dashboard Content Canvas -->
+<div class="p-margin-desktop max-w-content-max-width mx-auto">
+<div class="mb-stack-gap-lg flex justify-between items-end">
+<div>
+<h2 class="font-page-title text-page-title text-primary">Strategic Overview</h2>
+<p class="font-body-md text-body-md text-on-surface-variant">Regional performance and competency validation tracking.</p>
+</div>
+<button class="flex items-center gap-2 bg-primary text-on-primary px-4 py-2 rounded-lg font-button hover:opacity-90 transition-all">
+<span class="material-symbols-outlined text-[18px]">download</span>
+                        Export Report
+                    </button>
+</div>
+<!-- KPI Cards - Bento Style Layout -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gutter mb-stack-gap-lg">
+<div class="bg-surface-container-lowest p-card-padding rounded-xl border border-outline-variant hover:shadow-[0px_4px_12px_rgba(23,32,51,0.05)] transition-all">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-primary-container/10 rounded-lg text-primary">
+<span class="material-symbols-outlined">groups</span>
+</div>
+<span class="text-success font-bold text-metadata flex items-center bg-green-100 px-2 py-0.5 rounded-full">+2 this month</span>
+</div>
+<p class="text-on-surface-variant font-metadata uppercase tracking-wider mb-1">Total Employees</p>
+<h3 class="font-display-lg text-display-lg font-bold">45</h3>
+</div>
+<div class="bg-surface-container-lowest p-card-padding rounded-xl border border-outline-variant hover:shadow-[0px_4px_12px_rgba(23,32,51,0.05)] transition-all">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-green-100 rounded-lg text-green-700">
+<span class="material-symbols-outlined">verified</span>
+</div>
+<span class="text-on-surface-variant font-metadata">71% Completion</span>
+</div>
+<p class="text-on-surface-variant font-metadata uppercase tracking-wider mb-1">Validated</p>
+<h3 class="font-display-lg text-display-lg font-bold text-green-700">32</h3>
+<div class="w-full bg-surface-container h-1 mt-4 rounded-full overflow-hidden">
+<div class="bg-green-600 h-full w-[71%]"></div>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-card-padding rounded-xl border border-outline-variant hover:shadow-[0px_4px_12px_rgba(23,32,51,0.05)] transition-all">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-tertiary-fixed text-tertiary">
+<span class="material-symbols-outlined">pending_actions</span>
+</div>
+<span class="text-error font-bold text-metadata flex items-center bg-error-container px-2 py-0.5 rounded-full">High Priority</span>
+</div>
+<p class="text-on-surface-variant font-metadata uppercase tracking-wider mb-1">Pending Validation</p>
+<h3 class="font-display-lg text-display-lg font-bold text-tertiary">13</h3>
+</div>
+<div class="bg-surface-container-lowest p-card-padding rounded-xl border border-outline-variant hover:shadow-[0px_4px_12px_rgba(23,32,51,0.05)] transition-all">
+<div class="flex justify-between items-start mb-4">
+<div class="p-2 bg-secondary-container/10 rounded-lg text-secondary">
+<span class="material-symbols-outlined">trending_up</span>
+</div>
+<span class="text-on-surface-variant font-metadata">Active Paths</span>
+</div>
+<p class="text-on-surface-variant font-metadata uppercase tracking-wider mb-1">Active Journeys</p>
+<h3 class="font-display-lg text-display-lg font-bold">28</h3>
+</div>
+</div>
+<!-- Employee Table (Skip-level Reports) -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden">
+<div class="px-card-padding py-4 border-b border-outline-variant flex justify-between items-center bg-surface-bright">
+<h4 class="font-section-title text-section-title">Skip-Level Assessment Status</h4>
+<div class="flex items-center gap-stack-gap-sm">
+<button class="flex items-center gap-1 px-3 py-1.5 border border-outline-variant rounded-lg text-body-sm hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-[18px]">filter_list</span>
+                                Filter
+                            </button>
+<button class="flex items-center gap-1 px-3 py-1.5 border border-outline-variant rounded-lg text-body-sm hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-[18px]">sort</span>
+                                Sort
+                            </button>
+</div>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full border-collapse">
+<thead>
+<tr class="bg-surface-container-low text-left">
+<th class="px-6 py-4 font-button text-on-surface-variant text-metadata uppercase tracking-wider">Employee ID</th>
+<th class="px-6 py-4 font-button text-on-surface-variant text-metadata uppercase tracking-wider">Employee</th>
+<th class="px-6 py-4 font-button text-on-surface-variant text-metadata uppercase tracking-wider">Role &amp; Grade</th>
+<th class="px-6 py-4 font-button text-on-surface-variant text-metadata uppercase tracking-wider">ZM (Manager)</th>
+<th class="px-6 py-4 font-button text-on-surface-variant text-metadata uppercase tracking-wider">Assessment</th>
+<th class="px-6 py-4 font-button text-on-surface-variant text-metadata uppercase tracking-wider">Validation</th>
+<th class="px-6 py-4 font-button text-on-surface-variant text-metadata uppercase tracking-wider text-right">Action</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<!-- Row 1 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="px-6 py-4 font-mono text-metadata text-primary">EMP-9421</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-primary-fixed text-primary flex items-center justify-center font-bold text-[10px]">AR</div>
+<div>
+<p class="font-card-title text-body-sm">Ananya Rao</p>
+<p class="text-metadata text-on-surface-variant">Cloud Architecture</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<p class="text-body-sm">Senior Architect</p>
+<p class="text-metadata text-on-surface-variant">Grade G7</p>
+</td>
+<td class="px-6 py-4 text-body-sm">Karthik S.</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-metadata font-bold">Completed</span>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-tertiary-fixed text-tertiary text-metadata font-bold">Pending</span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-primary font-button text-button hover:underline decoration-2 underline-offset-4">Open Validation</button>
+</td>
+</tr>
+<!-- Row 2 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="px-6 py-4 font-mono text-metadata text-primary">EMP-8832</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-secondary-fixed text-on-secondary-fixed-variant flex items-center justify-center font-bold text-[10px]">MJ</div>
+<div>
+<p class="font-card-title text-body-sm">Michael Jensen</p>
+<p class="text-metadata text-on-surface-variant">Data Engineering</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<p class="text-body-sm">Data Lead</p>
+<p class="text-metadata text-on-surface-variant">Grade G6</p>
+</td>
+<td class="px-6 py-4 text-body-sm">Sarah Chen</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-metadata font-bold">Completed</span>
+</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-1 text-green-700">
+<span class="material-symbols-outlined text-[16px]">check_circle</span>
+<span class="text-metadata font-bold">Validated</span>
+</div>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-on-surface-variant font-button text-button hover:text-primary">View Full Profile</button>
+</td>
+</tr>
+<!-- Row 3 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="px-6 py-4 font-mono text-metadata text-primary">EMP-1029</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-surface-dim text-on-surface-variant flex items-center justify-center font-bold text-[10px]">RK</div>
+<div>
+<p class="font-card-title text-body-sm">Rohan Kapoor</p>
+<p class="text-metadata text-on-surface-variant">Cyber Security</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<p class="text-body-sm">Security Analyst</p>
+<p class="text-metadata text-on-surface-variant">Grade G5</p>
+</td>
+<td class="px-6 py-4 text-body-sm">Karthik S.</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-surface-container-highest text-on-surface-variant text-metadata font-bold">In Progress</span>
+</td>
+<td class="px-6 py-4">
+<span class="text-metadata text-outline italic">Awaiting Assessment</span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-on-surface-variant font-button text-button cursor-not-allowed opacity-50">Open Validation</button>
+</td>
+</tr>
+<!-- Row 4 -->
+<tr class="hover:bg-surface-container-low/50 transition-colors">
+<td class="px-6 py-4 font-mono text-metadata text-primary">EMP-7711</td>
+<td class="px-6 py-4">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-full bg-primary-fixed-dim text-on-primary-fixed flex items-center justify-center font-bold text-[10px]">SP</div>
+<div>
+<p class="font-card-title text-body-sm">Sunita Pillai</p>
+<p class="text-metadata text-on-surface-variant">UI/UX Design</p>
+</div>
+</div>
+</td>
+<td class="px-6 py-4">
+<p class="text-body-sm">Design Principal</p>
+<p class="text-metadata text-on-surface-variant">Grade G8</p>
+</td>
+<td class="px-6 py-4 text-body-sm">Sarah Chen</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-green-100 text-green-700 text-metadata font-bold">Completed</span>
+</td>
+<td class="px-6 py-4">
+<span class="inline-flex items-center px-2 py-0.5 rounded-full bg-tertiary-fixed text-tertiary text-metadata font-bold">Pending</span>
+</td>
+<td class="px-6 py-4 text-right">
+<button class="text-primary font-button text-button hover:underline decoration-2 underline-offset-4">Open Validation</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="px-card-padding py-4 border-t border-outline-variant flex justify-between items-center bg-surface-container-lowest">
+<p class="text-metadata text-on-surface-variant">Showing 4 of 45 skip-level reports</p>
+<div class="flex gap-2">
+<button class="p-1.5 border border-outline-variant rounded hover:bg-surface-container transition-colors disabled:opacity-30" disabled="">
+<span class="material-symbols-outlined text-[18px]">chevron_left</span>
+</button>
+<button class="p-1.5 border border-outline-variant rounded hover:bg-surface-container transition-colors">
+<span class="material-symbols-outlined text-[18px]">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+<!-- Secondary Bento Section: Analytics & Trends -->
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-gutter mt-stack-gap-lg">
+<!-- Skills Gap heatmap preview -->
+<div class="lg:col-span-2 bg-surface-container-lowest rounded-xl border border-outline-variant p-card-padding">
+<div class="flex justify-between items-center mb-6">
+<h4 class="font-section-title text-section-title">Regional Competency Gap</h4>
+<select class="bg-surface border-outline-variant rounded-lg text-metadata py-1 px-3">
+<option>Tech Core Skills</option>
+<option>Leadership Skills</option>
+</select>
+</div>
+<div class="space-y-4">
+<div>
+<div class="flex justify-between mb-2">
+<span class="text-body-sm">Cloud Architecture</span>
+<span class="text-body-sm font-bold">85% Match</span>
+</div>
+<div class="w-full bg-surface-container h-2 rounded-full">
+<div class="bg-primary h-full w-[85%] rounded-full"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between mb-2">
+<span class="text-body-sm">Data Science &amp; AI</span>
+<span class="text-body-sm font-bold">62% Match</span>
+</div>
+<div class="w-full bg-surface-container h-2 rounded-full">
+<div class="bg-tertiary-container h-full w-[62%] rounded-full"></div>
+</div>
+</div>
+<div>
+<div class="flex justify-between mb-2">
+<span class="text-body-sm">Cyber Security</span>
+<span class="text-body-sm font-bold">92% Match</span>
+</div>
+<div class="w-full bg-surface-container h-2 rounded-full">
+<div class="bg-green-600 h-full w-[92%] rounded-full"></div>
+</div>
+</div>
+</div>
+<div class="mt-8 pt-6 border-t border-outline-variant flex gap-4">
+<div class="flex-grow">
+<p class="text-metadata text-on-surface-variant mb-1">Focus Area</p>
+<p class="font-card-title text-body-sm">Upskilling Data Engineering teams to support next-gen pipeline projects.</p>
+</div>
+<button class="bg-surface border border-primary text-primary px-4 py-2 rounded-lg text-button self-end">View Analytics</button>
+</div>
+</div>
+<!-- Learning Leaderboard Sidebar -->
+<div class="bg-primary text-on-primary rounded-xl p-card-padding flex flex-col relative overflow-hidden">
+<!-- Decorative background texture -->
+<div class="absolute inset-0 opacity-10 pointer-events-none">
+<svg height="100%" preserveaspectratio="none" viewbox="0 0 100 100" width="100%">
+<pattern height="10" id="grid" patternunits="userSpaceOnUse" width="10">
+<path d="M 10 0 L 0 0 0 10" fill="none" stroke="white" stroke-width="0.5"></path>
+</pattern>
+<rect fill="url(#grid)" height="100%" width="100%"></rect>
+</svg>
+</div>
+<div class="relative z-10">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">workspace_premium</span>
+<h4 class="font-section-title text-section-title">Regional Leaders</h4>
+</div>
+<p class="text-primary-fixed text-body-sm mb-6">Top performing learners in your organization this quarter.</p>
+<div class="space-y-4">
+<div class="flex items-center gap-3 bg-white/10 p-3 rounded-lg backdrop-blur-sm border border-white/10">
+<span class="font-bold text-white/50 w-4">1</span>
+<div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center font-bold">AR</div>
+<div class="flex-grow">
+<p class="font-card-title text-body-sm">Ananya Rao</p>
+<p class="text-[10px] uppercase tracking-widest opacity-70">1,240 XP</p>
+</div>
+<span class="material-symbols-outlined text-tertiary-fixed">stat_1</span>
+</div>
+<div class="flex items-center gap-3 bg-white/5 p-3 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
+<span class="font-bold text-white/50 w-4">2</span>
+<div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center font-bold">MJ</div>
+<div class="flex-grow">
+<p class="font-card-title text-body-sm">Michael Jensen</p>
+<p class="text-[10px] uppercase tracking-widest opacity-70">1,105 XP</p>
+</div>
+</div>
+<div class="flex items-center gap-3 bg-white/5 p-3 rounded-lg hover:bg-white/10 transition-colors cursor-pointer">
+<span class="font-bold text-white/50 w-4">3</span>
+<div class="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center font-bold">SC</div>
+<div class="flex-grow">
+<p class="font-card-title text-body-sm">Sarah Chen</p>
+<p class="text-[10px] uppercase tracking-widest opacity-70">980 XP</p>
+</div>
+</div>
+</div>
+<button class="w-full mt-8 py-3 bg-on-primary text-primary rounded-lg font-button hover:bg-primary-fixed transition-colors">
+                                View Full Leaderboard
+                            </button>
+</div>
+</div>
+</div>
+</div>
+</main>
+</div>
+<!-- Mobile Navigation Bar (Authority: JSON Pivot) -->
+<nav class="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-surface-container-lowest border-t border-outline-variant flex justify-around items-center px-4 z-50">
+<button class="flex flex-col items-center gap-1 text-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">dashboard</span>
+<span class="text-[10px] font-bold">Dashboard</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined">psychology</span>
+<span class="text-[10px] font-medium">Validation</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined">leaderboard</span>
+<span class="text-[10px] font-medium">Ranking</span>
+</button>
+<button class="flex flex-col items-center gap-1 text-on-surface-variant">
+<span class="material-symbols-outlined">person</span>
+<span class="text-[10px] font-medium">Profile</span>
+</button>
+</nav>
+<!-- Interactive script for demo micro-interactions -->
+<script>
+        document.querySelectorAll('tr').forEach(row => {
+            row.addEventListener('mouseenter', () => {
+                row.style.transform = 'translateX(4px)';
+                row.style.transition = 'transform 0.2s ease-out';
+            });
+            row.addEventListener('mouseleave', () => {
+                row.style.transform = 'translateX(0)';
+            });
+        });
+
+        // Simple mock search filter logic
+        const searchInput = document.querySelector('input[type="text"]');
+        searchInput.addEventListener('input', (e) => {
+            const query = e.target.value.toLowerCase();
+            const rows = document.querySelectorAll('tbody tr');
+            rows.forEach(row => {
+                const text = row.textContent.toLowerCase();
+                row.style.display = text.includes(query) ? '' : 'none';
+            });
+        });
+    </script>
+</body></html>

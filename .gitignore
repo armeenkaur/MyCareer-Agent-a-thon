@@ -9,3 +9,7 @@ logs/
 data/*.db
 data/*.db-shm
 data/*.db-wal
+# TLS private keys — never commit
+certs/**/privkey.pem
+certs/**/*.key
+certs/**/key.pem

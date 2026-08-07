@@ -20,6 +20,7 @@ from ..core.config import (
     AZURE_VOICE_LIVE_VOICE_FALLBACK_TYPE,
     AZURE_VOICE_LIVE_VOICE_TYPE,
     VOICE_INPUT_SAMPLE_RATE,
+    VOICE_SILENCE_DURATION_MS,
 )
 from ..core.logging_setup import get_logger
 from . import ALL_ROLEPLAY_SKILLS, ROLEPLAY_STRONG, ROLEPLAY_SUPPORTING, load_prompt, scoring_instruction
@@ -45,10 +46,19 @@ AZURE_VOICE_PITCH = "+20%"
 AZURE_VOICE_RATE = "+12%"
 
 # Soft continue-check only (no hard time limit).
-SENSE_CHECK_AFTER_SEC = 180  # ~3 minutes
+SENSE_CHECK_MIN_SKILLS = 5  # prompt-driven continue-check after ≥5 skills evidenced (no clock)
 # Early End: do not mark complete / unlock lattice.
 MIN_COMPLETE_ELAPSED_SEC = 90
-MIN_COMPLETE_USER_TURNS = 2
+MIN_COMPLETE_USER_TURNS = 6
+
+# Spoken by bot when ending off-track; also used for transcript detection.
+OFF_TRACK_END_LINE = (
+    "I'm ending this meeting now. The conversation was not as per the scenario, "
+    "so you need to retake the assessment."
+)
+OFF_TRACK_ERROR_MESSAGE = (
+    "The conversation was not as per the scenario, so you need to retake the assessment."
+)
 
 
 def _session_temperature(kind: str) -> float:
@@ -188,7 +198,8 @@ def _session_update_payload(kind: str, voice: str, voice_type: str) -> dict[str,
                 "type": "azure_semantic_vad",
                 "threshold": 0.9,
                 "prefix_padding_ms": 700,
-                "silence_duration_ms": 800,
+                # Wait this long after speech ends so learner can continue after a pause.
+                "silence_duration_ms": max(500, int(VOICE_SILENCE_DURATION_MS)),
                 "create_response": True,
                 "interrupt_response": True,
                 "remove_filler_words": True,
@@ -198,33 +209,24 @@ def _session_update_payload(kind: str, voice: str, voice_type: str) -> dict[str,
 
 
 def _hello_payload(kind: str) -> dict[str, Any]:
-    """Hotels-style: response.create with exact first line. No voice override here (session owns voice)."""
+    """First audio turn: short greeting only — no hardcoded script, no case dump."""
     if kind == "behavioural":
-        opening = (
-            "Start in English. Say this kick-off exactly to the learner, then stop and wait. "
-            "Stay in character as Sarah Patel. "
-            "Do not greet as an assessor. Do not invent any other scenario. "
-            "Say exactly: "
-            "Hi, I’m Sarah Patel, Senior Product Manager. Thanks for joining. "
-            "Quick context — this meeting is our kick-off for the enterprise "
-            "partnership implementation: first rollout in six weeks, about 3.5 crore annual value, "
-            "and the customer has already added reporting, SLA, and approval-workflow asks after signing. "
-            "Engineering is stretched and I need clarity before we commit. "
-            "Can you walk me through how you see this project working?"
-        )
+        persona = "Sarah Patel, Senior Product Manager"
+        ban = "Do NOT dump project details, metrics, or discovery questions yet."
     else:
-        opening = (
-            "Start in English. Say this kick-off exactly to the learner, then stop and wait. "
-            "Stay in character as Priya Nair, hotel partnerships lead. "
-            "Do not greet as an assessor. Do not invent any other scenario "
-            "(no strangers, railway stations, directions, or unrelated icebreakers). "
-            "Say exactly: "
-            "Hi, I’m Priya Nair, Regional Partnerships Lead. Thanks for making time. "
-            "Quick context — I lead partnerships for an 18-property chain "
-            "with strong weekends but weak weekdays, and leadership is worried about commission leakage "
-            "and discount-led demand. We are not looking for generic discounts. "
-            "Walk me through how you would approach a partnership with a chain like ours."
+        persona = "Priya Nair, Regional Partnerships Lead"
+        ban = (
+            "Do NOT dump hotel/chain details, commercial context, or discovery questions yet. "
+            "Do not invent unrelated icebreakers (no strangers, railway stations, directions)."
         )
+    opening = (
+        f"Start in English. Stay in character as {persona}. "
+        "Before we begin the business discussion: exchange a quick natural greeting with the participant. "
+        "Thank them for joining and help create a comfortable, welcoming environment. "
+        "You may briefly say who you are (name + title) once — keep it short and conversational. "
+        f"{ban} "
+        "Do not greet as an assessor. Then stop and wait for their reply."
+    )
     return {
         "type": "response.create",
         "response": {
@@ -252,14 +254,21 @@ def _score_payload(
     *,
     strict: bool = False,
     modalities: list[str] | None = None,
+    user_turns: int = 0,
+    elapsed_sec: float = 0.0,
 ) -> dict[str, Any]:
     mods = list(modalities or ["text"])
     return {
         "type": "response.create",
         "response": {
             "modalities": mods,
-            "instructions": scoring_instruction(kind, strict=strict),
-            "temperature": 0.6,
+            "instructions": scoring_instruction(
+                kind,
+                strict=strict,
+                user_turns=user_turns,
+                elapsed_sec=elapsed_sec,
+            ),
+            "temperature": 0.35,
         },
     }
 
@@ -407,6 +416,8 @@ class AzureVoiceLiveBridge:
         self._timing_task: asyncio.Task[None] | None = None
         self._spoken_turn_future: asyncio.Future[bool] | None = None
         self._closing_speech = False
+        self._assistant_turn_parts: list[str] = []
+        self._off_track_emitted = False
 
     def start(self) -> None:
         self._thread = threading.Thread(target=self._run_thread, name="voice-live-azure", daemon=True)
@@ -458,28 +469,8 @@ class AzureVoiceLiveBridge:
                         await reader
 
     async def _timing_watchdog(self) -> None:
-        """Queue ~3 min continue check; flush only as a standalone turn after the employee answers."""
-        while not self._closed.is_set() and not self._scoring:
-            if self._session_started_at is None or self._ws is None:
-                await asyncio.sleep(1)
-                continue
-            elapsed = time.monotonic() - self._session_started_at
-            if not self._sense_check_sent and self._pending_timing_cue is None and elapsed >= SENSE_CHECK_AFTER_SEC:
-                self._pending_timing_cue = "sense"
-                # Always let the employee finish / give their next answer first,
-                # then ask continue as its own turn (never bundled with discovery).
-                self._awaiting_user_before_sense = True
-                log.info(
-                    "Voice timing sense-check queued kind=%s elapsed=%.0fs (wait for employee answer)",
-                    self.kind,
-                    elapsed,
-                )
-            # Do not flush while waiting for the employee to finish their current answer.
-            if not self._awaiting_user_before_sense:
-                await self._flush_pending_timing_cue()
-            if self._sense_check_sent and self._pending_timing_cue is None and self._timing_cue_in_flight is None:
-                return
-            await asyncio.sleep(1)
+        """No clock-based sense-check. Continue-check is prompt-driven (≥5 skills evidenced)."""
+        return
 
     async def _flush_pending_timing_cue(self) -> None:
         """Send standalone continue-check only when idle (no active bot response, user not speaking)."""
@@ -577,6 +568,8 @@ class AzureVoiceLiveBridge:
             return
         if etype in {"response.created", "response.output_item.added"}:
             self._response_active = True
+            if etype == "response.created" and not self._scoring:
+                self._assistant_turn_parts.clear()
             # After employee answered and continue-check is due: cancel auto discovery reply,
             # then ask the standalone continue question instead.
             if (
@@ -620,6 +613,7 @@ class AzureVoiceLiveBridge:
             if self._scoring:
                 self._score_text_parts.append(str(part))
             elif not self._mute_output:
+                self._assistant_turn_parts.append(str(part))
                 self.on_event({"type": "transcript", "delta": str(part), "role": "assistant"})
             return
         if etype in {
@@ -632,15 +626,23 @@ class AzureVoiceLiveBridge:
                 if transcript:
                     self._score_text_parts.append(str(transcript))
             elif not self._scoring and not self._mute_output:
+                transcript = event.get("transcript") or event.get("text")
+                if transcript and not self._assistant_turn_parts:
+                    self._assistant_turn_parts.append(str(transcript))
                 self.on_event({"type": "transcript_done", "role": "assistant"})
             return
         if etype == "response.done" and not self._scoring:
             self._response_active = False
             was_sense = self._timing_cue_in_flight == "sense"
             self._timing_cue_in_flight = None
+            turn_text = "".join(self._assistant_turn_parts).strip()
+            self._assistant_turn_parts.clear()
             if not self._mute_output:
                 self.on_event({"type": "transcript_done", "role": "assistant"})
                 self.on_event({"type": "speech", "who": "idle"})
+            if self._is_off_track_end(turn_text):
+                self._emit_off_track()
+                return
             spoken = self._spoken_turn_future
             if spoken is not None and not spoken.done():
                 spoken.set_result(True)
@@ -763,6 +765,31 @@ class AzureVoiceLiveBridge:
             return True
         elapsed = time.monotonic() - self._session_started_at
         return elapsed < MIN_COMPLETE_ELAPSED_SEC or self._user_turn_count < MIN_COMPLETE_USER_TURNS
+
+    @staticmethod
+    def _is_off_track_end(text: str) -> bool:
+        normalized = re.sub(r"\s+", " ", (text or "").strip().lower())
+        if not normalized:
+            return False
+        return (
+            "not as per the scenario" in normalized
+            and "retake" in normalized
+            and "assessment" in normalized
+        )
+
+    def _emit_off_track(self) -> None:
+        if self._off_track_emitted or self._scoring:
+            return
+        self._off_track_emitted = True
+        self._mute_output = True
+        self._pending_timing_cue = None
+        log.info("Voice off-track end detected kind=%s", self.kind)
+        self.on_event(
+            {
+                "type": "off_track",
+                "message": OFF_TRACK_ERROR_MESSAGE,
+            }
+        )
 
     @property
     def user_turn_count(self) -> int:
@@ -905,7 +932,15 @@ class AzureVoiceLiveBridge:
         await asyncio.sleep(0.1)
         self._response_active = True
         await self._ws.send(
-            json.dumps(_score_payload(self.kind, strict=strict, modalities=modalities))
+            json.dumps(
+                _score_payload(
+                    self.kind,
+                    strict=strict,
+                    modalities=modalities,
+                    user_turns=self._user_turn_count,
+                    elapsed_sec=self.session_elapsed_sec(),
+                )
+            )
         )
         try:
             return await asyncio.wait_for(self._score_future, timeout=40)
@@ -917,17 +952,29 @@ class AzureVoiceLiveBridge:
     def _send_raw(self, payload: str) -> None:
         if not self._loop or self._closed.is_set() or not self._ws:
             return
+        if self._loop.is_closed() or not self._loop.is_running():
+            return
 
         async def _send() -> None:
             if self._ws and not self._closed.is_set():
                 await self._ws.send(payload)
 
-        asyncio.run_coroutine_threadsafe(_send(), self._loop)
+        try:
+            asyncio.run_coroutine_threadsafe(_send(), self._loop)
+        except RuntimeError:
+            return
 
     def close(self) -> None:
         self._closed.set()
         self._mute_output = True
-        if self._loop and self._ws:
-            asyncio.run_coroutine_threadsafe(self._ws.close(), self._loop)
+        loop = self._loop
+        ws = self._ws
+        # Thread may already have exited (Azure drop) → loop closed. Skip close() then.
+        if loop and ws and not loop.is_closed() and loop.is_running():
+            try:
+                fut = asyncio.run_coroutine_threadsafe(ws.close(), loop)
+                fut.result(timeout=3)
+            except Exception:  # noqa: BLE001 — best-effort teardown
+                pass
         if self._thread and self._thread.is_alive():
             self._thread.join(timeout=5)

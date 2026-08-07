@@ -18,7 +18,10 @@ from wsproto.events import (
 
 from ..backend import BackendError
 from . import ROLEPLAY_BUCKETS
-from .client import AzureVoiceLiveBridge
+from .client import (
+    OFF_TRACK_ERROR_MESSAGE,
+    AzureVoiceLiveBridge,
+)
 
 log = logging.getLogger("skillsync.voice_live.ws")
 
@@ -80,8 +83,55 @@ def handle_voice_roleplay_ws(handler: Any, backend: Any) -> None:
     skills = ROLEPLAY_BUCKETS[kind]
     bridge: AzureVoiceLiveBridge | None = None
     stop = threading.Event()
+    scored_lock = threading.Lock()
+    scored = {"done": False}
+
+    def _mark_scored() -> bool:
+        """Return True if this caller won the race to finish the session."""
+        with scored_lock:
+            if scored["done"]:
+                return False
+            scored["done"] = True
+            return True
+
+    def _abandon_off_track() -> None:
+        if bridge is None:
+            return
+        if not _mark_scored():
+            return
+        log.info("Voice off-track abandon session_id=%s kind=%s", session_id, kind)
+        try:
+            bridge.cancel_active_turn()
+            bridge.stop_speaking(scoring=False)
+        except Exception:  # noqa: BLE001
+            log.exception("Off-track cancel failed session_id=%s", session_id)
+        try:
+            result = backend.abandon_voice_roleplay(
+                session_id,
+                ticket["employee_code"],
+                reason=OFF_TRACK_ERROR_MESSAGE,
+            )
+            outbound.put(
+                {
+                    "type": "incomplete",
+                    "message": OFF_TRACK_ERROR_MESSAGE,
+                    "lattice_unlocked": result.get("lattice_unlocked", False),
+                    "sessions": result.get("sessions", []),
+                }
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.exception("Voice off-track abandon failed session_id=%s", session_id)
+            outbound.put({"type": "error", "message": str(exc)})
+            try:
+                backend.fail_voice_roleplay(session_id, str(exc))
+            except Exception:  # noqa: BLE001
+                pass
+        stop.set()
 
     def on_azure_event(event: dict[str, Any]) -> None:
+        if event.get("type") == "off_track":
+            _abandon_off_track()
+            return
         outbound.put(event)
 
     writer = threading.Thread(
@@ -95,7 +145,9 @@ def handle_voice_roleplay_ws(handler: Any, backend: Any) -> None:
     try:
         bridge = AzureVoiceLiveBridge(kind, skills, on_azure_event)
         bridge.start()
-        _reader_loop(handler, ws, bridge, outbound, stop, backend, ticket, session_id)
+        _reader_loop(
+            handler, ws, bridge, outbound, stop, backend, ticket, session_id, _mark_scored
+        )
     except Exception as exc:  # noqa: BLE001
         log.exception("Voice WS session failed session_id=%s", session_id)
         outbound.put({"type": "error", "message": str(exc)})
@@ -152,10 +204,10 @@ def _reader_loop(
     backend: Any,
     ticket: dict[str, Any],
     session_id: str,
+    mark_scored: Any,
 ) -> None:
     sock = handler.connection
     sock.settimeout(1.0)
-    scored = False
     while not stop.is_set():
         try:
             data = sock.recv(65536)
@@ -182,8 +234,9 @@ def _reader_loop(
                 mtype = str(message.get("type") or "")
                 if mtype == "audio":
                     bridge.append_audio(str(message.get("data") or ""))
-                elif mtype == "end" and not scored:
-                    scored = True
+                elif mtype == "end":
+                    if not mark_scored():
+                        continue
                     if bridge.too_early_to_complete():
                         bridge.cancel_active_turn()
                         log.info(

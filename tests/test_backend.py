@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import tempfile
 import unittest
-from pathlib import Path
 from unittest.mock import patch
 
 from skillsync_ai.backend import BackendError, MyCareerBackend
@@ -141,13 +140,44 @@ class BackendWorkflowTest(unittest.TestCase):
                 "severity_band": 3,
                 "rank": 2,
                 "full_circuit": False,
+                "gap_closer_eligible": False,
             }
         )
         earned = {badge["id"] for badge in badges}
         self.assertIn("two_hour_club", earned)
         self.assertIn("five_day_streak", earned)
+        self.assertNotIn("gap_closer", earned)
         self.assertNotIn("first_mile", earned)
         self.assertNotIn("cohort_crown", earned)
+
+        # Zero focus areas alone must NOT grant Gap Closer (no profile / not locked).
+        premature = self.backend._sync_badges_for_row(
+            {
+                "employee_code": code,
+                "learning_hours": 0,
+                "completions": 0,
+                "focus_areas": 0,
+                "severity_band": 0,
+                "rank": 1,
+                "full_circuit": False,
+                "gap_closer_eligible": False,
+            }
+        )
+        self.assertNotIn("gap_closer", {badge["id"] for badge in premature})
+
+        earned_closer = self.backend._sync_badges_for_row(
+            {
+                "employee_code": code,
+                "learning_hours": 0,
+                "completions": 0,
+                "focus_areas": 0,
+                "severity_band": 0,
+                "rank": 1,
+                "full_circuit": False,
+                "gap_closer_eligible": True,
+            }
+        )
+        self.assertIn("gap_closer", {badge["id"] for badge in earned_closer})
 
     def test_phase_override_does_not_report_incomplete_previous_phase_as_complete(self) -> None:
         self.backend.open_phase(self.admin, "rd", override=True)
@@ -284,8 +314,6 @@ class BackendWorkflowTest(unittest.TestCase):
         self.assertEqual(confidence["score"], 100.0)
 
     def test_roleplay_assessment_evidence_is_admin_only(self) -> None:
-        screenshot = Path(self.temp.name) / "communication.png"
-        screenshot.write_bytes(b"private screenshot")
         with self.db.transaction() as connection:
             connection.execute(
                 """
@@ -297,12 +325,12 @@ class BackendWorkflowTest(unittest.TestCase):
                 (
                     "MMT1001",
                     "Communication",
-                    screenshot.name,
-                    str(screenshot),
+                    "voice_roleplay",
+                    "",
                     "completed",
                     "Proficient",
                     "Observed behavior",
-                    "Private OCR transcript",
+                    "",
                     "",
                     utc_now(),
                 ),
@@ -311,16 +339,16 @@ class BackendWorkflowTest(unittest.TestCase):
         employee_view = next(
             row for row in self.backend.roleplays("MMT1001") if row["competency"] == "Communication"
         )
-        for private_field in ("ai_proficiency", "rationale", "ocr_text", "filename", "file_path"):
+        for private_field in ("ai_proficiency", "rationale", "filename", "file_path"):
             self.assertNotIn(private_field, employee_view)
 
-        admin_view = self.backend.admin_roleplays(self.admin, "MMT1001", "Communication")
+        admin_view = self.backend.admin_roleplays(self.admin, "MMT1001")
         communication = next(
             row for row in admin_view["roleplays"] if row["competency"] == "Communication"
         )
         self.assertEqual(communication["ai_proficiency"], "Proficient")
         self.assertEqual(communication["rationale"], "Observed behavior")
-        self.assertEqual(admin_view["screenshot"]["content_base64"], "cHJpdmF0ZSBzY3JlZW5zaG90")
+        self.assertNotIn("screenshot", admin_view)
 
         employee = self.db.authenticate("MMT1001", "employee", generated_password(self.data.employees["MMT1001"]["name"]))
         assert employee is not None
@@ -519,12 +547,31 @@ class BackendWorkflowTest(unittest.TestCase):
         payload, filename = self.backend.download_assessment_template(zm)
         self.assertTrue(filename.endswith(".xlsx"))
         wb = load_workbook(BytesIO(payload), data_only=True)
-        ws = wb.active
+        self.assertIn("Ratings", wb.sheetnames)
+        self.assertIn("Skill Definitions", wb.sheetnames)
+        self.assertIn("Instructions", wb.sheetnames)
+        ws = wb["Ratings"]
         headers = [cell.value for cell in next(ws.iter_rows(min_row=1, max_row=1))]
         self.assertEqual(headers[0], "Employee Code")
         self.assertEqual(headers[1], "Employee Name")
         for competency in self.backend.competencies:
             self.assertIn(competency, headers)
+            self.assertIn(f"{competency} (AI suggested)", headers)
+        self.assertIn("Career Move", headers)
+        self.assertIn("LOB change note", headers)
+        self.assertIn("Career Move Options", wb.sheetnames)
+        # AI + editable rating columns prefilled (never blank for open drafts)
+        data_row = next(
+            row
+            for row in ws.iter_rows(min_row=2, values_only=True)
+            if row and str(row[0] or "").strip() == "MMT1001"
+        )
+        # headers: Code, Name, then (AI, rating) pairs
+        for index, competency in enumerate(self.backend.competencies):
+            ai_val = data_row[2 + index * 2]
+            your_val = data_row[3 + index * 2]
+            self.assertIn(ai_val, {"Beginner", "Intermediate", "Proficient", "Advanced"}, competency)
+            self.assertIn(your_val, {"Beginner", "Intermediate", "Proficient", "Advanced"}, competency)
         codes = {
             str(row[0]).strip()
             for row in ws.iter_rows(min_row=2, values_only=True)
@@ -532,11 +579,34 @@ class BackendWorkflowTest(unittest.TestCase):
         }
         self.assertIn("MMT1001", codes)
 
-        # Build upload with all seven ratings → submit
+        # All ratings without career move → submit blocked
+        no_move = Workbook()
+        no_move_sheet = no_move.active
+        no_move_sheet.append(["Employee Code", "Employee Name", *self.backend.competencies])
+        no_move_sheet.append(["MMT1001", employee["name"], *(["Intermediate"] * len(self.backend.competencies))])
+        no_move_buf = BytesIO()
+        no_move.save(no_move_buf)
+        blocked = self.backend.upload_assessment_workbook(zm, "nomove.xlsx", no_move_buf.getvalue())
+        self.assertGreaterEqual(blocked["summary"]["errors"], 1)
+        self.assertTrue(
+            any("career" in str(err.get("message") or "").lower() for err in blocked["errors"])
+        )
+
+        # Full ratings + career move → submit
         upload = Workbook()
         sheet = upload.active
-        sheet.append(["Employee Code", "Employee Name", *self.backend.competencies])
-        sheet.append(["MMT1001", employee["name"], *(["Intermediate"] * len(self.backend.competencies))])
+        sheet.append(
+            ["Employee Code", "Employee Name", *self.backend.competencies, "Career Move", "LOB change note"]
+        )
+        sheet.append(
+            [
+                "MMT1001",
+                employee["name"],
+                *(["Intermediate"] * len(self.backend.competencies)),
+                "Continue in Current Profile",
+                "",
+            ]
+        )
         buffer = BytesIO()
         upload.save(buffer)
         result = self.backend.upload_assessment_workbook(zm, "filled.xlsx", buffer.getvalue())
@@ -545,6 +615,7 @@ class BackendWorkflowTest(unittest.TestCase):
         assessment = self.backend.assessment("MMT1001", "zm")
         self.assertEqual(assessment["status"], "submitted")
         self.assertEqual(len(assessment["ratings"]), 7)
+        self.assertEqual(assessment["career_recommendation"], "continue")
 
         # Locked row skipped on re-upload
         again = self.backend.upload_assessment_workbook(zm, "filled.xlsx", buffer.getvalue())
@@ -554,8 +625,12 @@ class BackendWorkflowTest(unittest.TestCase):
         # Out-of-scope code errors
         bad = Workbook()
         bad_sheet = bad.active
-        bad_sheet.append(["Employee Code", "Employee Name", *self.backend.competencies])
-        bad_sheet.append(["MMT99999", "Nobody", *(["Beginner"] * len(self.backend.competencies))])
+        bad_sheet.append(
+            ["Employee Code", "Employee Name", *self.backend.competencies, "Career Move"]
+        )
+        bad_sheet.append(
+            ["MMT99999", "Nobody", *(["Beginner"] * len(self.backend.competencies)), "Continue in Current Profile"]
+        )
         bad_buf = BytesIO()
         bad.save(bad_buf)
         bad_result = self.backend.upload_assessment_workbook(zm, "bad.xlsx", bad_buf.getvalue())

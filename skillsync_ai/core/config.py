@@ -91,8 +91,6 @@ SOURCE_FILES = {
 
 OPENAI_API_URL = os.environ.get("OPENAI_API_URL", "https://api.openai.com/v1/chat/completions")
 OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-5.4-mini")
-# OpenAI Vision is primary for screenshot transcription; Tesseract remains local fallback.
-TESSERACT_CMD = os.environ.get("TESSERACT_CMD", "")
 LINKEDIN_LEARNING_CLIENT_ID = os.environ.get("LINKEDIN_LEARNING_CLIENT_ID", "").strip()
 LINKEDIN_LEARNING_CLIENT_SECRET = os.environ.get("LINKEDIN_LEARNING_CLIENT_SECRET", "").strip()
 LINKEDIN_TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken"
@@ -126,3 +124,5 @@ AZURE_VOICE_LIVE_VOICE_FALLBACK_TYPE = os.environ.get(
 # Browser PCM: playback Hz (Voice Live output ~24000); mic capture → Azure input rate.
 VOICE_PLAYBACK_SAMPLE_RATE = int(os.environ.get("VOICE_PLAYBACK_SAMPLE_RATE", "24000"))
 VOICE_INPUT_SAMPLE_RATE = int(os.environ.get("VOICE_INPUT_SAMPLE_RATE", "16000"))
+# How long after learner stops speaking before bot replies (ms). Default 1500 = 1.5s.
+VOICE_SILENCE_DURATION_MS = int(os.environ.get("VOICE_SILENCE_DURATION_MS", "1500"))

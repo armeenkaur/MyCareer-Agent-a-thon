@@ -5,7 +5,9 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
 import mimetypes
+import os
 import re
+import ssl
 
 from ..backend import MyCareerBackend
 from ..core.config import DATABASE_PATH, STATIC_DIR, STITCH_DIR, database_is_ephemeral
@@ -87,8 +89,25 @@ class MyCareerServer:
 
     def handler(self) -> type[BaseHTTPRequestHandler]:
         app = self
+        tls_on = bool(
+            (os.environ.get("SSL_CERTFILE") or "").strip()
+            and (os.environ.get("SSL_KEYFILE") or "").strip()
+        )
 
         class Handler(BaseHTTPRequestHandler):
+            protocol_version = "HTTP/1.1"
+
+            def _behind_https_proxy(self) -> bool:
+                return str(self.headers.get("X-Forwarded-Proto") or "").strip().lower() == "https"
+
+            def end_headers(self) -> None:
+                # HTTPS-compatible defaults (direct TLS or reverse-proxy TLS termination).
+                self.send_header("X-Content-Type-Options", "nosniff")
+                self.send_header("Referrer-Policy", "strict-origin-when-cross-origin")
+                if tls_on or self._behind_https_proxy():
+                    self.send_header("Strict-Transport-Security", "max-age=31536000")
+                super().end_headers()
+
             def do_GET(self) -> None:
                 path = urlparse(self.path).path
                 if path.startswith("/ws/voice-roleplay"):
@@ -208,4 +227,15 @@ class MyCareerServer:
 def create_server(host: str = "0.0.0.0", port: int = 5050) -> ThreadingHTTPServer:
     application = MyCareerServer()
     log.info("Binding HTTP server host=%s port=%s", host, port)
-    return ThreadingHTTPServer((host, port), application.handler())
+    server = ThreadingHTTPServer((host, port), application.handler())
+    cert = (os.environ.get("SSL_CERTFILE") or "").strip()
+    key = (os.environ.get("SSL_KEYFILE") or "").strip()
+    if cert and key:
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+        context.minimum_version = ssl.TLSVersion.TLSv1_2
+        context.load_cert_chain(certfile=cert, keyfile=key)
+        server.socket = context.wrap_socket(server.socket, server_side=True)
+        log.info("TLS enabled (TLSv1.2+) cert=%s", cert)
+    elif cert or key:
+        log.warning("Set both SSL_CERTFILE and SSL_KEYFILE to enable HTTPS")
+    return server

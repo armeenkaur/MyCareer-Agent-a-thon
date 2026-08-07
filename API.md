@@ -79,18 +79,11 @@ This returns ZM ratings, final/draft RD ratings, rubric, and competency-specific
 
 ## Employee role plays and Career Lattice
 
-- `GET /api/employee/roleplays`
-- `POST /api/employee/roleplays`
+- `GET /api/employee/roleplays` — voice session status (functional + behavioural)
+- `POST /api/employee/voice-roleplay/start` — start a live Azure Voice Live session
+- WebSocket `/ws/voice-roleplay` — mic/audio bridge; scores written on session complete
 
-```json
-{
-  "competency": "Communication",
-  "filename": "communication.png",
-  "content_base64": "<base64 image>"
-}
-```
-
-Unreadable evidence returns `reupload_required`; no default proficiency is assigned.
+Career Lattice unlocks after both voice sessions complete.
 
 - `GET /api/employee/career`
 - `POST /api/employee/career` — `{"aspiration_role":"kam"}`
@@ -127,7 +120,10 @@ Scope follows authenticated role. Employees are grouped by equal total proficien
 Only these agents run:
 
 1. Evidence Curator Agent
-2. Role-play Assessment Agent
-3. Course Recommendation Agent
+2. ZM Rating Suggestion Agent
+3. RD Rating Suggestion Agent
+4. Course Recommendation Agent
+
+Voice roleplay scoring runs inside the Azure Voice Live session (end-of-call JSON), not as a separate screenshot agent.
 
 Gap calculations, confidence, phase completion, aspiration locks, checkout validation, and leaderboard ranking are deterministic backend logic.

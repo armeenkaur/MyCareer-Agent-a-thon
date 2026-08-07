@@ -173,7 +173,6 @@ class BackendAPI:
                     self.backend.admin_roleplays(
                         user,
                         self._required_query(query, "employee_code"),
-                        str(query.get("competency") or ""),
                     ),
                 )
             elif parsed.path == "/api/admin/overview":
@@ -295,6 +294,7 @@ class BackendAPI:
                     body.get("notes") if isinstance(body.get("notes"), dict) else {},
                     bool(body.get("submit")),
                     str(body.get("career_recommendation") or ""),
+                    career_recommendation_note=str(body.get("career_recommendation_note") or ""),
                 )
                 self._send(handler, 200, {"assessment": result})
             elif parsed.path == "/api/assessment/upload":
@@ -307,16 +307,6 @@ class BackendAPI:
                     user,
                     str(body.get("filename") or "ratings.xlsx"),
                     file_bytes,
-                )
-                self._send(handler, 200, result)
-            elif parsed.path == "/api/employee/roleplays":
-                self._require_role(user, {"employee"})
-                try:
-                    payload = base64.b64decode(str(body.get("content_base64") or ""), validate=True)
-                except (ValueError, TypeError):
-                    raise BackendError("content_base64 must contain valid base64 screenshot data.")
-                result = self.backend.submit_roleplay(
-                    user, str(body.get("competency") or ""), str(body.get("filename") or "roleplay.png"), payload
                 )
                 self._send(handler, 200, result)
             elif parsed.path == "/api/employee/voice-roleplay/start":

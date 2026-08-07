@@ -1,0 +1,47 @@
+# VM deploy: prebuilt image (no git / no build on server).
+# Usage:
+#   docker load -i mycareer-compass.tar
+#   docker compose -f docker-compose.deploy.yml --env-file .env up -d
+services:
+  db:
+    image: mysql:8.0
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-rootpass}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-mycareer}
+      MYSQL_USER: ${MYSQL_USER:-mycareer}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-mycareer}
+    volumes:
+      - mycareer_mysql:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uroot", "-p${MYSQL_ROOT_PASSWORD:-rootpass}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  app:
+    image: mycareer-compass:latest
+    restart: unless-stopped
+    ports:
+      - "${PORT:-5050}:5050"
+    environment:
+      HOST: "0.0.0.0"
+      PORT: "5050"
+      OPEN_ALL_PHASES_BY_DEFAULT: "${OPEN_ALL_PHASES_BY_DEFAULT:-1}"
+      MYSQL_HOST: db
+      MYSQL_PORT: "3306"
+      MYSQL_USER: ${MYSQL_USER:-mycareer}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:-mycareer}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-mycareer}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-gpt-5.4-mini}
+      AZURE_OPENAI_API_KEY: ${AZURE_OPENAI_API_KEY:-}
+      AZURE_VOICE_LIVE_URL: ${AZURE_VOICE_LIVE_URL:-}
+      AZURE_VOICE_LIVE_VOICE: ${AZURE_VOICE_LIVE_VOICE:-}
+      AZURE_VOICE_LIVE_VOICE_TYPE: ${AZURE_VOICE_LIVE_VOICE_TYPE:-}
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  mycareer_mysql:

@@ -1,0 +1,484 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Leaderboard | MyCareer Compass</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800;900&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary": "#ffffff",
+                    "error": "#ba1a1a",
+                    "surface-container-low": "#f2f3ff",
+                    "surface-bright": "#faf8ff",
+                    "primary-container": "#1464f4",
+                    "error-container": "#ffdad6",
+                    "on-surface": "#191b24",
+                    "on-secondary": "#ffffff",
+                    "inverse-primary": "#b3c5ff",
+                    "inverse-on-surface": "#eff0fc",
+                    "background": "#faf8ff",
+                    "primary": "#004dc6",
+                    "surface": "#faf8ff",
+                    "tertiary": "#9b3400",
+                    "outline": "#737687",
+                    "outline-variant": "#c2c6d8",
+                    "surface-container-highest": "#e1e2ee",
+                    "on-tertiary-fixed": "#380d00",
+                    "tertiary-container": "#c44400",
+                    "on-surface-variant": "#424655",
+                    "on-tertiary-container": "#fff0ec",
+                    "surface-dim": "#d8d9e5",
+                    "surface-container-high": "#e7e7f3",
+                    "surface-container": "#ecedf9",
+                    "on-background": "#191b24",
+                    "on-secondary-fixed": "#001849",
+                    "on-tertiary-fixed-variant": "#802a00",
+                    "primary-fixed": "#dbe1ff",
+                    "on-primary-fixed-variant": "#003fa5",
+                    "inverse-surface": "#2e3039",
+                    "surface-tint": "#0054d7",
+                    "on-secondary-container": "#003183",
+                    "on-error-container": "#93000a",
+                    "on-tertiary": "#ffffff",
+                    "tertiary-fixed-dim": "#ffb59a",
+                    "surface-container-lowest": "#ffffff",
+                    "secondary-container": "#799dfe",
+                    "on-primary-fixed": "#001849",
+                    "secondary-fixed-dim": "#b3c5ff",
+                    "primary-fixed-dim": "#b3c5ff",
+                    "secondary-fixed": "#dae2ff",
+                    "on-secondary-fixed-variant": "#0e409d",
+                    "on-primary-container": "#f1f2ff",
+                    "on-error": "#ffffff",
+                    "secondary": "#3159b6",
+                    "surface-variant": "#e1e2ee",
+                    "tertiary-fixed": "#ffdbcf"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "canvas-max-width": "1440px",
+                    "content-max-width": "1280px",
+                    "stack-gap-md": "16px",
+                    "margin-desktop": "32px",
+                    "card-padding": "24px",
+                    "gutter": "24px",
+                    "stack-gap-sm": "8px",
+                    "margin-mobile": "16px",
+                    "stack-gap-lg": "24px",
+                    "grid-columns": "12"
+            },
+            "fontFamily": {
+                    "section-title": ["Inter"],
+                    "page-title-mobile": ["Inter"],
+                    "button": ["Inter"],
+                    "body-md": ["Inter"],
+                    "page-title": ["Inter"],
+                    "card-title": ["Inter"],
+                    "display-lg": ["Inter"],
+                    "metadata": ["Inter"],
+                    "body-sm": ["Inter"],
+                    "display-lg-mobile": ["Inter"]
+            },
+            "fontSize": {
+                    "section-title": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "page-title-mobile": ["24px", {"lineHeight": "30px", "fontWeight": "600"}],
+                    "button": ["14px", {"lineHeight": "20px", "fontWeight": "600"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "page-title": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                    "card-title": ["16px", {"lineHeight": "24px", "fontWeight": "600"}],
+                    "display-lg": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                    "metadata": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                    "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "display-lg-mobile": ["28px", {"lineHeight": "34px", "fontWeight": "600"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { background-color: #F5F7FA; font-family: 'Inter', sans-serif; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .card-shadow { box-shadow: 0px 4px 12px rgba(23, 32, 51, 0.05); }
+        .sidebar-active { background-color: #1464f4; color: #ffffff; border-radius: 0.5rem; font-weight: 700; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+        .custom-scrollbar::-webkit-scrollbar-thumb { background: #dce2ea; border-radius: 10px; }
+    </style>
+</head>
+<body class="flex min-h-screen text-on-surface">
+<!-- SideNavBar -->
+<aside class="hidden md:flex flex-col h-screen w-72 bg-surface-container-low border-r border-outline-variant py-6 px-4 gap-stack-gap-md fixed left-0 top-0 z-50">
+<div class="flex items-center gap-3 px-2 mb-4">
+<div class="w-10 h-10 bg-primary-container rounded-lg flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">rocket_launch</span>
+</div>
+<div>
+<h1 class="font-section-title text-section-title font-black text-primary leading-tight">MyCareer Compass</h1>
+<p class="text-xs font-medium text-on-surface-variant opacity-70">Enterprise Edition</p>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-body-md text-body-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined">explore</span>
+<span class="font-body-md text-body-md">Career Path</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined">psychology</span>
+<span class="font-body-md text-body-md">Skills Lab</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined">groups</span>
+<span class="font-body-md text-body-md">Mentorship</span>
+</a>
+<!-- ACTIVE TAB: Learning -->
+<a class="flex items-center gap-3 px-3 py-2 bg-primary-container text-on-primary-container font-bold rounded-lg shadow-sm" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">school</span>
+<span class="font-body-md text-body-md">Learning</span>
+</a>
+<a class="flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg group" href="#">
+<span class="material-symbols-outlined">leaderboard</span>
+<span class="font-body-md text-body-md">Analytics</span>
+</a>
+</nav>
+<div class="mt-auto space-y-1 border-t border-outline-variant pt-4">
+<button class="w-full text-left flex items-center gap-3 px-3 py-2 text-on-surface-variant hover:bg-surface-container-high transition-all rounded-lg group">
+<span class="material-symbols-outlined">help</span>
+<span class="font-body-md text-body-md">Support</span>
+</button>
+<button class="w-full text-left flex items-center gap-3 px-3 py-2 text-error hover:bg-error-container/20 transition-all rounded-lg group">
+<span class="material-symbols-outlined">logout</span>
+<span class="font-body-md text-body-md">Sign Out</span>
+</button>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="flex-1 md:ml-72 flex flex-col min-h-screen">
+<!-- TopAppBar -->
+<header class="sticky top-0 z-40 w-full h-16 px-margin-desktop bg-surface flex justify-between items-center border-b border-outline-variant">
+<div class="flex items-center gap-4 flex-1">
+<div class="relative w-full max-w-md group">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-outline group-focus-within:text-primary transition-colors">search</span>
+<input class="w-full bg-surface-container-lowest border border-outline-variant rounded-lg py-2 pl-10 pr-4 text-body-sm focus:ring-2 focus:ring-primary-container focus:border-primary outline-none transition-all" placeholder="Search courses, skills, or members..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-stack-gap-lg">
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-low transition-colors relative">
+<span class="material-symbols-outlined text-on-surface-variant">notifications</span>
+<span class="absolute top-2 right-2 w-2 h-2 bg-error rounded-full"></span>
+</button>
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-on-surface-variant">settings</span>
+</button>
+<div class="w-10 h-10 rounded-full border border-outline-variant overflow-hidden">
+<img class="w-full h-full object-cover" data-alt="A professional studio headshot of a corporate manager in a high-trust HR setting. The lighting is soft and warm, highlighting a confident yet approachable expression. The background is a clean, neutral office environment with soft-focus glass partitions, matching the modern, minimalist corporate aesthetic of the MyCareer Compass platform." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCDQPH43SYX6d9nH6duI41HL3gdaqlZODiPVllVcc_f-ne_oqEt2q483Q78GFmVSoL6bZwiAHh0JwCmzgMSrSZMKxWmbe3bVsfmjW12-vuJOGJ92ldXC7xrV_3mF_d2vMrhTYZSt6fSVZ2QV9vUNlwDNjmqlrJ5IWkwPZuMmrvMD4-94Y-jdlfOYdqLNwiY_zoHIlscdB3w976GEYCKr_ghDGDQEh3MDek9ikVRz7TlQ2tW38RqoUZ7"/>
+</div>
+</div>
+</header>
+<!-- Page Canvas -->
+<div class="p-margin-desktop space-y-stack-gap-lg max-w-content-max-width mx-auto w-full">
+<!-- Hero Header Section -->
+<section class="relative overflow-hidden bg-primary-container rounded-xl p-card-padding text-on-primary-container flex flex-col md:flex-row justify-between items-center gap-gutter">
+<div class="relative z-10 max-w-2xl">
+<h2 class="font-page-title text-page-title mb-2">Leaderboard</h2>
+<p class="font-body-md text-body-md opacity-90">Recognizing top learners within your team. Celebrate achievements and bridge the proficiency gaps to reach the next milestone.</p>
+</div>
+<div class="relative z-10 bg-white/10 backdrop-blur-md p-4 rounded-lg border border-white/20 flex flex-col items-center min-w-[200px]">
+<span class="text-xs font-bold uppercase tracking-widest opacity-80 mb-1">Active Cohort</span>
+<span class="font-section-title text-section-title text-center">Gap Cohort: Level 2 Proficiency Gaps</span>
+</div>
+<div class="absolute right-0 top-0 w-1/2 h-full opacity-20 pointer-events-none">
+
+</div>
+</section>
+<!-- Stats & Podium (Bento Grid Style) -->
+<div class="grid grid-cols-1 md:grid-cols-12 gap-gutter">
+<!-- Top 3 Podium Card -->
+<div class="md:col-span-8 bg-surface-container-lowest border border-outline-variant rounded-xl p-card-padding card-shadow flex flex-col">
+<div class="flex justify-between items-center mb-6">
+<h3 class="font-card-title text-card-title">Top Achievers This Month</h3>
+<span class="text-primary font-bold text-sm bg-primary/10 px-3 py-1 rounded-full">Updated 1h ago</span>
+</div>
+<div class="flex justify-around items-end flex-1 pb-4">
+<!-- 2nd Place -->
+<div class="flex flex-col items-center gap-2 group cursor-pointer">
+<div class="relative">
+<div class="w-16 h-16 rounded-full border-4 border-slate-300 overflow-hidden group-hover:scale-105 transition-transform">
+<img class="w-full h-full object-cover" data-alt="A portrait of a male professional learner with a focused and enthusiastic expression. He wears a smart casual navy blazer. The background is a brightly lit, modern office space with subtle tech elements. The image style is clean, corporate photography with high-end lighting and clarity." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCZk4ojEjW3A9oXnYwHLPAG4G9t-qB0OqX4RCSeqR0M34TQm_fxI2MdIy42aoCLTkwDLcfV0ZNe_HN9Ox1s5iwxfMST-LU2H2r7A5kG7ttfJjaZQ72aWqThx03qrkj5sTv1aEhJ1TdMbl1XohdLjSYto0Y8snVOVwo6BpFSYvEPqzn0T-YB2qJBEbAwLN-5Rzd3w6XGlkRrdvbtJK58xoJuwc-QFEkWdXdj6LxDXXlfdoEFnaf05i3x"/>
+</div>
+<div class="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-slate-300 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">2ND</div>
+</div>
+<span class="font-bold text-sm">Marcus Chen</span>
+<div class="h-24 w-12 bg-slate-200 rounded-t-lg"></div>
+</div>
+<!-- 1st Place -->
+<div class="flex flex-col items-center gap-2 group cursor-pointer">
+<div class="relative">
+<span class="material-symbols-outlined absolute -top-8 left-1/2 -translate-x-1/2 text-yellow-500 scale-150" style="font-variation-settings: 'FILL' 1;">workspace_premium</span>
+<div class="w-24 h-24 rounded-full border-4 border-yellow-400 overflow-hidden shadow-lg group-hover:scale-105 transition-transform">
+<img class="w-full h-full object-cover" data-alt="A portrait of Sarah Jenkins, a leading corporate professional with a bright, welcoming smile. She embodies career excellence and continuous learning. The lighting is optimistic and warm, reflecting a motivational and high-performance workplace environment. The style is sharp, modern corporate portraiture." src="https://lh3.googleusercontent.com/aida-public/AB6AXuBIbqbUNmC3nDVrrMmoqjTSUtcU4dXPyYhzxx_eDw31G5sH88094HSr68evlYBGK39ptSfKhiTsOPtKjcP7La8S-ljcziax2b15UBTWSHEl7aWd6fXjHwaj3KbgL3RwvNfZy5IgwOpy0KxVmaN_nwLaEm5jMJlIwxfJlrUG44kv22DHUvfdZae3U730Deu7xKTcKhH2RXwb6JDxE0cWGolki16NjjdExCp5NqB1f-4yHssIoVwBc9we"/>
+</div>
+<div class="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-yellow-400 text-on-surface font-black text-xs px-3 py-1 rounded-full">1ST</div>
+</div>
+<span class="font-bold text-body-md">Sarah Jenkins</span>
+<div class="h-40 w-16 bg-primary rounded-t-lg relative overflow-hidden">
+<div class="absolute inset-0 bg-white/10 animate-pulse"></div>
+</div>
+</div>
+<!-- 3rd Place -->
+<div class="flex flex-col items-center gap-2 group cursor-pointer">
+<div class="relative">
+<div class="w-16 h-16 rounded-full border-4 border-orange-300 overflow-hidden group-hover:scale-105 transition-transform">
+<img class="w-full h-full object-cover" data-alt="A portrait of a senior female executive who is an active learner in a corporate tech setting. Her expression is one of wisdom and engagement. The lighting is professional and soft-focused on a minimalist background with clean lines. The image conveys a high-trust, stable career progression atmosphere." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDQx2d-QEH-bIKbgzBsJlmfqyDnVSQkr567mspcnKXB8f4ErGekbaSAaJSQgfnbFmVzUuzfa7D58kadfHAuZ9Du98PIjKKnFga__L-9qQA16_iqwVlE8eqSbx8mkrdHWqu-1dle20S7ET1QpCJ00_ZVw-jT55gjA3kJ3udgTlPuLy-Vumnl1THjnrVpSXO3qFIgCmScRw-j07rmF7zIzQBlY5UJk6lT9fnnfwMtjSf3QqPffVgdtZaO"/>
+</div>
+<div class="absolute -bottom-2 left-1/2 -translate-x-1/2 bg-orange-300 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">3RD</div>
+</div>
+<span class="font-bold text-sm">Elena Rodriguez</span>
+<div class="h-16 w-12 bg-orange-100 rounded-t-lg"></div>
+</div>
+</div>
+</div>
+<!-- Summary Info Card -->
+<div class="md:col-span-4 space-y-gutter">
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-card-padding card-shadow h-full">
+<h3 class="font-card-title text-card-title mb-4">Cohort Progress</h3>
+<div class="space-y-4">
+<div>
+<div class="flex justify-between text-body-sm mb-2">
+<span class="text-on-surface-variant">Team Participation</span>
+<span class="font-bold text-primary">92%</span>
+</div>
+<div class="w-full h-2 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 92%"></div>
+</div>
+</div>
+<div class="p-4 bg-surface-container-low rounded-lg border border-outline-variant/30">
+<p class="text-metadata text-on-surface-variant italic mb-2">"Sarah has already completed 4 out of 5 Level 2 core competencies this quarter."</p>
+<button class="text-primary text-xs font-bold flex items-center gap-1 hover:underline">
+                                    Congratulate Sarah <span class="material-symbols-outlined text-[14px]">arrow_forward</span>
+</button>
+</div>
+<div class="flex items-center gap-3 pt-2">
+<div class="w-10 h-10 rounded-full bg-tertiary-container/20 flex items-center justify-center text-tertiary">
+<span class="material-symbols-outlined">trending_up</span>
+</div>
+<div>
+<p class="text-sm font-bold">+12.4%</p>
+<p class="text-metadata text-on-surface-variant">Learning Hours vs Last Week</p>
+</div>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Leaderboard Table Section -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden card-shadow">
+<div class="px-card-padding py-4 border-b border-outline-variant bg-surface-bright flex flex-col md:flex-row md:items-center justify-between gap-4">
+<div>
+<h3 class="font-card-title text-card-title">Full Leaderboard</h3>
+<p class="text-metadata text-on-surface-variant">Tracking performance across Gap Cohort Level 2</p>
+</div>
+<div class="flex gap-2">
+<button class="flex items-center gap-2 px-4 py-2 border border-outline-variant rounded-lg text-body-sm font-semibold hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[18px]">filter_list</span>
+                            Filter Roles
+                        </button>
+<button class="flex items-center gap-2 px-4 py-2 bg-primary text-on-primary rounded-lg text-body-sm font-semibold hover:opacity-90 transition-opacity">
+<span class="material-symbols-outlined text-[18px]">download</span>
+                            Report
+                        </button>
+</div>
+</div>
+<div class="overflow-x-auto custom-scrollbar">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low/50">
+<th class="px-card-padding py-4 text-metadata font-bold uppercase tracking-wider text-on-surface-variant">Rank</th>
+<th class="px-card-padding py-4 text-metadata font-bold uppercase tracking-wider text-on-surface-variant">Employee</th>
+<th class="px-card-padding py-4 text-metadata font-bold uppercase tracking-wider text-on-surface-variant">Role</th>
+<th class="px-card-padding py-4 text-metadata font-bold uppercase tracking-wider text-on-surface-variant">LinkedIn Learning Hours</th>
+<th class="px-card-padding py-4 text-metadata font-bold uppercase tracking-wider text-on-surface-variant">Status</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant/30">
+<!-- Sarah Jenkins - Rank 1 -->
+<tr class="hover:bg-primary-container/5 transition-colors group">
+<td class="px-card-padding py-4">
+<div class="w-8 h-8 rounded-full bg-yellow-400/20 text-yellow-700 flex items-center justify-center font-bold">1</div>
+</td>
+<td class="px-card-padding py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full overflow-hidden bg-surface-container-highest border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="Portrait of Sarah Jenkins, a high-achieving corporate learner in a modern light-mode interface. Professional, crisp lighting highlights her approachable smile. She wears professional attire, set against a soft-focus office background that emphasizes a clean, high-trust digital environment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuD_22vje-_s3-dy6qKS-oVjHru1dKOHRQsTpj63QgK0ifrUb6iC3VJugBqT2xc0Ub-Td_LLSyrz2Sl5vaMKL7fhKHTjJaqc4GOWggnIcqVfMS2s4S--DTSnAhMWp52WQ5Ct8lz8a50Uu2Rlin9eUWceMy8_Mil6iUxiU91BIP9c_UVUOVTp6KSOncoQQzfWw5fVh6njefoJhKbmzfLIrYPUnkvrn7tyYKBNk5ae7ua6xZEd1uSUufAO"/>
+</div>
+<div>
+<p class="font-bold text-body-md text-on-surface">Sarah Jenkins</p>
+<p class="text-metadata text-on-surface-variant">s.jenkins@mycareer.com</p>
+</div>
+</div>
+</td>
+<td class="px-card-padding py-4 text-body-sm font-medium">Senior UX Researcher</td>
+<td class="px-card-padding py-4">
+<div class="flex items-center gap-2">
+<span class="font-bold text-primary">34.5 hrs</span>
+<div class="w-16 h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 100%"></div>
+</div>
+</div>
+</td>
+<td class="px-card-padding py-4">
+<span class="px-3 py-1 bg-green-100 text-green-700 rounded-full text-[10px] font-bold uppercase">Excelled</span>
+</td>
+</tr>
+<!-- Marcus Chen - Rank 2 -->
+<tr class="hover:bg-primary-container/5 transition-colors">
+<td class="px-card-padding py-4">
+<div class="w-8 h-8 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center font-bold text-sm">2</div>
+</td>
+<td class="px-card-padding py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full overflow-hidden bg-surface-container-highest border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="A portrait of Marcus Chen, a sharp, tech-savvy corporate professional with a friendly expression. He is presented in a bright, modern light-mode aesthetic with professional lighting. The setting is a minimalist office, signaling a high-performance HR tech platform environment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDU2QTzJYmbzl4yQ9wnCn9PaLRP7vGkeNQ5Q8DQ7eXfROg9uExtH3LgTPdxmXRDgl1oL8Tp9Ms6981ctEabWg07aCs2lUcpNR0BXKtNgCTmq2nrhdCL9PnEX_hymXs5xZB2eMyyPFBqwoTA5Wf-Jkegsu5BonwKHHdDImVwPvqhlRzLUJ6iONQt8KpwbALKZNFOF8b8fvi7G3jFO7HrFmNj79Idlbjc8rvZ1QEpOOlYTgSch2kIlJvZ"/>
+</div>
+<div>
+<p class="font-bold text-body-md text-on-surface">Marcus Chen</p>
+<p class="text-metadata text-on-surface-variant">m.chen@mycareer.com</p>
+</div>
+</div>
+</td>
+<td class="px-card-padding py-4 text-body-sm font-medium">Full Stack Engineer</td>
+<td class="px-card-padding py-4">
+<div class="flex items-center gap-2">
+<span class="font-bold text-primary">28.2 hrs</span>
+<div class="w-16 h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 82%"></div>
+</div>
+</div>
+</td>
+<td class="px-card-padding py-4">
+<span class="px-3 py-1 bg-primary-container/10 text-primary rounded-full text-[10px] font-bold uppercase">On Track</span>
+</td>
+</tr>
+<!-- Elena Rodriguez - Rank 3 -->
+<tr class="hover:bg-primary-container/5 transition-colors">
+<td class="px-card-padding py-4">
+<div class="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center font-bold text-sm">3</div>
+</td>
+<td class="px-card-padding py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full overflow-hidden bg-surface-container-highest border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="A portrait of Elena Rodriguez, a poised and professional corporate leader with a focus on data and analytics. She is set in a modern, brightly lit office environment. The image style is professional and corporate, reflecting the stability and trust of an enterprise platform." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDGM5NJKhFpCJ_NwqcryCGJg8fDGN-FBectWQTAZfztLfdmHcpoLN-QCQu0LY0wCEVPCj6CM83RlE7B-3e1yX-dxpTFlGFK7Om4AMUWbQskL6yKrXuJAtB9u9SMLIAAFwrVADwG2TJANZlK74RqsDEz1zUujGH7jHkjdQwA6hFJHt6MM-qhiBYUeKkzXxiw8_DZVa9Iw3i25OgdfIsSRtXZpQKJrHdGkCEDCX4Avhf4SY179BX7GLYn"/>
+</div>
+<div>
+<p class="font-bold text-body-md text-on-surface">Elena Rodriguez</p>
+<p class="text-metadata text-on-surface-variant">e.rodriguez@mycareer.com</p>
+</div>
+</div>
+</td>
+<td class="px-card-padding py-4 text-body-sm font-medium">Marketing Director</td>
+<td class="px-card-padding py-4">
+<div class="flex items-center gap-2">
+<span class="font-bold text-primary">24.0 hrs</span>
+<div class="w-16 h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 70%"></div>
+</div>
+</div>
+</td>
+<td class="px-card-padding py-4">
+<span class="px-3 py-1 bg-primary-container/10 text-primary rounded-full text-[10px] font-bold uppercase">On Track</span>
+</td>
+</tr>
+<!-- Jordan Smith - Rank 4 -->
+<tr class="hover:bg-primary-container/5 transition-colors">
+<td class="px-card-padding py-4">
+<div class="w-8 h-8 rounded-full bg-surface-container-highest text-on-surface-variant flex items-center justify-center font-bold text-sm">4</div>
+</td>
+<td class="px-card-padding py-4">
+<div class="flex items-center gap-3">
+<div class="w-10 h-10 rounded-full overflow-hidden bg-surface-container-highest border border-outline-variant">
+<img class="w-full h-full object-cover" data-alt="A professional portrait of Jordan Smith, an up-and-coming talent in a corporate environment. He has a determined and positive expression. The image is bright and clean with a high-key light aesthetic. The background is a sophisticated, minimalist corporate space with glass and soft blue tones." src="https://lh3.googleusercontent.com/aida-public/AB6AXuDhjkDYRfcMxEDOBwiCkSnjmNM54qZqgJ-f6b8Dcq-o2h6sIJwtl7-A2SgrC4e_08NFwxzcME0I7aVIi6NrCM_UJhh8BgOous8bul6lylANrntMg6VEfBH6bVjOJpdwlJE3U5A554hCBlD4bZzuIjGz39kSYOfWOKHwyFVhd_4Q5VstbLI5UEeLGA41B3-hBNLI8dQQewwlbragzi3rM2stgdCHt_tPadgtao-S7ozvLJhbioakpPrb"/>
+</div>
+<div>
+<p class="font-bold text-body-md text-on-surface">Jordan Smith</p>
+<p class="text-metadata text-on-surface-variant">j.smith@mycareer.com</p>
+</div>
+</div>
+</td>
+<td class="px-card-padding py-4 text-body-sm font-medium">Junior Product Manager</td>
+<td class="px-card-padding py-4">
+<div class="flex items-center gap-2">
+<span class="font-bold text-primary">19.5 hrs</span>
+<div class="w-16 h-1.5 bg-surface-container-highest rounded-full overflow-hidden">
+<div class="h-full bg-primary rounded-full" style="width: 58%"></div>
+</div>
+</div>
+</td>
+<td class="px-card-padding py-4">
+<span class="px-3 py-1 bg-tertiary-container/10 text-tertiary rounded-full text-[10px] font-bold uppercase">Catching Up</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="p-card-padding bg-surface-bright flex justify-between items-center border-t border-outline-variant">
+<span class="text-metadata text-on-surface-variant font-medium">Showing 4 of 28 team members</span>
+<div class="flex gap-2">
+<button class="px-3 py-1 border border-outline-variant rounded hover:bg-surface-container-low transition-colors disabled:opacity-50" disabled="">Previous</button>
+<button class="px-3 py-1 border border-outline-variant rounded hover:bg-surface-container-low transition-colors">Next</button>
+</div>
+</div>
+</div>
+<!-- Gamification / CTA Section -->
+<section class="grid grid-cols-1 md:grid-cols-2 gap-gutter">
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-card-padding card-shadow flex gap-4 items-start">
+<div class="w-14 h-14 bg-tertiary-container text-on-tertiary-container rounded-xl flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-3xl">emoji_events</span>
+</div>
+<div>
+<h4 class="font-card-title text-card-title mb-1">Quarterly Reward Pending</h4>
+<p class="text-body-sm text-on-surface-variant mb-4">The top learner in the "Level 2 Proficiency Gaps" cohort will receive a professional development grant and a feature in the company newsletter.</p>
+<button class="text-primary font-bold text-sm hover:underline">See Reward Details</button>
+</div>
+</div>
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-card-padding card-shadow flex gap-4 items-start">
+<div class="w-14 h-14 bg-secondary-container text-on-secondary-container rounded-xl flex items-center justify-center flex-shrink-0">
+<span class="material-symbols-outlined text-3xl">lightbulb</span>
+</div>
+<div>
+<h4 class="font-card-title text-card-title mb-1">Personalized Recommendations</h4>
+<p class="text-body-sm text-on-surface-variant mb-4">Based on your current rank, focusing on "Advanced Data Visualization" could boost your hours by 4.5 and move you into the Top 3.</p>
+<button class="text-secondary font-bold text-sm hover:underline">Explore Recommendations</button>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- Interactive script for some hover effects or mock interactivity -->
+<script>
+        document.querySelectorAll('tr').forEach(row => {
+            row.addEventListener('click', () => {
+                // Mock selection feedback
+                const employeeName = row.querySelector('p.font-bold')?.textContent;
+                if (employeeName) {
+                    console.log(`Navigating to profile for: ${employeeName}`);
+                }
+            });
+        });
+    </script>
+</body></html>

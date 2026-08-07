@@ -1,18 +1,12 @@
 from __future__ import annotations
 
-import base64
 import json
-import mimetypes
 import uuid
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
-import re
 from typing import Any
-from ..agents.roleplay_assessment import AGENT_NAME as ROLEPLAY_AGENT, assess_roleplay
 from ..agents.llm import normalize_proficiency
-from ..core.config import PROFICIENCY_ORDER, PROFICIENCY_VALUE, UPLOAD_DIR, VOICE_INPUT_SAMPLE_RATE, VOICE_PLAYBACK_SAMPLE_RATE
+from ..core.config import PROFICIENCY_ORDER, PROFICIENCY_VALUE, VOICE_INPUT_SAMPLE_RATE, VOICE_PLAYBACK_SAMPLE_RATE
 from ..core.logging_setup import get_logger
-from ..core.utils import display_designation, is_kam_title, role_level_key, slug
 from ..database import Database, FEEDBACK_QUESTION, KUDOS_PRESET, PHASES, PHASE_FREE_ROLES, ist_today, utc_now
 from ..voice_live import (
     ALL_ROLEPLAY_SKILLS,
@@ -22,71 +16,11 @@ from ..voice_live import (
     VOICE_KINDS,
     merge_roleplay_scores,
 )
-from .constants import BADGE_CATALOG, SCREENSHOT_EXTENSIONS, VOICE_TICKET_TTL_SECONDS, _VOICE_TICKETS, _VOICE_TICKETS_LOCK
+from .constants import BADGE_CATALOG, VOICE_TICKET_TTL_SECONDS, _VOICE_TICKETS, _VOICE_TICKETS_LOCK
 from .errors import BackendError
 log = get_logger('skillsync.backend')
  
 class RoleplaysMixin:
-    def submit_roleplay(
-        self,
-        user: dict[str, Any],
-        competency: str,
-        filename: str,
-        payload: bytes,
-    ) -> dict[str, Any]:
-        if user["role"] != "employee":
-            raise BackendError("Employee access required.", "forbidden", 403)
-        if not self.phase_is_open("employee"):
-            raise BackendError("Employee phase is closed.", "phase_closed", 403)
-        if competency not in self.competencies:
-            raise BackendError("Unknown competency.")
-        if not payload:
-            raise BackendError("Screenshot is required.")
-        employee_code = user["employee_code"]
-        safe_name = re.sub(r"[^A-Za-z0-9_.-]+", "_", Path(filename).name) or "roleplay.png"
-        if Path(safe_name).suffix.lower() not in SCREENSHOT_EXTENSIONS:
-            raise BackendError("Screenshot must be PNG, JPG, JPEG, or WEBP.", "unsupported_file_type", 415)
-        UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
-        path = UPLOAD_DIR / f"{employee_code}_{slug(competency)}_{safe_name}"
-        path.write_bytes(payload)
-        result = assess_roleplay(
-            competency,
-            safe_name,
-            payload,
-            self.data.level_definitions.get(competency, {}),
-            employee_code,
-        )
-        with self.db.transaction() as connection:
-            connection.execute(
-                """
-                INSERT INTO roleplay_assessments(
-                    employee_code,competency,filename,file_path,status,ai_proficiency,rationale,ocr_text,error,updated_at
-                ) VALUES(?,?,?,?,?,?,?,?,?,?)
-                ON CONFLICT(employee_code,competency) DO UPDATE SET
-                    filename=excluded.filename,file_path=excluded.file_path,status=excluded.status,
-                    ai_proficiency=excluded.ai_proficiency,rationale=excluded.rationale,
-                    ocr_text=excluded.ocr_text,error=excluded.error,updated_at=excluded.updated_at
-                """,
-                (
-                    employee_code, competency, safe_name, str(path), result["status"], result.get("proficiency"),
-                    result.get("rationale", ""), result.get("ocr_text", "")[:8000], result.get("error", ""), utc_now(),
-                ),
-            )
-        self._audit(employee_code, ROLEPLAY_AGENT, competency, f"Screenshot {safe_name}", result, result["status"])
-        if result["status"] == "completed" and self.phase_progress("employee")["is_complete"]:
-            with self.db.transaction() as connection:
-                connection.execute(
-                    "UPDATE phases SET status='complete', closed_at=? WHERE phase='employee'",
-                    (utc_now(),),
-                )
-        return {
-            "status": result["status"],
-            "competency": competency,
-            "filename": safe_name,
-            "error": result.get("error", ""),
-        }
-
-
     def roleplays(self, employee_code: str, include_private: bool = False) -> list[dict[str, Any]]:
         with self.db.connect() as connection:
             stored = {
@@ -112,48 +46,23 @@ class RoleplaysMixin:
                         "filename": stored_row.get("filename", ""),
                         "ai_proficiency": stored_row.get("ai_proficiency"),
                         "rationale": stored_row.get("rationale", ""),
-                        "ocr_text": stored_row.get("ocr_text", ""),
-                        "screenshot_available": bool(stored_row.get("file_path")),
                     }
                 )
             output.append(row)
         return output
 
 
-    def admin_roleplays(
-        self, admin: dict[str, Any], employee_code: str, competency: str = ""
-    ) -> dict[str, Any]:
+    def admin_roleplays(self, admin: dict[str, Any], employee_code: str) -> dict[str, Any]:
         if admin.get("role") != "admin":
             raise BackendError("Admin access required.", "forbidden", 403)
         employee = self.employee(employee_code)
         rows = self.roleplays(employee_code, include_private=True)
-        result: dict[str, Any] = {
+        return {
             "employee": employee,
             "roleplays": rows,
             "sessions": self.voice_roleplay_sessions(employee_code, include_scores=True),
             "lattice_unlocked": self.lattice_unlocked(employee_code),
         }
-        if not competency:
-            return result
-        if competency not in self.competencies:
-            raise BackendError("Unknown competency.")
-        with self.db.connect() as connection:
-            stored = connection.execute(
-                "SELECT filename,file_path FROM roleplay_assessments WHERE employee_code=? AND competency=?",
-                (employee_code, competency),
-            ).fetchone()
-        if not stored or not stored["file_path"]:
-            raise BackendError("Role-play screenshot not found.", "not_found", 404)
-        path = Path(stored["file_path"])
-        if not path.is_file():
-            raise BackendError("Role-play screenshot file is unavailable.", "not_found", 404)
-        result["screenshot"] = {
-            "competency": competency,
-            "filename": stored["filename"],
-            "content_type": mimetypes.guess_type(stored["filename"])[0] or "image/png",
-            "content_base64": base64.b64encode(path.read_bytes()).decode("ascii"),
-        }
-        return result
 
 
     def lattice_unlocked(self, employee_code: str) -> bool:
@@ -436,6 +345,8 @@ class RoleplaysMixin:
         self,
         session_id: str,
         employee_code: str,
+        *,
+        reason: str | None = None,
     ) -> dict[str, Any]:
         """End without scoring — keep session incomplete so Start stays available."""
         with _VOICE_TICKETS_LOCK:
@@ -448,6 +359,9 @@ class RoleplaysMixin:
                 kind = in_progress[0]["kind"]
             else:
                 raise BackendError("Voice session ticket not found.", "not_found", 404)
+        error_message = (reason or "").strip() or (
+            "Ended before enough conversation — retake when ready."
+        )
         now = utc_now()
         with self.db.transaction() as connection:
             connection.execute(
@@ -457,7 +371,7 @@ class RoleplaysMixin:
                 WHERE employee_code=? AND kind=? AND status!='completed'
                 """,
                 (
-                    "Ended before enough conversation — retake when ready.",
+                    error_message,
                     now,
                     employee_code,
                     kind,
@@ -468,7 +382,7 @@ class RoleplaysMixin:
             "voice_roleplay",
             kind,
             f"Voice session {kind} abandoned early",
-            {"status": "not_started"},
+            {"status": "not_started", "reason": error_message},
             "abandoned",
         )
         return {
@@ -476,6 +390,7 @@ class RoleplaysMixin:
             "kind": kind,
             "sessions": self.voice_roleplay_sessions(employee_code, include_scores=False),
             "lattice_unlocked": self.lattice_unlocked(employee_code),
+            "error": error_message,
         }
 
     def fail_voice_roleplay(self, session_id: str, error: str) -> None:

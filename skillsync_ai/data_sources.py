@@ -13,6 +13,7 @@ CAREER_MOVE_ALWAYS = (
     {"id": "bdfe", "label": "BDFE"},
     {"id": "category", "label": "Category"},
     {"id": "continue", "label": "Continue in Current Profile"},
+    {"id": "lob_change", "label": "LOB change"},
 )
 CAREER_MOVE_LABELS = {
     "kam": "KAM",
@@ -20,6 +21,7 @@ CAREER_MOVE_LABELS = {
     "bdfe": "BDFE",
     "category": "Category",
     "continue": "Continue in Current Profile",
+    "lob_change": "LOB change",
 }
 
 

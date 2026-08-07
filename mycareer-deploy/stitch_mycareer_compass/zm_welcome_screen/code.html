@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en" style=""><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>MMT MyCareer Compass - ZM Portal</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-tertiary-fixed": "#001e2c",
+                    "on-secondary": "#ffffff",
+                    "on-surface-variant": "#5d3f3d",
+                    "tertiary": "#005f81",
+                    "on-primary-fixed": "#410004",
+                    "inverse-surface": "#402b2a",
+                    "on-secondary-fixed-variant": "#004786",
+                    "on-error-container": "#93000a",
+                    "on-background": "#291716",
+                    "error": "#ba1a1a",
+                    "inverse-on-surface": "#ffedeb",
+                    "surface-container-high": "#ffe1df",
+                    "surface-bright": "#fff8f7",
+                    "background": "#fff8f7",
+                    "surface-dim": "#f4d2d0",
+                    "on-secondary-fixed": "#001c3b",
+                    "on-secondary-container": "#fefcff",
+                    "primary": "#b4001d",
+                    "secondary-fixed": "#d5e3ff",
+                    "on-surface": "#291716",
+                    "outline": "#926e6c",
+                    "primary-fixed": "#ffdad7",
+                    "outline-variant": "#e7bdb9",
+                    "inverse-primary": "#ffb3ae",
+                    "primary-container": "#df162b",
+                    "secondary-fixed-dim": "#a6c8ff",
+                    "secondary": "#005cab",
+                    "tertiary-fixed": "#c3e8ff",
+                    "surface-container": "#ffe9e7",
+                    "surface-variant": "#fddbd8",
+                    "tertiary-fixed-dim": "#7bd0fe",
+                    "surface-container-low": "#fff0ef",
+                    "secondary-container": "#0075d7",
+                    "on-tertiary-container": "#eef7ff",
+                    "on-primary": "#ffffff",
+                    "on-error": "#ffffff",
+                    "on-tertiary": "#ffffff",
+                    "surface": "#fff8f7",
+                    "tertiary-container": "#0079a3",
+                    "on-tertiary-fixed-variant": "#004c68",
+                    "error-container": "#ffdad6",
+                    "on-primary-container": "#fff4f3",
+                    "surface-container-lowest": "#ffffff",
+                    "on-primary-fixed-variant": "#930015",
+                    "surface-container-highest": "#fddbd8",
+                    "surface-tint": "#c0001f",
+                    "primary-fixed-dim": "#ffb3ae"
+            },
+            "borderRadius": {
+                    "DEFAULT": "12px",
+                    "lg": "12px",
+                    "xl": "16px",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "margin-mobile": "1rem",
+                    "lg": "1.5rem",
+                    "gutter": "1.5rem",
+                    "sm": "0.5rem",
+                    "md": "1rem",
+                    "xs": "0.25rem",
+                    "xl": "2rem",
+                    "margin-desktop": "2.5rem"
+            },
+            "fontFamily": {
+                    "label-md": ["Inter"],
+                    "body-sm": ["Inter"],
+                    "headline-sm": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "headline-xl": ["Inter"],
+                    "headline-lg-mobile": ["Inter"],
+                    "body-md": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "headline-lg": ["Inter"]
+            },
+            "fontSize": {
+                    "label-md": ["12px", {"lineHeight": "16px", "fontWeight": "600"}],
+                    "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                    "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "headline-xl": ["40px", {"lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "700"}],
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body { font-family: 'Inter', sans-serif; background-color: #f2f2f2; }
+        .material-symbols-outlined { font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24; }
+        .sidebar-transition { transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+        .compass-bg {
+            background-image: url("data:image/svg+xml,%3Csvg width='100' height='100' viewBox='0 0 100 100' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M50 10L55 45L90 50L55 55L50 90L45 55L10 50L45 45Z' fill='%23b4001d' fill-opacity='0.03'/%3E%3C/svg%3E");
+        }
+        .pathway-motif {
+            background-image: radial-gradient(circle at 2px 2px, #e0e0e0 1px, transparent 0);
+            background-size: 24px 24px;
+        }
+
+        /* Animations & Interactions */
+        @media (prefers-reduced-motion: no-preference) {
+            @keyframes fadeInUp {
+                from { opacity: 0; transform: translateY(20px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+            @keyframes float {
+                0% { transform: translateY(0px); }
+                50% { transform: translateY(-10px); }
+                100% { transform: translateY(0px); }
+            }
+            .animate-fade-in-up {
+                animation: fadeInUp 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+                opacity: 0;
+            }
+            .delay-1 { animation-delay: 0.1s; }
+            .delay-2 { animation-delay: 0.2s; }
+            .delay-3 { animation-delay: 0.3s; }
+            .delay-4 { animation-delay: 0.4s; }
+            .delay-5 { animation-delay: 0.5s; }
+            .delay-6 { animation-delay: 0.6s; }
+            .delay-7 { animation-delay: 0.7s; }
+
+            .float-animation {
+                animation: float 4s ease-in-out infinite;
+            }
+
+            .info-card {
+                transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.3s ease;
+            }
+            .info-card:hover {
+                transform: translateY(-8px);
+                box-shadow: 0 10px 25px -5px rgba(180, 0, 29, 0.1), 0 8px 10px -6px rgba(180, 0, 29, 0.1);
+            }
+
+            .btn-hover-scale {
+                transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), filter 0.2s ease, opacity 0.2s ease, background-color 0.2s ease;
+            }
+            .btn-hover-scale:hover {
+                transform: scale(1.03);
+                filter: brightness(1.1);
+            }
+            .btn-hover-scale:active {
+                transform: scale(0.98);
+            }
+
+            .link-hover-smooth {
+                transition: color 0.2s ease, opacity 0.2s ease;
+            }
+        }
+    </style>
+</head>
+<body class="bg-surface-dim overflow-x-hidden">
+<!-- Sidebar (Shared Component Blueprint: SideNavBar) -->
+<aside class="hidden lg:flex flex-col h-screen fixed left-0 top-0 pt-20 pb-md px-sm bg-surface-container-low border-r border-outline-variant w-64 sidebar-transition z-40" id="sidebar">
+<div class="px-md mb-xl">
+<div class="flex items-center gap-sm mb-xs">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">account_balance_wallet</span>
+<span class="font-headline-sm text-headline-sm font-bold text-primary">MyCareer Compass</span>
+</div>
+<p class="font-label-md text-label-md text-on-surface-variant">Enterprise Edition</p>
+</div>
+<nav class="flex-1 space-y-xs">
+<a class="flex items-center gap-md px-md py-sm bg-primary text-on-primary rounded-lg font-bold link-hover-smooth" data-route="zm/welcome" href="/app/zm/welcome">
+<span class="material-symbols-outlined">home</span><span class="font-label-md text-label-md">Home</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-container-high transition-all link-hover-smooth rounded-lg" data-route="zm/dashboard" href="/app/zm/dashboard">
+<span class="material-symbols-outlined">dashboard</span><span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-container-high transition-all link-hover-smooth rounded-lg" data-route="zm/assessments" href="/app/zm/assessments">
+<span class="material-symbols-outlined">assignment</span><span class="font-label-md text-label-md">Assessments</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-container-high transition-all link-hover-smooth rounded-lg" data-route="zm/leaderboard" href="/app/zm/leaderboard">
+<span class="material-symbols-outlined">leaderboard</span><span class="font-label-md text-label-md">Leaderboard</span>
+</a>
+</nav>
+</aside>
+<!-- Header (Shared Component Blueprint: TopNavBar) -->
+<header class="fixed top-0 left-0 right-0 bg-surface border-b border-outline-variant h-16 flex items-center px-margin-desktop z-50">
+<div class="flex items-center gap-md lg:ml-64 w-full">
+<span class="font-headline-md text-headline-md font-bold text-primary">MyCareer Compass</span>
+<div class="ml-auto flex items-center gap-md">
+<div class="text-right hidden sm:block">
+<p class="font-label-md text-label-md text-on-surface font-bold" data-user-name>Zone Manager</p>
+<p class="font-label-md text-label-md text-on-surface-variant">ID: <span data-user-id>—</span></p>
+</div>
+<div class="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center font-bold text-sm" data-user-initials>ZM</div>
+<button class="font-label-md text-label-md text-primary font-bold hover:underline ml-sm" data-logout type="button">Sign out</button>
+</div>
+</div>
+</header>
+<!-- Main Content Canvas -->
+<main class="lg:pl-64 pt-16 min-h-screen relative overflow-hidden">
+<!-- Background Motifs -->
+<div class="absolute inset-0 compass-bg opacity-50 pointer-events-none"></div>
+<div class="absolute inset-0 pathway-motif opacity-30 pointer-events-none"></div>
+<div class="max-w-[1200px] mx-auto px-margin-desktop py-xl relative z-10">
+<!-- Hero Section -->
+<section class="mb-xl">
+<div class="inline-flex items-center px-md py-xs bg-primary-fixed text-on-primary-fixed-variant rounded-full mb-md animate-fade-in-up">
+<span class="font-label-md text-label-md uppercase tracking-wider">MyCareer Compass</span>
+</div>
+<h1 class="font-headline-xl text-headline-xl text-on-background mb-md max-w-3xl leading-tight animate-fade-in-up delay-1">
+                    Empower your team to unlock their full potential through personalized growth and development.
+                </h1>
+<p class="font-body-lg text-body-lg text-on-surface-variant max-w-2xl animate-fade-in-up delay-2">
+                    As a Manager, your insights define the trajectory of our talent. Provide objective feedback, identify skill gaps, and empower your team to achieve their next milestone.
+                </p>
+<div class="mt-lg flex flex-wrap gap-md animate-fade-in-up delay-3">
+<button class="bg-primary text-on-primary px-xl py-md rounded-lg font-bold hover:shadow-lg btn-hover-scale flex items-center gap-sm" data-start="zm/dashboard" type="button">Assess Your Team<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</section>
+<!-- Bento Grid Content Cards -->
+<section class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gutter mb-xl">
+<div class="bg-surface border border-outline-variant p-lg rounded-xl flex flex-col gap-sm shadow-sm info-card animate-fade-in-up delay-4">
+<div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center text-primary mb-xs">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">psychology</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Why MyCareer Compass?</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">It standardizes the talent framework across MMT, ensuring that growth is measured against clear, consistent benchmarks for everyone.</p>
+</div>
+<div class="bg-surface border border-outline-variant p-lg rounded-xl flex flex-col gap-sm shadow-sm info-card animate-fade-in-up delay-5">
+<div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center text-primary mb-xs">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">school</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Why should employees keep learning?</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">The workplace is evolving rapidly, and so are the skills needed to succeed. Continuous learning helps your team stay future-ready, grow in their career, and unlock new opportunities.</p>
+</div>
+<div class="bg-surface border border-outline-variant p-lg rounded-xl flex flex-col gap-sm shadow-sm info-card animate-fade-in-up delay-6">
+<div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center text-primary mb-xs">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">handshake</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">Why your support matters?</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">You are the bridge between strategy and execution. Your mentorship converts individual potential into collective organizational excellence.</p>
+</div>
+<div class="bg-surface border border-outline-variant p-lg rounded-xl flex flex-col gap-sm shadow-sm info-card animate-fade-in-up delay-7">
+<div class="w-10 h-10 rounded-lg bg-surface-container-high flex items-center justify-center text-primary mb-xs">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">assignment_turned_in</span>
+</div>
+<h3 class="font-headline-sm text-headline-sm text-on-surface">What we need from you?</h3>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Honest, honest insights that reflect the current proficiency levels while identifying clear areas for future development.</p>
+</div>
+</section>
+<!-- Highlighted Callout -->
+<section class="bg-secondary-fixed text-on-secondary-fixed-variant p-xl rounded-xl border border-outline-variant mb-xl relative overflow-hidden group">
+<div class="absolute right-0 top-0 w-64 h-64 bg-secondary opacity-10 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl transition-transform group-hover:scale-110"></div>
+<div class="relative z-10 flex flex-col md:flex-row items-center gap-xl">
+<div class="w-20 h-20 bg-white/50 backdrop-blur rounded-full flex items-center justify-center flex-shrink-0 group-hover:bg-white/80 transition-colors">
+<span class="material-symbols-outlined text-4xl text-secondary">star_half</span>
+</div>
+<div>
+<h2 class="font-headline-md text-headline-md mb-xs">Your feedback input creates the starting point</h2>
+<p class="font-body-md text-body-md max-w-3xl opacity-90">
+    The competency assessments you provide today will form the foundation of your team’s Personalized Learning Path. Accurate inputs help identify the right focus areas for each employee to hone their skills and grow with confidence.
+                        </p>
+</div>
+</div>
+</section>
+<!-- Decorative Visual: Compass Motif -->
+<div class="flex justify-center mb-xl opacity-20 float-animation">
+<svg fill="none" height="200" viewbox="0 0 200 200" width="200" xmlns="http://www.w3.org/2000/svg">
+<circle class="text-outline" cx="100" cy="100" r="98" stroke="currentColor" stroke-width="1"></circle>
+<path class="text-outline" d="M100 20V180M20 100H180" stroke="currentColor" stroke-width="1"></path>
+<path class="text-primary" d="M100 40L115 90L160 100L115 110L100 160L85 110L40 100L85 90L100 40Z" fill="currentColor"></path>
+<circle cx="100" cy="100" fill="white" r="10"></circle>
+</svg>
+</div>
+</div>
+<!-- Footer (Shared Component Blueprint) -->
+<footer class="w-full py-lg px-margin-desktop flex flex-col md:flex-row justify-between items-center mt-auto border-t border-outline-variant bg-surface-dim">
+<p class="font-label-md text-label-md text-primary font-bold mb-md md:mb-0">
+                Be objective. Use evidence. Give every employee a fair opportunity to grow.
+            </p>
+<div class="flex gap-xl">
+<span class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary cursor-pointer link-hover-smooth">Privacy Policy</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary cursor-pointer link-hover-smooth">Terms of Service</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary cursor-pointer link-hover-smooth">Support</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-md md:mt-0">
+                © 2000 MakeMyTrip Talent Development. All rights reserved.
+            </p>
+</footer>
+</main>
+<script>
+        // Micro-interaction for sidebar or hover effects
+        document.querySelectorAll('.cursor-pointer').forEach(el => {
+            el.addEventListener('mousedown', () => el.style.opacity = '0.8');
+            el.addEventListener('mouseup', () => el.style.opacity = '1');
+            el.addEventListener('mouseleave', () => el.style.opacity = '1');
+        });
+
+        // Simple parallax or atmospheric scroll effect for motifs
+        window.addEventListener('scroll', () => {
+            const scrolled = window.pageYOffset;
+            const compassBg = document.querySelector('.compass-bg');
+            if (compassBg) {
+                compassBg.style.backgroundPositionY = -(scrolled * 0.1) + 'px';
+            }
+        });
+    </script>
+</body></html>

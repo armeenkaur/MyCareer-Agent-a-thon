@@ -1,0 +1,4 @@
+basicConstraints=CA:FALSE
+keyUsage=digitalSignature,keyEncipherment
+extendedKeyUsage=serverAuth
+subjectAltName=IP:172.16.229.10,DNS:localhost,DNS:GL-DEV-229-10

@@ -1,0 +1,291 @@
+<!DOCTYPE html><html class="light" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Manager Dashboard - Employee Selection</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-secondary": "#ffffff",
+                    "on-tertiary-fixed": "#001e2c",
+                    "tertiary": "#005f81",
+                    "on-surface-variant": "#5d3f3d",
+                    "inverse-surface": "#402b2a",
+                    "on-primary-fixed": "#410004",
+                    "on-background": "#291716",
+                    "error": "#ba1a1a",
+                    "on-error-container": "#93000a",
+                    "on-secondary-fixed-variant": "#004786",
+                    "surface-bright": "#fff8f7",
+                    "background": "#fff8f7",
+                    "surface-container-high": "#ffe1df",
+                    "inverse-on-surface": "#ffedeb",
+                    "primary": "#b4001d",
+                    "on-secondary-fixed": "#001c3b",
+                    "surface-dim": "#f4d2d0",
+                    "on-secondary-container": "#fefcff",
+                    "secondary-fixed": "#d5e3ff",
+                    "on-surface": "#291716",
+                    "outline": "#926e6c",
+                    "primary-container": "#df162b",
+                    "inverse-primary": "#ffb3ae",
+                    "primary-fixed": "#ffdad7",
+                    "outline-variant": "#e7bdb9",
+                    "tertiary-fixed": "#c3e8ff",
+                    "secondary": "#005cab",
+                    "secondary-fixed-dim": "#a6c8ff",
+                    "secondary-container": "#0075d7",
+                    "on-primary": "#ffffff",
+                    "surface-container-low": "#fff0ef",
+                    "on-tertiary-container": "#eef7ff",
+                    "on-error": "#ffffff",
+                    "tertiary-fixed-dim": "#7bd0fe",
+                    "surface-variant": "#fddbd8",
+                    "surface-container": "#ffe9e7",
+                    "on-tertiary": "#ffffff",
+                    "tertiary-container": "#0079a3",
+                    "surface": "#fff8f7",
+                    "surface-container-highest": "#fddbd8",
+                    "surface-container-lowest": "#ffffff",
+                    "on-primary-fixed-variant": "#930015",
+                    "on-primary-container": "#fff4f3",
+                    "error-container": "#ffdad6",
+                    "on-tertiary-fixed-variant": "#004c68",
+                    "primary-fixed-dim": "#ffb3ae",
+                    "surface-tint": "#c0001f"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0.25rem",
+                    "lg": "0.5rem",
+                    "xl": "0.75rem",
+                    "full": "9999px"
+            },
+            "spacing": {
+                    "md": "1rem",
+                    "sm": "0.5rem",
+                    "margin-desktop": "2.5rem",
+                    "xl": "2rem",
+                    "xs": "0.25rem",
+                    "lg": "1.5rem",
+                    "margin-mobile": "1rem",
+                    "gutter": "1.5rem"
+            },
+            "fontFamily": {
+                    "body-md": ["Inter"],
+                    "headline-lg-mobile": ["Inter"],
+                    "headline-xl": ["Inter"],
+                    "headline-sm": ["Inter"],
+                    "headline-md": ["Inter"],
+                    "body-lg": ["Inter"],
+                    "headline-lg": ["Inter"],
+                    "label-md": ["Inter"],
+                    "body-sm": ["Inter"]
+            },
+            "fontSize": {
+                    "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                    "headline-lg-mobile": ["28px", {"lineHeight": "36px", "fontWeight": "700"}],
+                    "headline-xl": ["40px", {"lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                    "headline-sm": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                    "headline-md": ["24px", {"lineHeight": "32px", "fontWeight": "600"}],
+                    "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                    "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                    "label-md": ["12px", {"lineHeight": "16px", "fontWeight": "600"}],
+                    "body-sm": ["14px", {"lineHeight": "20px", "fontWeight": "400"}]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        body {
+            background-color: #f2f2f2; /* From Level 0 Base elevation */
+            font-family: 'Inter', sans-serif;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .active-nav-border {
+            position: relative;
+        }
+        .active-nav-border::after {
+            content: '';
+            position: absolute;
+            bottom: -2px;
+            left: 0;
+            width: 100%;
+            height: 2px;
+            background-color: #b4001d;
+        }
+        /* Custom scrollbar for data density */
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f2f2f2;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #e0e0e0;
+            border-radius: 10px;
+        }
+    </style>
+</head>
+<body class="text-on-surface">
+<!-- TopNavBar -->
+<header class="flex justify-between items-center px-margin-desktop w-full sticky top-0 z-50 bg-surface-container-lowest border-b border-outline-variant h-16">
+<div class="flex items-center gap-md lg:ml-64 w-full">
+<span class="font-headline-md text-headline-md font-bold text-primary">MyCareer Compass</span>
+<div class="ml-auto flex items-center gap-md">
+<div class="text-right hidden sm:block">
+<p class="font-label-md text-label-md text-on-surface font-bold" data-user-name>Zone Manager</p>
+<p class="font-label-md text-label-md text-on-surface-variant">ID: <span data-user-id>—</span></p>
+</div>
+<div class="w-10 h-10 rounded-full bg-primary text-on-primary flex items-center justify-center font-bold text-sm" data-user-initials>ZM</div>
+<button class="font-label-md text-label-md text-primary font-bold hover:underline ml-sm" data-logout type="button">Sign out</button>
+</div>
+</div>
+</header>
+<div class="flex min-h-screen">
+<!-- SideNavBar -->
+<aside class="hidden lg:flex flex-col h-screen fixed left-0 top-0 pt-20 pb-md px-sm bg-surface-container-low border-r border-outline-variant w-64 sidebar-transition z-40" id="sidebar">
+<div class="px-md mb-xl">
+<div class="flex items-center gap-sm mb-xs">
+<span class="material-symbols-outlined text-primary" style="font-variation-settings: 'FILL' 1;">account_balance_wallet</span>
+<span class="font-headline-sm text-headline-sm font-bold text-primary">MyCareer Compass</span>
+</div>
+<p class="font-label-md text-label-md text-on-surface-variant">Enterprise Edition</p>
+</div>
+<nav class="flex-1 space-y-xs">
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-container-high transition-all link-hover-smooth rounded-lg" data-route="zm/welcome" href="/app/zm/welcome">
+<span class="material-symbols-outlined">home</span>
+<span class="font-label-md text-label-md">Home</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-container-high transition-all link-hover-smooth rounded-lg" data-route="zm/dashboard" href="/app/zm/dashboard">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="font-label-md text-label-md">Dashboard</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm cursor-pointer bg-primary text-on-primary rounded-lg font-bold link-hover-smooth" data-route="zm/assessments" href="/app/zm/assessments">
+<span class="material-symbols-outlined">group</span>
+<span class="font-label-md text-label-md">My Team</span>
+</a>
+<a class="flex items-center gap-md px-md py-sm text-on-surface-variant hover:bg-surface-container-high transition-all link-hover-smooth rounded-lg" data-route="zm/leaderboard" href="/app/zm/leaderboard">
+<span class="material-symbols-outlined">leaderboard</span>
+<span class="font-label-md text-label-md">Leaderboard</span>
+</a>
+</nav>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 md:ml-64 p-lg">
+<div class="max-w-[1200px] mx-auto">
+<!-- Header & Subtitle -->
+<div class="mb-xl">
+<h1 class="font-headline-lg text-headline-lg text-on-surface tracking-tight">My Team Assessment</h1>
+<p class="font-body-md text-body-md text-on-surface-variant mt-xs">Complete skill competency assessment of your team member.</p>
+</div>
+<!-- Summary Card Cluster -->
+<div class="grid grid-cols-1 md:grid-cols-3 gap-lg mb-xl">
+<div class="bg-surface-container-lowest p-lg rounded-lg border border-outline-variant flex items-center gap-lg">
+<div class="w-12 h-12 rounded-full bg-secondary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-on-secondary-container">groups</span>
+</div>
+<div>
+<p class="text-label-md text-on-surface-variant uppercase tracking-wider">Eligible To Assess</p>
+<p class="text-headline-md font-bold" data-stat-total>0</p>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-lg rounded-lg border border-outline-variant flex items-center gap-lg">
+<div class="w-12 h-12 rounded-full bg-tertiary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-on-tertiary-container">verified</span>
+</div>
+<div>
+<p class="text-label-md text-on-surface-variant uppercase tracking-wider">Completed</p>
+<p class="text-headline-md font-bold text-tertiary" data-stat-rated>0</p>
+</div>
+</div>
+<div class="bg-surface-container-lowest p-lg rounded-lg border border-outline-variant flex items-center gap-lg">
+<div class="w-12 h-12 rounded-full bg-surface-variant flex items-center justify-center">
+<span class="material-symbols-outlined text-on-surface-variant">hourglass_empty</span>
+</div>
+<div>
+<p class="text-label-md text-on-surface-variant uppercase tracking-wider">Remaining</p>
+<p class="text-headline-md font-bold text-primary" data-stat-remaining>0</p>
+</div>
+</div>
+</div>
+<!-- Assessment Table Section -->
+<div class="bg-surface-container-lowest rounded-lg border border-outline-variant overflow-hidden">
+<!-- Table Toolbar -->
+<div class="p-md bg-surface-container border-b border-outline-variant flex justify-between items-center">
+<div class="flex gap-sm">
+<button class="px-md py-xs bg-surface-container-lowest border border-outline-variant rounded-full text-label-md flex items-center gap-xs hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[16px]">filter_list</span> Filter
+                            </button>
+<button class="px-md py-xs bg-surface-container-lowest border border-outline-variant rounded-full text-label-md flex items-center gap-xs hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined text-[16px]">sort</span> Sort
+                            </button>
+</div>
+<span class="text-label-md text-on-surface-variant">Showing <span data-team-count>0</span> Team Members</span>
+</div>
+<!-- Responsive Table -->
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="border-b border-outline-variant">
+<th class="p-lg font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Employee Name</th>
+<th class="p-lg font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Current Role</th>
+<th class="p-lg font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Assessment Status</th>
+<th class="p-lg font-label-md text-label-md text-on-surface-variant uppercase tracking-wider text-right">Action</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant" data-team-body></tbody>
+</table>
+</div>
+<div class="p-lg bg-surface-container-lowest border-t border-outline-variant flex justify-between items-center">
+<p class="text-label-md text-on-surface-variant" data-team-footnote>Live statuses from saved drafts and submissions.</p>
+</div>
+</div>
+<!-- Bottom Sticky Info (Optional Micro-interaction) -->
+</div>
+<footer class="w-full py-lg px-margin-desktop flex flex-col md:flex-row justify-between items-center mt-auto border-t border-outline-variant bg-surface-dim">
+<p class="font-label-md text-label-md text-primary font-bold mb-md md:mb-0">
+                Be objective. Use evidence. Give every employee a fair opportunity to grow.
+            </p>
+<div class="flex gap-xl">
+<span class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary cursor-pointer link-hover-smooth">Privacy Policy</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary cursor-pointer link-hover-smooth">Terms of Service</span>
+<span class="font-body-sm text-body-sm text-on-surface-variant hover:text-primary cursor-pointer link-hover-smooth">Support</span>
+</div>
+<p class="font-body-sm text-body-sm text-on-surface-variant mt-md md:mt-0">
+                © 2000 MakeMyTrip Talent Development. All rights reserved.
+            </p>
+</footer></main>
+</div>
+<nav class="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-surface-container-lowest border-t border-outline-variant flex justify-around items-center z-50">
+<a class="flex flex-col items-center gap-xs text-on-surface-variant" data-route="zm/dashboard" href="/app/zm/dashboard">
+<span class="material-symbols-outlined">dashboard</span>
+<span class="text-[10px]">Dashboard</span>
+</a>
+<a class="flex flex-col items-center gap-xs text-primary font-bold" data-route="zm/assessments" href="/app/zm/assessments">
+<span class="material-symbols-outlined">group</span>
+<span class="text-[10px]">My Team</span>
+</a>
+<a class="flex flex-col items-center gap-xs text-on-surface-variant" data-route="zm/welcome" href="/app/zm/welcome">
+<span class="material-symbols-outlined">home</span>
+<span class="text-[10px]">Home</span>
+</a>
+<a class="flex flex-col items-center gap-xs text-on-surface-variant" data-route="zm/leaderboard" href="/app/zm/leaderboard">
+<span class="material-symbols-outlined">leaderboard</span>
+<span class="text-[10px]">Leaderboard</span>
+</a>
+</nav>
+
+
+
+
+
+</body></html>

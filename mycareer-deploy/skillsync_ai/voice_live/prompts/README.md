@@ -1,0 +1,48 @@
+# Voice Live roleplay prompts
+
+Prompt files loaded by `skillsync_ai.voice_live.load_prompt(kind)`:
+
+| File | Kind | Persona | Strong skills (must rate) | Supporting (nullable) |
+|------|------|---------|---------------------------|------------------------|
+| `functional.md` | `functional` | **Priya Nair** | Consultative Selling, Data Analytics, Stakeholder Relationship, Communication, Executive Presence | Ownership & Accountability, Team Management |
+| `behavioural.md` | `behavioural` | **Sarah Patel** | Communication, Ownership & Accountability, Team Management, Executive Presence, Stakeholder Relationship | Data Analytics, Consultative Selling |
+
+Source briefs: repo-root `help.md` (behavioural), `help2.md` (functional).
+
+## Scoring (Option B — confidence-weighted merge)
+
+Each roleplay rates **all 7** competencies:
+
+```json
+{"ratings":{"Communication":{"level":"Proficient","confidence":0.85},"Data Analytics":null,...}}
+```
+
+- `level`: Beginner | Intermediate | Proficient | Advanced
+- `confidence`: 0.0–1.0 (evidence strength from Q volume + answer quality)
+- Strong skills: object required. Supporting: `null` OK if no signal.
+- Union of strong skills across both sessions = all 7 → **both-null cannot occur**.
+
+After both sessions complete, `merge_roleplay_scores` writes one AI proficiency per skill:
+
+`merged = Σ(level_value × confidence) / Σ(confidence)` → nearest level.
+
+Partial (one session only): non-null skills written immediately; merge runs when the second completes.
+
+## Prompt style (Hotels-VoiceBot pattern)
+
+1. **Role & Objective**
+2. **Personality & Tone**
+3. **Instructions / Rules** — no question repeats; stuck → help once or next question; stop/wrap rules
+4. **Timing** — bridge injects ~3 min continue sense-check only (≥4 skills evidenced). **No hard time-limit wrap.**
+5. **Staged conversation flow**
+6. **Silent observation guide**
+
+Scoring is **not** spoken. After the call, `scoring_instruction(kind)` forces JSON ratings only.
+
+## Editing rules
+
+- Keep turns to 2–3 sentences + **one** question.
+- Opening lines must stay exact (also mirrored in `client.py` `_hello_payload`).
+- Never reveal stages, rubrics, or competency names mid-call.
+- Do not add tools or transfer flows (unlike Hotels-VoiceBot).
+- Product skill names in `ALL_ROLEPLAY_SKILLS` / `ROLEPLAY_BUCKETS` must match scoring JSON keys exactly.
